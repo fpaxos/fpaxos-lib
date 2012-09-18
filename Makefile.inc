@@ -3,7 +3,7 @@ CC			= gcc
 
 # Do not modify the following
 OBJS		= $(subst .c,.o,$(SRCS))
-CPPFLAGS	= -I../include/ -I../ -I$(BDB_DIR) -I$(LEV_DIR)
+CPPFLAGS	= -I../include/ -I../ -I$(BDB_DIR)/include -I$(LEV_DIR)/include
 DEPS 		= $(patsubst %.c,.deps/%.d,$(SRCS))
 SNAME		:= $(shell uname)
 

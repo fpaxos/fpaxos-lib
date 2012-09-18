@@ -4,7 +4,7 @@ PROGRAMS	= $(subst .c,,$(SRCS))
 
 AUX_FILES = *.txt
 
-LDFLAGS		= ../libpaxos.a $(LEV_DIR)/.libs/libevent.a $(BDB_DIR)/libdb.a -lpthread
+LDFLAGS		= ../libpaxos.a -L$(LEV_DIR)/lib -L$(BDB_DIR)/lib -levent -ldb -lpthread
 ifeq ($(strip $(SNAME)),Linux)
 LDFLAGS		= $(LDFLAGS) -lrt
 endif
