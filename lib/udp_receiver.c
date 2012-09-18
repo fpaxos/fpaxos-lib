@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 #include "libpaxos_priv.h"
-#include "paxos_udp.h"
+#include "paxos_net.h"
 
 //Calculate size of dynamic structure by iterating
 size_t prepare_ack_batch_size_calc(prepare_ack_batch * pab) {

@@ -7,7 +7,7 @@
 #include "event.h"
 #include "libpaxos.h"
 #include "libpaxos_priv.h"
-#include "paxos_udp.h"
+#include "paxos_net.h"
 
 static int vh_list_size = 0;
 static vh_value_wrapper * vh_list_head = NULL;

@@ -2,7 +2,7 @@
 
 #include "libpaxos.h"
 #include "libpaxos_priv.h"
-#include "paxos_udp.h"
+#include "paxos_net.h"
 
 paxos_submit_handle * pax_submit_handle_init() {
     //TODO print errors, 

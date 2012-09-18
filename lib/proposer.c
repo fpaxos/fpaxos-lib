@@ -8,7 +8,7 @@
 
 #include "libpaxos.h"
 #include "libpaxos_priv.h"
-#include "paxos_udp.h"
+#include "paxos_net.h"
 #include "values_handler.h"
 
 

@@ -10,7 +10,7 @@
 
 #include "libpaxos.h"
 #include "libpaxos_priv.h"
-#include "paxos_udp.h"
+#include "paxos_net.h"
 #include "acceptor_stable_storage.h"
 
 //Interval for forcing buffer flush in microseconds

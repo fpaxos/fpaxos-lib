@@ -9,7 +9,7 @@
 
 
 #include "libpaxos.h"
-#include "paxos_udp.h"
+#include "paxos_net.h"
 
 short int current_leader = 0;
 udp_send_buffer * to_proposers;

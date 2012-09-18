@@ -9,7 +9,7 @@
 
 #include "libpaxos.h"
 #include "libpaxos_priv.h"
-#include "paxos_udp.h"
+#include "paxos_net.h"
 
 #define LEARNER_ERROR (-1)
 #define LEARNER_READY (0)
