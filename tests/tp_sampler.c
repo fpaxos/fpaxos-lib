@@ -144,11 +144,12 @@ void handle_cltr_c (int sig) {
 int main (int argc, char const *argv[]) {
     signal(SIGINT, handle_cltr_c);
     
-    if (argc != 2) { 
-        printf("Must pass the name of log file as argument\n");
-        return -1;
+	if (argc != 3) {
+        printf("Usage: %s id config log\n", argv[0]);
+        exit(1);
     }
-    logfile = fopen(argv[1], "w");
+
+    logfile = fopen(argv[3], "w");
     if (logfile == NULL) {
         printf("Invalid file: %s\n", argv[1]);
         perror("fopen:");
@@ -157,7 +158,7 @@ int main (int argc, char const *argv[]) {
     
     
     
-    if (learner_init(my_deliver_fun, my_custom_init) != 0) {
+    if (learner_init(atoi(argv[1]), argv[2], my_deliver_fun, my_custom_init) != 0) {
         printf("Could not start the learner!\n");
         return -1;
     }

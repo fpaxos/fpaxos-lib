@@ -11,7 +11,7 @@
     Should be a multiple of PROPOSER_P2_CONCURRENCY (double or more)
     MUST be less than PROPOSER_ARRAY_SIZE (half or less)
 */
-#define PROPOSER_PREEXEC_WIN_SIZE 300
+#define PROPOSER_PREEXEC_WIN_SIZE 128
 
 /* 
     Number of instances that are concurrently opened by the leader.
@@ -184,12 +184,12 @@
   the client is allowed to send submitted values.
   The fifth and sixth are reserved for leader election and failure detection
 */
-#define PAXOS_LEARNERS_NET  "239.0.0.1", 6001
-#define PAXOS_ACCEPTORS_NET "239.1.0.1", 6002
-#define PAXOS_PROPOSERS_NET "239.2.0.1", 6003
-#define PAXOS_SUBMIT_NET    "239.3.0.1", 6004
-#define PAXOS_ORACLE_NET    "239.4.0.1", 6005
-#define PAXOS_PINGS_NET     "239.5.0.1", 6006
+#define PAXOS_LEARNERS_NET  {{"239.0.0.1", 6001}}
+#define PAXOS_ACCEPTORS_NET {{"239.1.0.1", 6002}}
+#define PAXOS_PROPOSERS_NET {{"239.2.0.1", 6003}}
+#define PAXOS_SUBMIT_NET    {{"239.3.0.1", 6004}}
+#define PAXOS_ORACLE_NET    {{"239.4.0.1", 6005}}
+#define PAXOS_PINGS_NET     {{"239.5.0.1", 6006}}
 
 /*
   If defined, UDP sockets created (to send) are non-blocking.

@@ -1,503 +1,551 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <memory.h>
-#include <assert.h>
-
-#include "event.h"
-#include "evutil.h"
-
 #include "libpaxos.h"
-#include "libpaxos_priv.h"
-#include "paxos_net.h"
-#include "values_handler.h"
+#include "config_reader.h"
+#include "carray.h"
+#include "tcp_receiver.h"
+
+#include <assert.h>
+#include <string.h>
+#include <stdlib.h>
+#include <event2/event.h>
+#include <event2/buffer.h>
+#include <event2/bufferevent.h>
 
 
-#define PROPOSER_ERROR (-1)
-
-//Lowest instance for which no value has been chosen
-static iid_t current_iid = 1;
-
-//Unique identifier of this proposer
-short int this_proposer_id = -1;
-
-//Id of the current leader, proposer 0 starts as leader
-short int current_leader_id = 0;
-#define LEADER_IS_ME (this_proposer_id == current_leader_id)
-
-//Sequence number of the alive message periodically sent to failure oracle
-long unsigned int alive_ping_seqno = 0;
-
-//UDP socket manager for send/recv oracle messages
-static udp_send_buffer * to_oracle;
-static udp_receiver * from_oracle;
-
-
-//UDP socket managers for sending
-static udp_send_buffer * to_acceptors;
-
-//UDP socket manager for receiving
-static udp_receiver * for_proposer;
-
-//Event: Message received (from acceptors)
-static struct event proposer_msg_event;
-//Event: Message received (from oracle)
-static struct event oracle_msg_event;
-//Event: Time to ping failure oracle
-static struct event fe_ping_event;
-
-//Time interval for pings
-struct timeval fe_ping_interval;
-
-typedef enum instance_status_e {
-    empty, 
-    p1_pending,
-    p1_ready,
-    p2_pending, 
-    p2_completed
-} i_status;
-
-//Structure used by proposer to store all info relative to a given instance
-typedef struct proposer_instance_info {
-    iid_t           iid;
-    i_status        status;
-    ballot_t        my_ballot;
-    unsigned int    promises_bitvector;
-    unsigned int    promises_count;
-    vh_value_wrapper * p1_value;
-    ballot_t        p1_value_ballot;
-    vh_value_wrapper * p2_value;
-    struct timeval  timeout;
-} p_inst_info;
-
-p_inst_info proposer_state[PROPOSER_ARRAY_SIZE];
-#define GET_PRO_INSTANCE(I) &proposer_state[((I) & (PROPOSER_ARRAY_SIZE-1))]
-
-#define FIRST_BALLOT (MAX_N_OF_PROPOSERS + this_proposer_id)
-#define NEXT_BALLOT(B) (B + MAX_N_OF_PROPOSERS)
-
-struct phase1_info {
-    unsigned int    pending_count;
-    unsigned int    ready_count;
-    iid_t           highest_open;
+struct phase1_info
+{
+	unsigned int    pending_count;
+	unsigned int    ready_count;
+	iid_t           highest_open;
 };
-struct phase1_info p1_info;
 
-struct phase2_info {
+struct phase2_info
+{
     iid_t next_unused_iid;
     unsigned int open_count;
 };
-struct phase2_info p2_info;
 
-//Required by leader
-static void pro_clear_instance_info(p_inst_info * ii);
+typedef enum instance_status_e
+{
+    empty, 
+    p1_pending,
+    p1_ready,
+    p2_pending,
+    p2_completed
+} i_status;
 
-//Custom function that allows app on top of proposer to add libevent events
-static custom_init_function client_custom_init = NULL;
+struct instance
+{
+	iid_t 			iid;
+	i_status     	status;
+	ballot_t        my_ballot;
+	ballot_t        p1_value_ballot;
+	unsigned int    promises_count;
+	unsigned int    promises_bitvector;
+	paxos_msg*		p1_value;
+	paxos_msg*		p2_value;
+};
 
-#include "proposer_leader.c"
+struct proposer
+{
+	int id;
+	iid_t current_iid;	// Lowest instance for which no value has been chosen
+	struct instance instances[PROPOSER_ARRAY_SIZE];
+	struct bufferevent* acceptor_ev[N_OF_ACCEPTORS];
+	struct phase1_info p1_info;
+	struct phase2_info p2_info;
+	struct tcp_receiver* receiver;
+	struct learner* l;
+	struct carray* client_values;
+	struct event_base* base;
+};
 
-/*-------------------------------------------------------------------------*/
-// Helpers
-/*-------------------------------------------------------------------------*/
+
+struct learner* 
+learner_init_conf(config* c, deliver_function f, void* arg, 
+	struct event_base* b);
+
+
+static ballot_t 
+proposer_next_ballot(struct proposer* p, ballot_t b)
+{
+	if (b > 0)
+		return MAX_N_OF_PROPOSERS + p->id;
+	else
+		return MAX_N_OF_PROPOSERS + b;
+}
+
+static struct instance*
+proposer_get_instance(struct proposer* p, iid_t iid)
+{
+	return &(p->instances[(iid & (PROPOSER_ARRAY_SIZE-1))]);
+}
+
 static void
-pro_clear_instance_info(p_inst_info * ii) {
-    ii->iid = 0;
+proposer_clear_instance(struct proposer* p, iid_t iid)
+{
+	struct instance * ii;
+	ii = proposer_get_instance(p, iid);
+	ii->iid = 0;
     ii->status = empty;
     ii->my_ballot = 0;
     ii->p1_value_ballot = 0;
     ii->promises_bitvector = 0;
     ii->promises_count = 0;
-    if(ii->p1_value != NULL) {
-        PAX_FREE(ii->p1_value);
-    }
+    if (ii->p1_value != NULL) free(ii->p1_value);
+    if (ii->p2_value != NULL) free(ii->p2_value);
     ii->p1_value = NULL;
-    if(ii->p2_value != NULL) {
-        PAX_FREE(ii->p2_value);
-    }
     ii->p2_value = NULL;
 }
 
 static void
-pro_save_prepare_ack(p_inst_info * ii, prepare_ack * pa, short int acceptor_id) {
-    
-    //Ack from already received!
-    if(ii->promises_bitvector & (1<<acceptor_id)) {
-        LOG(DBG, ("Dropping duplicate promise from:%d, iid:%u, \n", acceptor_id, ii->iid));
-        return;
-    }
-    
-    // promise is new
-    ii->promises_bitvector &= (1<<acceptor_id);
-    ii->promises_count++;
-    LOG(DBG, ("Received valid promise from:%d, iid:%u, \n", acceptor_id, ii->iid));
-    
-    //Promise contains no value
-    if(pa->value_size == 0) {
-        LOG(DBG, (" No value in promise\n"));
+do_phase_1(struct proposer* p)
+{
+	int i;
+	struct instance* ii;
+	iid_t iid = p->p1_info.highest_open + 1;
+	
+	// Get instance from state array
+	ii = proposer_get_instance(p, iid);
+
+	if (ii->status == empty) {
+		ii->iid = iid;
+	    ii->status = p1_pending;
+	    ii->my_ballot = proposer_next_ballot(p, ii->my_ballot);
+	} else if (ii->status == p1_pending) {
+		assert(ii->iid == iid);
+		//Reset fields used for previous phase 1
+		ii->promises_bitvector = 0;
+		ii->promises_count = 0;
+		ii->p1_value_ballot = 0;
+		if (ii->p1_value != NULL) free(ii->p1_value);
+		ii->p1_value = NULL;
+		//Ballot is incremented
+		ii->my_ballot = proposer_next_ballot(p, ii->my_ballot);
+	}
+	
+	for (i = 0; i < N_OF_ACCEPTORS; i++) {
+		sendbuf_add_prepare_req(p->acceptor_ev[i],
+			ii->iid, ii->my_ballot);
+	}
+	
+	p->p1_info.pending_count++;
+	p->p1_info.highest_open++;
+}
+
+static void
+proposer_open_phase_1(struct proposer* p)
+{
+	int i, active;
+
+	active = p->p1_info.pending_count + p->p1_info.ready_count;
+	if (active >= PROPOSER_PREEXEC_WIN_SIZE) {
         return;
     }
 
-    //Promise contains a value
+	int to_open = PROPOSER_PREEXEC_WIN_SIZE - active;
+	for (i = 0; i < to_open; i++) {
+		do_phase_1(p);
+	}
+	
+	LOG(DBG, ("Opened %d new instances\n", to_open));
+}
+
+static int
+value_cmp(paxos_msg* m1, paxos_msg* m2)
+{
+	assert(m1->type == m2->type);
+	if (m1->data_size != m2->data_size)
+		return -1;
+	return memcmp(m1->data, m2->data, m1->data_size);
+}
+
+static void
+do_phase_2(struct proposer* p)
+{
+	int i;
+	struct instance* ii;
+	iid_t iid = p->p2_info.next_unused_iid;
     
-    //Our value has same or greater ballot
-    if(ii->p1_value_ballot >= pa->value_ballot) {
-        //Keep the current value
-        LOG(DBG, (" Included value is ignored (cause:value_ballot)\n"));
+	ii = proposer_get_instance(p, iid);
+	
+    if (ii->p1_value == NULL && ii->p2_value == NULL) {
+        //Happens when p1 completes without value        
+        //Assign a p2_value and execute
+        ii->p2_value = carray_pop_front(p->client_values);
+        assert(ii->p2_value != NULL);
+    } else if (ii->p1_value != NULL) {
+        //Only p1 value is present, MUST execute p2 with it
+        //Save it as p2 value and execute
+        ii->p2_value = ii->p1_value;
+        ii->p1_value = NULL;
+        ii->p1_value_ballot = 0;
+    } else if (ii->p2_value != NULL) {
+        // Only p2 value is present
+        // Do phase 2 with it
+    } else {
+        // There are both p1 and p2 value
+		// Compare them
+        if (value_cmp(ii->p1_value, ii->p2_value) == 0) {
+            // Same value, just delete p1_value
+            free(ii->p1_value);
+            ii->p1_value = NULL;
+            ii->p1_value_ballot = 0;
+        } else {
+            // Different values
+            // p2_value is pushed back to pending list
+			carray_push_back(p->client_values, ii->p2_value);
+			// Must execute p2 with p1 value
+            ii->p2_value = ii->p1_value;
+            ii->p1_value = NULL;
+            ii->p1_value_ballot = 0;            
+        }
+    }
+    //Change instance status
+    ii->status = p2_pending;
+
+    //Send the accept request
+	LOG(DBG, ("sending accept req for instance %d ballot %d\n", ii->iid, ii->my_ballot));
+	for (i = 0; i < N_OF_ACCEPTORS; i++) {
+    	sendbuf_add_accept_req(p->acceptor_ev[i], ii->iid,
+			ii->my_ballot, ii->p2_value);
+	}
+	
+	p->p2_info.next_unused_iid += 1;
+}
+
+static void
+proposer_open_phase_2(struct proposer* p)
+{
+	struct instance* ii;
+	while (!carray_empty(p->client_values)) {
+		ii = proposer_get_instance(p, p->p2_info.next_unused_iid);
+		if (ii->status != p1_ready || 
+			ii->iid != p->p2_info.next_unused_iid) {
+            LOG(DBG, ("Next instance to use for P2 (iid:%u) is not ready yet\n", p->p2_info.next_unused_iid));
+            break;
+        }
+		// We do both phase 1 and 2
+		do_phase_1(p);
+		do_phase_2(p);
+	}
+}
+
+static paxos_msg*
+wrap_value(char* value, size_t size)
+{
+	paxos_msg* msg = malloc(size + sizeof(paxos_msg));
+	msg->data_size = size;
+	msg->type = submit;
+	memcpy(msg->data, value, size);
+	return msg;
+}
+
+static void
+proposer_save_prepare_ack(struct instance* ii, prepare_ack* pa)
+{
+    if (ii->promises_bitvector & (1<<pa->acceptor_id)) {
+        LOG(DBG, ("Dropping duplicate promise from:%d, iid:%u, \n", pa->acceptor_id, ii->iid));
         return;
     }
     
-    //Ballot is greater but the value is actually the same
+    ii->promises_bitvector &= (1<<pa->acceptor_id);
+    ii->promises_count++;
+    LOG(DBG, ("Received valid promise from: %d, iid: %u, \n", pa->acceptor_id, ii->iid));
+    
+    if (pa->value_size == 0) {
+        LOG(DBG, ("No value in promise\n"));
+        return;
+    }
+
+    // Our value has same or greater ballot
+    if (ii->p1_value_ballot >= pa->value_ballot) {
+        // Keep the current value
+        LOG(DBG, ("Included value is ignored (cause:value_ballot)\n"));
+        return;
+    }
+    
+    // Ballot is greater but the value is actually the same
     if ((ii->p1_value != NULL) &&
-        (ii->p1_value->value_size == pa->value_size) && 
-        (memcmp(ii->p1_value->value, pa->value, pa->value_size) == 0)) {
+        (ii->p1_value->data_size == pa->value_size) && 
+        (memcmp(ii->p1_value->data, pa->value, pa->value_size) == 0)) {
         //Just update the value ballot
-        LOG(DBG, (" Included value is the same with higher value_ballot\n"));
+        LOG(DBG, ("Included value is the same with higher value_ballot\n"));
         ii->p1_value_ballot = pa->value_ballot;
         return;
     }
     
     //Value should replace the one we have (if any)
-    //Free the old one
     if (ii->p1_value != NULL) {
-        PAX_FREE(ii->p1_value);
+        free(ii->p1_value);
     }
     
     //Save the received value 
-    ii->p1_value = vh_wrap_value(pa->value, pa->value_size);
+    ii->p1_value = wrap_value(pa->value, pa->value_size);
     ii->p1_value_ballot = pa->value_ballot;
-    LOG(DBG, (" Value in promise saved\n"));
+    LOG(DBG, ("Value in promise saved\n"));
 }
 
-void 
-pro_deliver_callback(char * value, size_t size, iid_t iid, ballot_t ballot, int proposer) {
-    LOG(DBG, ("Instance iid:%u delivered to proposer\n", iid));
-    
-    //If leader, take the appropriate action
-    if(LEADER_IS_ME) {
-        leader_deliver(value, size, iid, ballot, proposer);
-    }
-    
-    current_iid = iid + 1;
-
-    //clear inst_info not required, done by leader
-}
-/*-------------------------------------------------------------------------*/
-// Event handlers
-/*-------------------------------------------------------------------------*/
-
-//Returns 1 if the instance became ready, 0 otherwise
-static int
-handle_prepare_ack(prepare_ack * pa, short int acceptor_id) {
-    p_inst_info * ii = GET_PRO_INSTANCE(pa->iid);
+static void
+proposer_handle_prepare_ack(struct proposer* p, prepare_ack* pa)
+{
+	struct instance* ii;
+	
+	ii = proposer_get_instance(p, pa->iid);
+	    
     // If not p1_pending, drop
-    if(ii->status != p1_pending) {
+    if (ii->status != p1_pending) {
         LOG(DBG, ("Promise dropped, iid:%u not pending\n", pa->iid));
-        return 0;
+        return;
     }
     
     // If not our ballot, drop
-    if(pa->ballot != ii->my_ballot) {
+    if (pa->ballot != ii->my_ballot) {
         LOG(DBG, ("Promise dropped, iid:%u not our ballot\n", pa->iid));
-        return 0;
+        return;
     }
     
     //Save the acknowledgement from this acceptor
     //Takes also care of value that may be there
-    pro_save_prepare_ack(ii, pa, acceptor_id);
+    proposer_save_prepare_ack(ii, pa);
     
     //Not a majority yet for this instance
-    if(ii->promises_count < QUORUM) {
+    if (ii->promises_count < QUORUM) {
         LOG(DBG, ("Not yet a quorum for iid:%u\n", pa->iid));
-        return 0;
+        return;
     }
     
     //Quorum reached!
-    ii->status = p1_ready;
-    p1_info.pending_count -= 1;
-    p1_info.ready_count += 1;
+	ii->status = p1_ready;
+	p->p1_info.pending_count -= 1;
+	p->p1_info.ready_count += 1;
 
     LOG(DBG, ("Quorum for iid:%u reached\n", pa->iid));
-    
-    return 1;
+
+    //Some instance completed phase 1
+    // if (ready > 0) {
+    //     // Send a value for p2 timed-out that 
+    //     // had to go trough phase 1 again
+    //     leader_open_instances_p2_expired();
+    //     // try to send a value in phase 2
+    //     // for new instances
+    //     leader_open_instances_p2_new();
+    // }
 }
 
 static void
-handle_prepare_ack_batch(prepare_ack_batch* pab) {
-    
-    //Ignore if not the current leader
-    if(!LEADER_IS_ME) {
+proposer_handle_msg(struct proposer* p, struct bufferevent* bev)
+{
+	paxos_msg msg;
+	struct evbuffer* in;
+	char* buffer[PAXOS_MAX_VALUE_SIZE];
+
+	in = bufferevent_get_input(bev);
+	evbuffer_remove(in, &msg, sizeof(paxos_msg));
+	evbuffer_remove(in, buffer, msg.data_size);
+	
+	switch (msg.type) {
+        case prepare_acks:
+            proposer_handle_prepare_ack(p, (prepare_ack*)buffer);
+			proposer_open_phase_2(p);
+        	break;
+        default:
+			LOG(VRB, ("Unknown msg type %d received from acceptors\n", msg.type));
+    }
+}
+
+static void
+on_acceptor_msg(struct bufferevent* bev, void* arg)
+{
+	size_t len;
+	paxos_msg msg;
+	struct evbuffer* in;
+	struct proposer* p;
+	
+	p = arg;
+	in = bufferevent_get_input(bev);
+	
+	while ((len = evbuffer_get_length(in)) > sizeof(paxos_msg)) {
+		evbuffer_copyout(in, &msg, sizeof(paxos_msg));
+		if (len < PAXOS_MSG_SIZE((&msg))) {
+			LOG(DBG, ("not enough data\n"));
+			return;
+		}
+		proposer_handle_msg(p, bev);
+	}
+}
+
+static void
+on_event(struct bufferevent *bev, short events, void *ptr)
+{
+    if (events & BEV_EVENT_CONNECTED) {
+    	LOG(VRB, ("Proposer connected...\n"));
+	} else if (events & BEV_EVENT_ERROR) {
+		LOG(VRB, ("Proposer connection error...\n"));
+		bufferevent_disable(bev, EV_READ|EV_WRITE);
+	}
+}
+
+static struct bufferevent* 
+do_connect(struct proposer* p, struct event_base* b, address* a) 
+{
+	struct sockaddr_in sin;
+	struct bufferevent* bev;
+	
+	memset(&sin, 0, sizeof(sin));
+	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = inet_addr(a->address_string);
+	sin.sin_port = htons(a->port);
+	
+	bev = bufferevent_socket_new(b, -1, BEV_OPT_CLOSE_ON_FREE);
+    bufferevent_setcb(bev, on_acceptor_msg, NULL, on_event, p);
+    bufferevent_enable(bev, EV_READ|EV_WRITE);
+	struct sockaddr* addr = (struct sockaddr*)&sin;
+	if (bufferevent_socket_connect(bev, addr, sizeof(sin)) < 0) {
+        bufferevent_free(bev);
+        return NULL;
+	}
+	return bev;
+}
+
+static void
+on_client_msg(struct bufferevent* bev, void* arg)
+{
+	char* val;
+	paxos_msg msg;
+	struct evbuffer* in;
+	struct proposer* p = arg;
+	
+	in = bufferevent_get_input(bev);
+	evbuffer_copyout(in, &msg, sizeof(paxos_msg));
+	
+    switch (msg.type) {
+        case submit:
+			val = malloc(PAXOS_MSG_SIZE((&msg)));
+			evbuffer_remove(in, val, PAXOS_MSG_SIZE((&msg)));
+			carray_push_back(p->client_values, val);
+			proposer_open_phase_2(p);
+        	break;
+        default:
+            printf("Unknown msg type %d received from client\n", msg.type);
+    }
+}
+
+static void 
+proposer_learn(char * value, size_t size, iid_t iid, ballot_t b, 
+	int proposer, void* arg)
+{
+	struct proposer* p;
+	struct instance* ii;
+	
+    LOG(DBG, ("Instance %u delivered to Leader\n", iid));
+	
+	p = arg;
+	ii = proposer_get_instance(p, iid);
+	
+    if (ii->iid != iid) {
+	    //Instance not even initialized, skip
         return;
     }
-
-    LOG(DBG, ("Got %u promises from acceptor %d\n", 
-        pab->count, pab->acceptor_id));
     
-    prepare_ack * pa;
-    size_t data_offset = 0;
-    short int i, ready=0;
-    
-    for(i = 0; i < pab->count; i++) {
-        pa = (prepare_ack *)&pab->data[data_offset];
-        ready += handle_prepare_ack(pa, pab->acceptor_id);
-        data_offset += PREPARE_ACK_SIZE(pa);
-    }
-    LOG(DBG, ("%d instances just completed phase 1.\n \
-            Status: p1_pending_count:%d, p1_ready_count:%d\n", 
-            ready, p1_info.pending_count, p1_info.ready_count));
-
-    
-    //Some instance completed phase 1
-    if(ready > 0) {
-        // Send a value for p2 timed-out that 
-        // had to go trough phase 1 again
-        leader_open_instances_p2_expired();
-        // try to send a value in phase 2
-        // for new instances
-        leader_open_instances_p2_new();
-    }
-}
-
-//This function is invoked when a new message is ready to be read
-// from the proposer UDP socket
-static void 
-pro_handle_newmsg(int sock, short event, void *arg) {
-    //Make the compiler happy!
-    UNUSED_ARG(sock);
-    UNUSED_ARG(event);
-    UNUSED_ARG(arg);
-    
-    assert(sock == for_proposer->sock);
-    
-    //Read the next message
-    int valid = udp_read_next_message(for_proposer);
-    if (valid < 0) {
-        printf("Dropping invalid proposer message\n");
-        return;
-    }
-
-    //The message is valid, take the appropriate action
-    // based on the type
-    paxos_msg * msg = (paxos_msg*) &for_proposer->recv_buffer;
-    switch(msg->type) {
-        case prepare_acks: {
-            handle_prepare_ack_batch((prepare_ack_batch*) msg->data);
-        }
-        break;
-
-        default: {
-            printf("Unknow msg type %d received from acceptors\n", msg->type);
-        }
-    }
-}
-
-//This function is invoked when a new message is ready to be read
-// from the leader election oracle UDP socket
-static void 
-pro_handle_oracle_msg(int sock, short event, void *arg) {
-    //Make the compiler happy!
-    UNUSED_ARG(sock);
-    UNUSED_ARG(event);
-    UNUSED_ARG(arg);
-    
-    assert(sock == from_oracle->sock);
-    
-    //Read the next message
-    int valid = udp_read_next_message(from_oracle);
-    if (valid < 0) {
-        printf("Dropping invalid oracle message\n");
-        return;
-    }
-
-    //The message is valid, take the appropriate action
-    // based on the type
-    paxos_msg * msg = (paxos_msg*) &from_oracle->recv_buffer;
-    switch(msg->type) {
-        case leader_announce: {
-            leader_announce_msg * la = (leader_announce_msg *)msg->data;
-            if(LEADER_IS_ME && la->current_leader != this_proposer_id) {
-            //Some other proposer was nominated leader instead of this one, 
-            // step down from leadership
-                leader_shutdown();
-            } else if (!LEADER_IS_ME 
-                && la->current_leader == this_proposer_id) {
-            //This proposer has just been promoted to leader
-                leader_init();
-            }
-            current_leader_id = la->current_leader;
-        }
-        break;
-
-        default: {
-            printf("Unknow msg type %d received from oracle\n", msg->type);
-        }
-    }
-}
-
-//Called when it's time to ping the failure oracle
-static void 
-pro_ping_failure_detector(int sock, short event, void *arg) {
-    UNUSED_ARG(sock);
-    UNUSED_ARG(event);
-    UNUSED_ARG(arg);
-    
-    alive_ping_seqno += 1;
-    sendbuf_send_ping(to_oracle, this_proposer_id, alive_ping_seqno);
-    
-    int ret;
-    ret = event_add(&fe_ping_event, &fe_ping_interval);
-    assert(ret == 0);
-}
-
-
-/*-------------------------------------------------------------------------*/
-// Initialization
-/*-------------------------------------------------------------------------*/
-//Initialize sockets and related events
-static int 
-init_pro_network() {
-    
-    // Send buffer for talking to acceptors
-    to_acceptors = udp_sendbuf_new(PAXOS_ACCEPTORS_NET);
-    if(to_acceptors == NULL) {
-        printf("Error creating proposer->acceptors network sender\n");
-        return PROPOSER_ERROR;
+    if (ii->status == p1_pending) {
+        p->p1_info.pending_count -= 1;
     }
     
-    // Message receive event
-    for_proposer = udp_receiver_new(PAXOS_PROPOSERS_NET);
-    if (for_proposer == NULL) {
-        printf("Error creating proposer network receiver\n");
-        return PROPOSER_ERROR;
-    }
-    event_set(&proposer_msg_event, for_proposer->sock, EV_READ|EV_PERSIST, pro_handle_newmsg, NULL);
-    event_add(&proposer_msg_event, NULL);
-    
-    return 0;
-}
-
-//Initialize timers
-static int 
-init_pro_fd_events() {
-    
-    // Send buffer for sending alive pings
-    to_oracle = udp_sendbuf_new(PAXOS_PINGS_NET);
-    if(to_oracle == NULL) {
-        printf("Error creating proposer->oracle network sender\n");
-        return PROPOSER_ERROR;
+    if (p->p2_info.next_unused_iid == iid) {
+		p->p2_info.next_unused_iid += 1;
     }
     
-    // Message receive event (from oracle)
-    from_oracle = udp_receiver_new(PAXOS_ORACLE_NET);
-    if (from_oracle == NULL) {
-        printf("Error creating oracle->proposer network receiver\n");
-        return PROPOSER_ERROR;
-    }
-    event_set(&oracle_msg_event, from_oracle->sock, EV_READ|EV_PERSIST, pro_handle_oracle_msg, NULL);
-    event_add(&oracle_msg_event, NULL);
+    int opened_by_me = (ii->status == p1_pending && ii->p2_value != NULL) ||
+        (ii->status == p1_ready && ii->p2_value != NULL) ||
+        (ii->status == p2_pending);
 
-    //Set timer for sending alive pings
-    evtimer_set(&fe_ping_event, pro_ping_failure_detector, NULL);
-    evutil_timerclear(&fe_ping_interval);
-    fe_ping_interval.tv_sec = (FAILURE_DETECTOR_PING_INTERVAL / 1000000);
-    fe_ping_interval.tv_usec = (FAILURE_DETECTOR_PING_INTERVAL % 1000000);
-
-    //Send the first alive ping
-    pro_ping_failure_detector(0, 0, NULL);
-    
-    return 0;
-}
-
-//Initialize structures
-static int 
-init_pro_structs() {
-    //Check array size
-    if ((PROPOSER_ARRAY_SIZE & (PROPOSER_ARRAY_SIZE -1)) != 0) {
-        printf("Error: PROPOSER_ARRAY_SIZE is not a power of 2\n");
-        return PROPOSER_ERROR;        
-    }
-    if (PROPOSER_ARRAY_SIZE <= PROPOSER_PREEXEC_WIN_SIZE) {
-        printf("Error: PROPOSER_ARRAY_SIZE = %d is too small\n",
-            PROPOSER_ARRAY_SIZE);
-        return PROPOSER_ERROR;
-    }
-    
-    // Clear the state array
-    memset(proposer_state, 0, (sizeof(p_inst_info) * PROPOSER_ARRAY_SIZE));
-    size_t i;
-    for(i = 0; i < PROPOSER_ARRAY_SIZE; i++) {
-        pro_clear_instance_info(&proposer_state[i]);
-    }
-    return 0;
-
-}
-
-//Proposer initialization, this function is invoked by
-// the underlying learner after it's normal initialization
-static int init_proposer() {
-    
-    //Add network events and prepare send buffer
-    if(init_pro_network() != 0) {
-        printf("Proposer network init failed\n");
-        return -1;
+    if (opened_by_me) {
+		p->p2_info.open_count -= 1;
     }
 
-    //Add additional timers to libevent loop
-    if(init_pro_fd_events() != 0){
-        printf("Proposer timers init failed\n");
-        return -1;
-    }
-    
-    //Normal proposer initialization, private structures
-    if(init_pro_structs() != 0) {
-        printf("Proposer structs init failed\n");
-        return -1;
-    }
-        
-    //By default, proposer 0 starts as leader, 
-    // later on the failure detector may change that
-    if(LEADER_IS_ME) {
-        if(leader_init() != 0) {
-            printf("Proposer Leader init failed\n");
-            return -1;
-        }
-    }
-    
-    //Call custom init (i.e. to register additional events)
-    if(client_custom_init != NULL && client_custom_init() != 0) {
-        printf("Error in client_custom_init\n");
-        return -1;
+    int my_val = (ii->p2_value != NULL) &&
+        (ii->p2_value->data_size == size) &&
+        (memcmp(value, ii->p2_value->data, size) == 0);
+
+    if (my_val) {
+		//Our value accepted, notify client that submitted it
+        // vh_notify_client(0, ii->p2_value); //TODO what the hell is that??
+    } else if (ii->p2_value != NULL) {
+		//Different value accepted, push back our value
+		carray_push_back(p->client_values, ii->p2_value);
+        ii->p2_value = NULL;
     } else {
-        LOG(DBG, ("Custom init completed\n"));
+        //We assigned no value to this instance,
+        //it comes from somebody else??
     }
 
-    return 0;
+    // Clear current instance
+	proposer_clear_instance(p, iid);
+    
+    // If enough instances are ready to 
+    // be opened, start phase2 for them
+    // leader_open_instances_p2_new();
 }
-/*-------------------------------------------------------------------------*/
-// Public functions (see libpaxos.h for more details)
-/*-------------------------------------------------------------------------*/
 
-
-int proposer_init(int proposer_id) {
-    
-    //Check id validity of proposer_id
-    if(proposer_id < 0 || proposer_id >= MAX_N_OF_PROPOSERS) {
-        printf("Invalid proposer id:%d\n", proposer_id);
-        return -1;
-    }    
-    this_proposer_id = proposer_id;
-    LOG(VRB, ("Proposer %d starting...\n", this_proposer_id));
-    
-    //Starts a learner with a custom init function
-    if (learner_init(pro_deliver_callback, init_proposer) != 0) {
-        printf("Could not start the learner!\n");
-        return -1;
+struct proposer*
+proposer_init(int id, const char* config_file, struct event_base* b)
+{
+	int i;
+	struct proposer* p;
+	
+    config* conf = read_config(config_file);
+	if (conf == NULL)
+		return NULL;
+	
+    // Check id validity of proposer_id
+    if (id < 0 || id >= MAX_N_OF_PROPOSERS) {
+        printf("Invalid proposer id:%d\n", id);
+        return NULL;
     }
 
+	p = malloc(sizeof(struct proposer));
+
+	p->id = id;
+	p->base = b;
+	p->current_iid = 1;
+	
+	// Reset phase 1 counters
+	p->p1_info.pending_count = 0;
+	p->p1_info.ready_count = 0;
+    // Set so that next p1 to open is current_iid
+    p->p1_info.highest_open = p->current_iid - 1;
+
+    // Reset phase 2 counters
+    p->p2_info.next_unused_iid = p->current_iid;
+    p->p2_info.open_count = 0;
+
+    LOG(VRB, ("Proposer %d starting...\n", id));
+	
+	// clear all instances
+	memset(p->instances, 0, (sizeof(struct instance) * PROPOSER_ARRAY_SIZE));
+	for (i = 0; i < PROPOSER_ARRAY_SIZE; i++) {
+        proposer_clear_instance(p, i);
+    }
+	
+	// Setup client listener
+	p->client_values = carray_new(2000);
+ 	p->receiver = tcp_receiver_new(b, &conf->proposers[id], 
+		on_client_msg, p);
+	
+	// Setup connections to acceptors
+	for (i = 0; i < conf->acceptors_count; i++) {
+		p->acceptor_ev[i] = do_connect(p, b, &conf->acceptors[i]);
+	}
+	
+	// Setup the learner
+	p->l = learner_init_conf(conf, proposer_learn, p, p->base);
+	if (p->l == NULL) {
+		printf("learner_init failed\n");
+		return NULL;
+	}
+	
+	proposer_open_phase_1(p);
+	
     LOG(VRB, ("Proposer is ready\n"));
-    return 0;
-}
-
-int proposer_init_cif(int proposer_id, custom_init_function cif) {
-    client_custom_init = cif;
-    return proposer_init(proposer_id);
+    return p;
 }

@@ -1,5 +1,5 @@
-#ifndef LIBPAXOS_MESSAGES_H_HP8GZLGD
-#define LIBPAXOS_MESSAGES_H_HP8GZLGD
+#ifndef _LIBPAXOS_MESSAGES_H_
+#define _LIBPAXOS_MESSAGES_H_
 
 /*
     Paxos message types
@@ -35,6 +35,7 @@ typedef struct prepare_req_t {
 
 //Phase 1b, prepare acknowledgement
 typedef struct prepare_ack_t {
+	int acceptor_id;
     iid_t iid;
     ballot_t ballot;
     ballot_t value_ballot;
@@ -54,6 +55,7 @@ typedef struct accept_req_t {
 
 //Phase 2b, accept acknowledgement
 typedef struct accept_ack_t {
+	int   		acceptor_id;
     iid_t       iid;
     ballot_t    ballot;
     ballot_t    value_ballot;

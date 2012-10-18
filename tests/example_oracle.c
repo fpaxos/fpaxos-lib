@@ -130,14 +130,18 @@ int main (int argc, char const *argv[])
     argc = argc;
     argv = argv;
     
+
+	address oracles[] = PAXOS_ORACLE_NET;
+	address pings[] = PAXOS_PINGS_NET;
+	
     //Init oracle sender and receiver
-    to_proposers = udp_sendbuf_new(PAXOS_ORACLE_NET);
+    to_proposers = sendbuf_new(1, oracles);
     if(to_proposers == NULL) {
         printf("Error creating oracle->proposers network sender\n");
         return -1;
     }
     
-    for_oracle = udp_receiver_blocking_new(PAXOS_PINGS_NET);
+    for_oracle = udp_receiver_blocking_new(&pings[0]);
     if (for_oracle == NULL) {
         printf("Error creating proposers->oracle network receiver\n");
         return -1;

@@ -11,7 +11,8 @@ paxos_submit_handle * pax_submit_handle_init() {
         return NULL;
     }
     
-    psh->sendbuf = udp_sendbuf_new(PAXOS_SUBMIT_NET);
+	address submit_net[] = PAXOS_SUBMIT_NET;
+    psh->sendbuf = sendbuf_new(1, submit_net);
     if(psh->sendbuf == NULL) {
         return NULL;
     }

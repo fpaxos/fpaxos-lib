@@ -194,8 +194,6 @@ leader_open_instances_p1() {
     p1_info.highest_open += to_open; 
     
     LOG(DBG, ("Opened %d new instances\n", to_open));
-
-    
 }
 
 static void leader_set_next_p1_check() {

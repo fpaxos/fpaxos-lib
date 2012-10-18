@@ -1,8 +1,10 @@
 #ifndef _LIBPAXOS_H_
 #define _LIBPAXOS_H_
+
+#include "paxos_config.h"
 #include <sys/types.h>
 #include <stdint.h>
-#include "paxos_config.h"
+#include <event2/event.h>
 
 /* 
     The maximum size that can be submitted by a client.
@@ -27,7 +29,7 @@ typedef uint32_t iid_t;
         ...
     }
 */
-typedef void (* deliver_function)(char*, size_t, iid_t, ballot_t, int);
+typedef void (* deliver_function)(char*, size_t, iid_t, ballot_t, int, void*);
 
 
 /* 
@@ -57,21 +59,25 @@ typedef int (* custom_init_function)(void);
            It's ok to pass NULL if you don't need it.
            cif has to return -1 for error and 0 for success
 */
-int learner_init(deliver_function f, custom_init_function cif);
+struct learner* learner_init(const char* config_file, deliver_function f,
+	void* arg, struct event_base* base);
+
+// Used by the proposer to check for completion of phase 2
+int learner_is_closed(struct learner* l, iid_t iid);
 
 /*
     Starts an acceptor and returns when the initialization is complete.
     Return value is 0 if successful
     acceptor_id -> Must be in the range [0...(N_OF_ACCEPTORS-1)]
 */
-int acceptor_init(int acceptor_id);
+int acceptor_init(int acceptor_id, const char* config_file);
 
 /*
     Starts an acceptor that instead of creating a clean DB,
     tries to recover from an existing one.
     Return value is 0 if successful
 */
-int acceptor_init_recover(int acceptor_id);
+int acceptor_init_recover(int acceptor_id, const char* config_file);
 
 /*
     Shuts down the acceptor in the current process.
@@ -85,7 +91,7 @@ int acceptor_exit();
     Return value is 0 if successful
     proposer_id -> Must be in the range [0...(MAX_N_OF_PROPOSERS-1)]
 */
-int proposer_init(int proposer_id);
+struct proposer* proposer_init(int id, const char* config_file, struct event_base* b);
 
 /*
     Like proposer_init with a custom initialization function.
@@ -97,7 +103,7 @@ int proposer_init(int proposer_id);
            It's ok to pass NULL if you don't need it.
            cif has to return -1 for error and 0 for success    
 */
-int proposer_init_cif(int proposer_id, custom_init_function cif);
+int proposer_init_cif(int proposer_id, const char* config_file, custom_init_function cif);
 
 /*
     This is returned to the when creating a new submit handle

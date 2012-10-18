@@ -137,9 +137,14 @@ void handle_cltr_c (int sig) {
 
 
 int main (int argc, char const *argv[]) {
+	if (argc != 2) {
+        printf("Usage: %s id config\n", argv[0]);
+        exit(1);
+    }
+
     signal(SIGINT, handle_cltr_c);
     
-    if (learner_init(my_deliver_fun, my_custom_init) != 0) {
+    if (learner_init(atoi(argv[1]), argv[2], my_deliver_fun, my_custom_init) != 0) {
         printf("Could not start the learner!\n");
         return -1;
     }

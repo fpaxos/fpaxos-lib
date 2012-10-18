@@ -76,9 +76,11 @@ vh_init() {
     vh_list_head = NULL;
     vh_list_tail = NULL;
     dropped_count = 0;
+
+	address submit_net[] = PAXOS_SUBMIT_NET;
     
     // Start listening on net where clients send values
-    for_leader = udp_receiver_new(PAXOS_SUBMIT_NET);
+    for_leader = udp_receiver_new(&submit_net[0]);
     if (for_leader == NULL) {
         printf("Error creating proposer network receiver\n");
         return -1;
@@ -191,7 +193,7 @@ vh_push_back_value(vh_value_wrapper * vw) {
 		vh_list_tail = vw;
         vh_list_size = 1;
 
-	/* List is not empty*/
+	/* List is not empty */
 	} else {
 		vh_list_head = vw;
         vh_list_size += 1;
@@ -203,6 +205,8 @@ void vh_notify_client(unsigned int result, vh_value_wrapper * vw) {
     // This is a stub for notifying a client that its value
     // could not be delivered (notice that the value may actually
     // be delivered afterward by some other proposer)
+	UNUSED_ARG(vw);
+	
     if(result != 0) {
         LOG(DBG, ("Notify client -> Submit failed\n"));
     } else {

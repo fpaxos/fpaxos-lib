@@ -1,4 +1,4 @@
-CFLAGS 		= -O3 -Wall -g -Wshadow -Wextra
+CFLAGS 		= -Wall -g -Wshadow
 CC			= gcc
 
 # Do not modify the following

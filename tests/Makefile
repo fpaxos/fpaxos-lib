@@ -1,4 +1,4 @@
-SRCS 		= example_learner.c example_acceptor.c example_proposer.c benchmark_client.c example_oracle.c abmagic.c tp_monitor.c tp_sampler.c
+SRCS 		= example_learner.c example_acceptor.c example_proposer.c benchmark_client.c example_oracle.c abmagic.c tp_monitor.c tp_sampler.c client.c
 
 PROGRAMS	= $(subst .c,,$(SRCS))
 

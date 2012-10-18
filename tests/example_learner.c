@@ -5,12 +5,16 @@
 
 #include "libpaxos.h"
 
-void handle_cltr_c (int sig) {
+void
+handle_cltr_c (int sig)
+{
 	printf("Caught signal %d\n", sig);
     exit(0);
 }
 
-static char as_char(char c) {
+static char
+as_char(char c)
+{
     if(c < 33 || c > 126) {
         return '!';        
     } else {
@@ -18,37 +22,34 @@ static char as_char(char c) {
     }
 }
 
-void my_deliver_fun(char* value, size_t value_size, iid_t iid, ballot_t ballot, int proposer) {
-    printf("Paxos instance %u closed by ballot %u\n", iid, ballot);
-    printf("Value (by proposer:%d, size: %d) ->", proposer, (int)value_size);
+static void
+deliver(char* value, size_t size, iid_t iid, ballot_t b, 
+	int proposer, void* arg)
+{
+    printf("Paxos instance %u closed by ballot %u\n", iid, b);
+    printf("Value (by proposer:%d, size: %d) ->", proposer, (int)size);
     printf("[%c][%c][%c][...]\n", as_char(value[0]), as_char(value[1]), as_char(value[2]));
 }
 
-int my_custom_init() {
-    printf(">>> This is invoked by another thread in libevent\n");
-    printf(">>> After the normal learner initialization\n");
-    return 0;
-}
+int
+main (int argc, char const *argv[])
+{
+	struct learner* l;
+	struct event_base* b;
 
-int main (int argc, char const *argv[]) {
-        
     signal(SIGINT, handle_cltr_c);
-    
-    if (learner_init(my_deliver_fun, my_custom_init) != 0) {
+	
+	if (argc != 2) {
+        printf("Usage: %s config\n", argv[0]);
+        exit(1);
+    }
+	b = event_base_new();
+	l = learner_init(argv[1], deliver, NULL, b);
+	
+    if (l == NULL) {
         printf("Could not start the learner!\n");
         exit(1);
     }
-    
-    while(1) {
-        //This thread does nothing...
-        //But it can't terminate!
-        sleep(1);
-    }
-    
-
-
-    //Makes the compiler happy....
-    argc = argc;
-    argv = argv;
+	event_base_dispatch(b);
     return 0;
 }

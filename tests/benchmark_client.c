@@ -348,7 +348,7 @@ int cl_init() {
     return 0;
 }
 
-void cl_deliver(char* value, size_t val_size, iid_t iid, ballot_t ballot, int proposer) {
+void cl_deliver(char* value, size_t val_size, iid_t iid, ballot_t ballot, void* arg) {
 
     delivered_count += 1;
     assert((int)iid == delivered_count);
@@ -373,11 +373,16 @@ void cl_deliver(char* value, size_t val_size, iid_t iid, ballot_t ballot, int pr
     //Makes the compiler happy
     iid = iid;
     ballot = ballot;
-    proposer = proposer;
+    // proposer = proposer;
 }
 
 int main (int argc, char const *argv[]) {
     
+	if (argc != 2) {
+        printf("Usage: %s id config\n", argv[0]);
+        exit(1);
+    }
+
     signal(SIGINT, handle_cltr_c);
 
     //Default timeout for values
@@ -403,7 +408,7 @@ int main (int argc, char const *argv[]) {
     aggregated_latency.tv_sec = 0;
     aggregated_latency.tv_usec = 0;
     
-    if(learner_init(cl_deliver, cl_init) != 0) {
+    if(learner_init(argv[2], cl_deliver, NULL, NULL) != 0) {
         printf("Failed to start the learner!\n");
         return -1;
     }

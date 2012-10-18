@@ -214,7 +214,8 @@ ab_init() {
     }
     
     // Send buffer for talking to learners
-    to_learners = udp_sendbuf_new(PAXOS_LEARNERS_NET);
+	address learners[] = PAXOS_LEARNERS_NET;
+    to_learners = sendbuf_new(1, learners);
     if(to_learners == NULL) {
         printf("Error creating network sender\n");
         return -1;
@@ -224,14 +225,15 @@ ab_init() {
 
     // // Send buffer for talking to learners 
     // // (dedicated to answering repeat request)
-    // to_learners = udp_sendbuf_new(PAXOS_LEARNERS_NET);
+    // to_learners = sendbuf_new(PAXOS_LEARNERS_NET);
     // if(to_learners == NULL) {
     //     printf("Error creating network sender 2\n");
     //     return -1;
     // }
 
     // Message from learners (repeat request) event
-    from_learners = udp_receiver_new(PAXOS_ACCEPTORS_NET);
+	address acceptors[] = PAXOS_ACCEPTORS_NET;
+    from_learners = udp_receiver_new(acceptors);
     if (from_learners == NULL) {
         printf("Error creating network receiver\n");
         return -1;
@@ -241,7 +243,8 @@ ab_init() {
 
     
     // Message from client event
-    from_clients = udp_receiver_new(PAXOS_SUBMIT_NET);
+	address submit_net[] = PAXOS_SUBMIT_NET;
+    from_clients = udp_receiver_new(submit_net);
     if (from_clients == NULL) {
         printf("Error creating network receiver\n");
         return -1;

@@ -250,7 +250,7 @@ void print_paxos_msg(paxos_msg * msg) {
 }
 
 //Creates a new blocking UDP multicast receiver for the given address/port
-udp_receiver * udp_receiver_blocking_new(char* address_string, int port) {
+udp_receiver * udp_receiver_blocking_new(address* a) {
     udp_receiver * rec = PAX_MALLOC(sizeof(udp_receiver));
 
     struct ip_mreq mreq;
@@ -271,7 +271,7 @@ udp_receiver * udp_receiver_blocking_new(char* address_string, int port) {
     }
 
     // Set up membership to multicast group 
-    mreq.imr_multiaddr.s_addr = inet_addr(address_string);
+    mreq.imr_multiaddr.s_addr = inet_addr(a->address_string);
     mreq.imr_interface.s_addr = htonl(INADDR_ANY);
     if (setsockopt(rec->sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) != 0) {
         perror("setsockopt, setting IP_ADD_MEMBERSHIP");
@@ -280,13 +280,13 @@ udp_receiver * udp_receiver_blocking_new(char* address_string, int port) {
 
     // Set up address 
     struct sockaddr_in * addr_p = &rec->addr;
-    addr_p->sin_addr.s_addr = inet_addr(address_string);
+    addr_p->sin_addr.s_addr = inet_addr(a->address_string);
     if (addr_p->sin_addr.s_addr == INADDR_NONE) {
         printf("Error setting receiver->addr\n");
         return NULL;
     }
     addr_p->sin_family = AF_INET;
-    addr_p->sin_port = htons((uint16_t)port);   
+    addr_p->sin_port = htons((uint16_t)a->port);   
 
     // Bind the socket 
     if (bind(rec->sock, (struct sockaddr *) &rec->addr, sizeof(struct sockaddr_in)) != 0) {
@@ -297,10 +297,10 @@ udp_receiver * udp_receiver_blocking_new(char* address_string, int port) {
 }
 
 //Creates a new non-blocking UDP multicast receiver for the given address/port
-udp_receiver * udp_receiver_new(char* address_string, int port) {
+udp_receiver * udp_receiver_new(address* a) {
 
     udp_receiver * rec;
-    rec = udp_receiver_blocking_new(address_string, port);
+    rec = udp_receiver_blocking_new(a);
 
     if(rec == NULL) {
         return NULL;
@@ -318,7 +318,7 @@ udp_receiver * udp_receiver_new(char* address_string, int port) {
         return NULL;
     }
     
-    LOG(DBG, ("Socket %d created for address %s:%d (receive mode)\n", rec->sock, address_string, port));
+    LOG(DBG, ("Socket %d created for address %s:%d (receive mode)\n", rec->sock, a->address_string, a->port));
     return rec;
 }
 
