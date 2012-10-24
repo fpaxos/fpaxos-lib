@@ -23,6 +23,6 @@ all: $(OBJS) $(LIBS) $(PROGRAMS) aux
 
 clean:
 	$(QUIET) rm -f $(PROGRAMS) $(LIBS) $(OBJS) $(AUX_FILES)
-	$(QUIET) rm -drf  .deps
+	$(QUIET) rm -rf  .deps
 	
 .PHONY: clean $(AUX_ALL) aux
