@@ -16,6 +16,7 @@ config* read_config(const char* path) {
 	int id;
 	char type;
 	address a;
+	address* tmp;
 	config* c;
 	FILE* f;
 
@@ -25,24 +26,31 @@ config* read_config(const char* path) {
 	}
 	
 	c = malloc(sizeof(config));
+	memset(c, 0, sizeof(config));
 	a.address_string = malloc(128);
 	
-	memset(c, 0, sizeof(config));
 	while(fscanf(f, "%c %d %s %d\n", &type, &id,
 		a.address_string, &a.port) == fields) {
+			
 		switch(type) {
 			case 'l':
-			c->learners[c->learners_count++] = a;
-			break;
+				tmp = &c->learners[c->learners_count++];
+				tmp->port = a.port;
+				tmp->address_string = malloc(128);
+				memcpy(tmp->address_string, a.address_string, 128);
+				break;
 			case 'p':
-			c->proposers[c->proposers_count++] = a;
-			break;
+				tmp = &c->proposers[c->proposers_count++];
+				tmp->port = a.port;
+				tmp->address_string = malloc(128);
+				memcpy(tmp->address_string, a.address_string, 128);
+				break;
 			case 'a':
-			c->acceptors[c->acceptors_count++] = a;
-			break;
-			default:
-			printf("Error in config file\n");
-			return NULL;
+				tmp = &c->acceptors[c->acceptors_count++];
+				tmp->port = a.port;
+				tmp->address_string = malloc(128);
+				memcpy(tmp->address_string, a.address_string, 128);
+				break;
 		}
 	}
 	
