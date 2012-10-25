@@ -49,6 +49,7 @@ struct proposer
 {
 	int id;
 	iid_t current_iid;	// Lowest instance for which no value has been chosen
+	int acceptors_count;
 	struct instance instances[PROPOSER_ARRAY_SIZE];
 	struct bufferevent* acceptor_ev[N_OF_ACCEPTORS];
 	struct phase1_info p1_info;
@@ -123,7 +124,7 @@ do_phase_1(struct proposer* p)
 		ii->my_ballot = proposer_next_ballot(p, ii->my_ballot);
 	}
 	
-	for (i = 0; i < N_OF_ACCEPTORS; i++) {
+	for (i = 0; i < p->acceptors_count; i++) {
 		sendbuf_add_prepare_req(p->acceptor_ev[i],
 			ii->iid, ii->my_ballot);
 	}
@@ -508,7 +509,8 @@ proposer_init(int id, const char* config_file, struct event_base* b)
 	p->id = id;
 	p->base = b;
 	p->current_iid = 1;
-	
+	p->acceptors_count = conf->acceptors_count;
+		
 	// Reset phase 1 counters
 	p->p1_info.pending_count = 0;
 	p->p1_info.ready_count = 0;
@@ -529,12 +531,12 @@ proposer_init(int id, const char* config_file, struct event_base* b)
 	
 	// Setup client listener
 	p->client_values = carray_new(2000);
- 	p->receiver = tcp_receiver_new(b, &conf->proposers[id], 
-		on_client_msg, p);
+ 	p->receiver = tcp_receiver_new(b, &conf->proposers[id], on_client_msg, p);
 	
 	// Setup connections to acceptors
 	for (i = 0; i < conf->acceptors_count; i++) {
 		p->acceptor_ev[i] = do_connect(p, b, &conf->acceptors[i]);
+		assert(p->acceptor_ev[i] != NULL);
 	}
 	
 	// Setup the learner
