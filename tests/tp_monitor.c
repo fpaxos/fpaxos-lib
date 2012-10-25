@@ -16,12 +16,14 @@ static struct timeval sample_time;
 static long unsigned int bytes = 0;
 static long unsigned int values = 0;
 
+
 static void
 init_counters()
 {
 	bytes = 0;
 	values = 0;
 }
+
 
 static void
 sample(int fd, short ev, void* arg)
@@ -36,6 +38,7 @@ sample(int fd, short ev, void* arg)
 	init_counters();
 	evtimer_add(&sample_ev, &sample_time);
 }
+
 
 static void 
 deliver(char* v, size_t s, iid_t iid, ballot_t b, int proposer, void* arg)
