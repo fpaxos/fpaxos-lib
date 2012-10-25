@@ -36,7 +36,6 @@ void
 handle_cltr_c (int sig)
 {
 	printf("Caught signal %d\n", sig);
-	printf("Sent %d messages\n", sent);
     exit(0);
 }
 
