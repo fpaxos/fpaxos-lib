@@ -206,7 +206,7 @@ do_phase_2(struct proposer* p)
 
     //Send the accept request
 	LOG(DBG, ("sending accept req for instance %d ballot %d\n", ii->iid, ii->my_ballot));
-	for (i = 0; i < N_OF_ACCEPTORS; i++) {
+	for (i = 0; i < p->acceptors_count; i++) {
     	sendbuf_add_accept_req(p->acceptor_ev[i], ii->iid,
 			ii->my_ballot, ii->p2_value);
 	}
