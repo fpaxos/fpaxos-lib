@@ -1,5 +1,5 @@
-#ifndef PAXOS_CONFIG_H_24LVFLYO
-#define PAXOS_CONFIG_H_24LVFLYO
+#ifndef _PAXOS_CONFIG_H_
+#define _PAXOS_CONFIG_H_
 
 /*** PROTOCOL SETTINGS ***/
 
@@ -245,4 +245,4 @@
 #define MALLOC_TRACE_FILENAME "malloc_debug_trace.txt"
 
 
-#endif /* end of include guard: PAXOS_CONFIG_H_24LVFLYO */
+#endif

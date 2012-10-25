@@ -4,12 +4,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 #include <event2/event.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 
 static int rate = 1; // values per sec
-
 
 static struct bufferevent* 
 do_connect(struct event_base* b, address* a)
@@ -32,11 +32,22 @@ do_connect(struct event_base* b, address* a)
 	return bev;
 }
 
+void 
+handle_cltr_c (int sig)
+{
+	printf("Caught signal %d\n", sig);
+	printf("Sent %d messages\n", sent);
+    exit(0);
+}
+
+
 int
 main (int argc, char const *argv[])
 {
 	struct event_base* base;
     struct bufferevent* bev;
+	
+	signal(SIGINT, handle_cltr_c);
 	
     if (argc != 3) {
         printf("Usage: %s config rate\n", argv[0]);
@@ -53,7 +64,7 @@ main (int argc, char const *argv[])
 	while(1) {
 		int i;
 		for (i = 0; i < rate; ++i) {
-			sendbuf_add_submit_val(bev, "adsasddsssssssssssssaaaaaaaaaaadsasddsssssssssssssaaaaaaaaaa", 60);
+			sendbuf_add_submit_val(bev, "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", 100);
 			event_base_dispatch(base);
 		}
 		sleep(1);

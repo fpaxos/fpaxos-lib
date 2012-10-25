@@ -43,8 +43,9 @@ main (int argc, char const *argv[])
         printf("Usage: %s config\n", argv[0]);
         exit(1);
     }
+
 	b = event_base_new();
-	l = learner_init(argv[1], deliver, NULL, b);
+	l = learner_init(argv[2], deliver, NULL, b);
 	
     if (l == NULL) {
         printf("Could not start the learner!\n");
