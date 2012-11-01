@@ -226,8 +226,8 @@ proposer_open_phase_2(struct proposer* p)
             break;
         }
 		// We do both phase 1 and 2
-		do_phase_1(p);
 		do_phase_2(p);
+		do_phase_1(p);
 	}
 }
 
@@ -338,7 +338,7 @@ proposer_handle_msg(struct proposer* p, struct bufferevent* bev)
 {
 	paxos_msg msg;
 	struct evbuffer* in;
-	char* buffer[PAXOS_MAX_VALUE_SIZE];
+	char buffer[PAXOS_MAX_VALUE_SIZE];
 
 	in = bufferevent_get_input(bev);
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
@@ -411,6 +411,7 @@ do_connect(struct proposer* p, struct event_base* b, address* a)
 static void
 on_client_msg(struct bufferevent* bev, void* arg)
 {
+	int size;
 	char* val;
 	paxos_msg msg;
 	struct evbuffer* in;
@@ -421,8 +422,9 @@ on_client_msg(struct bufferevent* bev, void* arg)
 	
     switch (msg.type) {
         case submit:
-			val = malloc(PAXOS_MSG_SIZE((&msg)));
-			evbuffer_remove(in, val, PAXOS_MSG_SIZE((&msg)));
+			size = PAXOS_MSG_SIZE((&msg));
+			val = malloc(size);
+			evbuffer_remove(in, val, size);
 			carray_push_back(p->client_values, val);
 			proposer_open_phase_2(p);
         	break;

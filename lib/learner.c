@@ -279,7 +279,7 @@ learner_handle_accept_ack(struct learner* l, accept_ack * aa)
 {
 	int relevant;
 	struct instance* ii;
-
+	
 	// Keep track of highest seen instance id
 	if (aa->iid > l->highest_iid_seen) {
 		l->highest_iid_seen = aa->iid;
@@ -334,7 +334,7 @@ learner_handle_msg(struct learner* l, struct bufferevent* bev)
 {
 	paxos_msg msg;
 	struct evbuffer* in;
-	char* buffer[PAXOS_MAX_VALUE_SIZE];
+	char buffer[PAXOS_MAX_VALUE_SIZE];
 
 	in = bufferevent_get_input(bev);
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));

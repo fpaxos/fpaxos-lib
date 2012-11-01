@@ -236,7 +236,7 @@ handle_accept_req(struct bufferevent* bev, accept_req* ar) {
 static void acc_handle_newmsg(struct bufferevent* bev, void* arg) {
 	paxos_msg msg;
 	struct evbuffer* in;
-	char* buffer[PAXOS_MAX_VALUE_SIZE];
+	char buffer[PAXOS_MAX_VALUE_SIZE];
 
 	in = bufferevent_get_input(bev);
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
