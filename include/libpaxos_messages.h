@@ -20,7 +20,7 @@ typedef struct paxos_msg_t {
     size_t data_size; //Size of 'data' in bytes
     paxos_msg_code type;
     char data[0];
-} paxos_msg;
+}  __attribute__((packed)) paxos_msg;
 #define PAXOS_MSG_SIZE(M) (M->data_size + sizeof(paxos_msg))
 
 /* 
