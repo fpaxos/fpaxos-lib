@@ -32,18 +32,6 @@ typedef uint32_t iid_t;
 typedef void (* deliver_function)(char*, size_t, iid_t, ballot_t, int, void*);
 
 
-/* 
-    When starting a learner you may pass a function to be invoked 
-    within libevent, after the normal learner initialization.
-    (so that new events/timeouts can be added)
-    This defines the type of such function.
-    Example: 
-    void int my_custom_init() {
-        ...
-    }
-*/
-typedef int (* custom_init_function)(void);
-
 /*
     Starts a learner and returns when the initialization is complete.
     Return value is 0 if successful
@@ -62,69 +50,37 @@ typedef int (* custom_init_function)(void);
 struct learner* learner_init(const char* config_file, deliver_function f,
 	void* arg, struct event_base* base);
 
-// Used by the proposer to check for completion of phase 2
-int learner_is_closed(struct learner* l, iid_t iid);
-
 /*
     Starts an acceptor and returns when the initialization is complete.
     Return value is 0 if successful
     acceptor_id -> Must be in the range [0...(N_OF_ACCEPTORS-1)]
 */
-int acceptor_init(int acceptor_id, const char* config_file);
+struct acceptor*
+acceptor_init(int id, const char* config, struct event_base* b);
 
 /*
     Starts an acceptor that instead of creating a clean DB,
     tries to recover from an existing one.
     Return value is 0 if successful
 */
-int acceptor_init_recover(int acceptor_id, const char* config_file);
+struct acceptor*
+acceptor_init_recover(int id, const char* config, struct event_base* b);
 
 /*
     Shuts down the acceptor in the current process.
     It may take a few seconds to complete since the DB needs to be closed.
 */
 //FIXME should delegate close to libevent thread
-int acceptor_exit();
+int
+acceptor_exit(struct acceptor* a);
 
 /*
     Starts a proposer with the given ID (which MUST be unique).
     Return value is 0 if successful
     proposer_id -> Must be in the range [0...(MAX_N_OF_PROPOSERS-1)]
 */
-struct proposer* proposer_init(int id, const char* config_file, struct event_base* b);
+struct proposer*
+proposer_init(int id, const char* config, struct event_base* b);
 
-/*
-    Like proposer_init with a custom initialization function.
-    Allows to start custom behavior on top of the proposer libevent loop.
-    proposer_id -> Must be in the range [0...(MAX_N_OF_PROPOSERS-1)]
-    cif -> A custom_init_function invoked by the internal libevent thread, 
-           invoked when the normal proposer initialization is completed
-           Can be used to add other events to the existing event loop.
-           It's ok to pass NULL if you don't need it.
-           cif has to return -1 for error and 0 for success    
-*/
-int proposer_init_cif(int proposer_id, const char* config_file, custom_init_function cif);
-
-/*
-    This is returned to the when creating a new submit handle
-*/
-typedef struct paxos_submit_handle_t {
-    void * sendbuf;
-} paxos_submit_handle;
-
-/*
-    Creates a new handle for this client to submit values.
-    Different threads in a process can have their personal handle
-    or share a common one (locking is up to you!)
-*/
-paxos_submit_handle * pax_submit_handle_init();
-
-/*
-    This call sends a value to the current leader and returns immediately.
-    There is no guarantee that the value even reached the leader.
-*/
-int pax_submit_nonblock(paxos_submit_handle * h, char * value, size_t val_size);
-
-void pax_submit_sharedmem(char* value, size_t val_size);
 
 #endif /* _LIBPAXOS_H_ */

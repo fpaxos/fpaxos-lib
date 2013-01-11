@@ -1,53 +1,31 @@
+#include "storage.h"
+#include "paxos_config.h"
+
+#include <db.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <assert.h>
-/*
-Getting started:
- http://www.oracle.com/technology/documentation/berkeley-db/db/gsg/C/index.html
-API:
- http://www.oracle.com/technology/documentation/berkeley-db/db/api_c/frame.html
-Reference Guide:
- http://www.oracle.com/technology/documentation/berkeley-db/db/ref/toc.html
-BDB Forums @ Oracle
- http://forums.oracle.com/forums/forum.jspa?forumID=271
-*/
-#include <db.h>
 
-#include "libpaxos_priv.h"
-#include "acceptor_stable_storage.h"
 
-//Size of cache <GB, B, ncaches
+#define MAX_BUFFER_SIZE 8192
 #define MEM_CACHE_SIZE (0), (4*1024*1024)
-//DB env handle, DB handle, Transaction handle 
-//FIXME: should be static, but abmagic can't link then
-DB_ENV *dbenv;
-DB *dbp;
-DB_TXN *txn;
 
-//Buffer to read/write current record
-static char record_buf[MAX_UDP_MSG_SIZE];
-static acceptor_record * record_buffer = (acceptor_record*)record_buf;
+struct storage
+{
+	DB* db;
+	DB_ENV* env;
+	DB_TXN* txn;
+	char record_buf[MAX_BUFFER_SIZE];
+};
 
-//Set to 1 if init should do a recovery
-static int do_recovery = 0;
-
-//Invoked before stablestorage_init, sets recovery mode on
-// the acceptor will try to recover a DB rather than creating a new one
-void stablestorage_do_recovery() {
-    printf("Acceptor in recovery mode\n");
-    do_recovery = 1;
-}
-
-static char db_env_path[512];
-static char db_filename[512];
-static char db_file_path[512];
-
-int bdb_init_tx_handle(int tx_mode) {
+static int 
+bdb_init_tx_handle(struct storage* s, int tx_mode, char* db_env_path) {
     int result;
-
+	DB_ENV* dbenv = s->env;
+	
     //Create environment handle
     result = db_env_create(&dbenv, 0);
     if (result != 0) {
@@ -106,16 +84,20 @@ int bdb_init_tx_handle(int tx_mode) {
     return 0;
 }
 
-int bdb_init_db(char * db_path) {
+static int
+bdb_init_db(struct storage* s, char* db_path)
+{
     int result;
+	DB* dbp = s->db;
+	
     //Create the DB file
-    result = db_create(&dbp, dbenv, 0);
+    result = db_create(&dbp, s->env, 0);
     if (result != 0) {
         printf("db_create failed: %s\n", db_strerror(result));
         return -1;
     }
     
-    if(DURABILITY_MODE == 0 || DURABILITY_MODE == 20) {
+    if (DURABILITY_MODE == 0 || DURABILITY_MODE == 20) {
         //Set the size of the memory cache
         result = dbp->set_cachesize(dbp, MEM_CACHE_SIZE, 1);
         if (result != 0) {
@@ -128,18 +110,18 @@ int bdb_init_db(char * db_path) {
     int flags = 
         DB_CREATE;          /*Create if not existing*/
 
-    stablestorage_tx_begin();
+    storage_tx_begin(s);
 
     //Open the DB file
     result = dbp->open(dbp,
-        txn,                    /* Transaction pointer */
+        s->txn,                    /* Transaction pointer */
         db_path,                /* On-disk file that holds the database. */
         NULL,                   /* Optional logical database name */
         ACCEPTOR_ACCESS_METHOD, /* Database access method */
         flags,                  /* Open flags */
         0);                     /* Default file permissions */
 
-    stablestorage_tx_end();
+    storage_tx_commit(s);
 
     if(result != 0) {
         printf("DB open failed: %s\n", db_strerror(result));
@@ -149,9 +131,15 @@ int bdb_init_db(char * db_path) {
     return 0;
 }
 
-//Initializes the underlying stable storage
-int stablestorage_init(int acceptor_id) {
-    
+struct storage*
+storage_open(int acceptor_id, int do_recovery)
+{
+	char db_env_path[512];
+	char db_filename[512];
+	char db_file_path[512];
+	
+	struct storage* s = malloc(sizeof(struct storage));
+
     //Create path to db file in db dir
     sprintf(db_env_path, ACCEPTOR_DB_PATH);    
     sprintf(db_filename, ACCEPTOR_DB_FNAME);
@@ -164,20 +152,20 @@ int stablestorage_init(int acceptor_id) {
     int db_exists = (stat(db_file_path, &sb) == 0);
 
     //Check for old db file if running recovery
-    if(do_recovery && (!dir_exists || !db_exists)) {
+    if (do_recovery && (!dir_exists || !db_exists)) {
         printf("Error: Acceptor recovery failed!\n");
         printf("The file:%s does not exist\n", db_file_path);
-        return -1;
+        return NULL;
     }
     
     //Create the directory if it does not exist
-    if(!dir_exists && (mkdir(db_env_path, S_IRWXU) != 0)) {
+    if (!dir_exists && (mkdir(db_env_path, S_IRWXU) != 0)) {
         printf("Failed to create env dir %s: %s\n", db_env_path, strerror(errno));
-        return -1;
+        return NULL;
     } 
     
     //Delete and recreate an empty dir if not recovering
-    if(!do_recovery && dir_exists) {
+    if (!do_recovery && dir_exists) {
         char rm_command[600];
         sprintf(rm_command, "rm -r %s", db_env_path);
         
@@ -190,7 +178,7 @@ int stablestorage_init(int acceptor_id) {
     int ret = 0;
     char * db_file = db_filename;
     printf("Durability mode is: ");
-    switch(DURABILITY_MODE) {
+    switch (DURABILITY_MODE) {
         //In memory cache
         case 0: {
             //Give full path if opening without handle
@@ -202,25 +190,25 @@ int stablestorage_init(int acceptor_id) {
         //Transactional storage
         case 10: {
             printf("transactional, no durability!\n");
-            ret = bdb_init_tx_handle(DB_LOG_IN_MEMORY);
+            ret = bdb_init_tx_handle(s, DB_LOG_IN_MEMORY, db_env_path);
         }
         break;
 
         case 11: {
             printf("transactional, DB_TXN_NOSYNC\n");
-            ret = bdb_init_tx_handle(DB_TXN_NOSYNC);
+            ret = bdb_init_tx_handle(s, DB_TXN_NOSYNC, db_env_path);
         }
         break;
 
         case 12: {
             printf("transactional, DB_TXN_WRITE_NOSYNC\n");
-            ret = bdb_init_tx_handle(DB_TXN_WRITE_NOSYNC);
+            ret = bdb_init_tx_handle(s, DB_TXN_WRITE_NOSYNC, db_env_path);
         }
         break;
 
         case 13: {
             printf("transactional, durable\n");
-            ret = bdb_init_tx_handle(0);
+            ret = bdb_init_tx_handle(s, 0, db_env_path);
         }
         break;
         
@@ -233,26 +221,29 @@ int stablestorage_init(int acceptor_id) {
 
         default: {
             printf("Unknow durability mode %d!\n", DURABILITY_MODE);
-            return -1;
+            return NULL;
         }
     }
     
-    if(ret != 0) {
+    if (ret != 0) {
         printf("Failed to open DB handle\n");
     }
     
-    if(bdb_init_db(db_file) != 0) {
+    if (bdb_init_db(s, db_file) != 0) {
         printf("Failed to open DB file\n");
-        return -1;
+        return NULL;
     }
     
     return 0;
 }
 
-//Safely closes the underlying stable storage
-int stablestorage_shutdown() {
-    int result = 0;
-    
+int
+storage_close(struct storage* s)
+{	
+	int result = 0;
+	DB* dbp = s->db;
+	DB_ENV* dbenv = s->env;
+	
     //Close db file
     if(dbp->close(dbp, 0) != 0) {
         printf("DB_ENV close failed\n");
@@ -285,47 +276,51 @@ int stablestorage_shutdown() {
  
     LOG(VRB, ("DB close completed\n"));  
     return result;
+	
 }
 
-//Begins a new transaction in the stable storage
-void 
-stablestorage_tx_begin() {
-
-    if(DURABILITY_MODE == 0 || DURABILITY_MODE == 20) {
+void
+storage_tx_begin(struct storage* s)
+{
+    if (DURABILITY_MODE == 0 || DURABILITY_MODE == 20) {
         return;
     }
 
     int result;
-    result = dbenv->txn_begin(dbenv, NULL, &txn, 0);
-    assert(result == 0);
+    result = s->env->txn_begin(s->env, NULL, &s->txn, 0);
+    assert(result == 0);	
 }
 
-//Commits the transaction to stable storage
-void 
-stablestorage_tx_end() {
-    int result;
+void
+storage_tx_commit(struct storage* s)
+{
+	int result;
 
-    if(DURABILITY_MODE == 0) {
+    if (DURABILITY_MODE == 0) {
         return;
     }
+
     if (DURABILITY_MODE == 20) {
-        result = dbp->sync(dbp, 0);
+        result = s->db->sync(s->db, 0);
         assert(result == 0);
         return;
     }
 
-    //Since it's either read only or write only
+    // Since it's either read only or write only
     // and there is no concurrency, should always commit!
-    result = txn->commit(txn, 0);
+    result = s->txn->commit(s->txn, 0);
     assert(result == 0);
 }
 
-//Retrieves an instance record from stable storage
-// returns null if the instance does not exist yet
-acceptor_record * 
-stablestorage_get_record(iid_t iid) {
-    int flags, result;
+acceptor_record* 
+storage_get_record(struct storage* s, iid_t iid)
+{
+	int flags, result;
     DBT dbkey, dbdata;
+	DB* dbp = s->db;
+	DB_TXN* txn = s->txn;
+	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
+
     
     memset(&dbkey, 0, sizeof(DBT));
     memset(&dbdata, 0, sizeof(DBT));
@@ -364,12 +359,15 @@ stablestorage_get_record(iid_t iid) {
     return record_buffer;
 }
 
-//Save a valid accept request, the instance may be new (no record)
-// or old with a smaller ballot, in both cases it creates a new record
-acceptor_record * 
-stablestorage_save_accept(accept_req * ar) {
-    int flags, result;
+acceptor_record*
+storage_save_accept(struct storage* s, accept_req * ar)
+{
+	int flags, result;
     DBT dbkey, dbdata;
+	DB* dbp = s->db;
+	DB_TXN* txn = s->txn;
+	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
+
     
     //Store as acceptor_record (== accept_ack)
     record_buffer->iid = ar->iid;
@@ -402,12 +400,15 @@ stablestorage_save_accept(accept_req * ar) {
     return record_buffer;
 }
 
-//Save a valid prepare request, the instance may be new (no record)
-// or old with a smaller ballot
-acceptor_record * 
-stablestorage_save_prepare(prepare_req * pr, acceptor_record * rec) {
-    int flags, result;
+acceptor_record*
+storage_save_prepare(struct storage* s, prepare_req * pr, acceptor_record * rec)
+{
+	int flags, result;
     DBT dbkey, dbdata;
+	DB* dbp = s->db;
+	DB_TXN* txn = s->txn;
+	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
+
     
     //No previous record, create a new one
     if (rec == NULL) {
@@ -443,23 +444,22 @@ stablestorage_save_prepare(prepare_req * pr, acceptor_record * rec) {
         0);
         
     assert(result == 0);
-    return record_buffer;
-    
+    return record_buffer;	
 }
 
-//Save the final value delivered by the underlying learner. 
-// The instance may be new or previously seen, in both cases 
-// this creates a new record
-acceptor_record * 
-stablestorage_save_final_value(char * value, size_t size, iid_t iid, ballot_t ballot) {
-
-    int flags, result;
+acceptor_record*
+storage_save_final_value(struct storage* s, char* value, size_t size, iid_t iid, ballot_t b)
+{
+	int flags, result;
     DBT dbkey, dbdata;
+	DB* dbp = s->db;
+	DB_TXN* txn = s->txn;
+	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
     
     //Store as acceptor_record (== accept_ack)
     record_buffer->iid = iid;
-    record_buffer->ballot = ballot;
-    record_buffer->value_ballot = ballot;
+    record_buffer->ballot = b;
+    record_buffer->value_ballot = b;
     record_buffer->is_final = 1;
     record_buffer->value_size = size;
     memcpy(record_buffer->value, value, size);
@@ -485,5 +485,5 @@ stablestorage_save_final_value(char * value, size_t size, iid_t iid, ballot_t ba
 
     assert(result == 0);    
     return record_buffer;
-
+	
 }

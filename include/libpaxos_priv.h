@@ -1,8 +1,6 @@
 #ifndef _LIBPAXOS_PRIV_H_
 #define _LIBPAXOS_PRIV_H_
-// #include <netinet/in.h>
-// #include <arpa/inet.h>
-// 
+
 #include <time.h>
 #include <sys/time.h>
 
@@ -10,8 +8,6 @@
 #include "paxos_config.h"
 
 #include "libpaxos_messages.h"
-#include "values_handler.h"
-
 
 typedef accept_ack acceptor_record;
 
@@ -47,10 +43,4 @@ typedef struct address_t {
 
 /*** MISC MACROS ***/
 
-// Since this lib compiles with -Wextra, unused parameters throw
-// a warning, adding a USELESS_PARAMETER(variable_name) removes the message
-#define UNUSED_ARG(V) (V = V);
-
-
 #endif /* _LIBPAXOS_PRIV_H_ */
-// 

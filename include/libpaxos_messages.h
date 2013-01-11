@@ -67,49 +67,6 @@ typedef struct accept_ack_t {
 
 
 /* 
-    Batches to send multiple paxos messages in a single packet
-*/
-
-typedef struct prepare_req_batch_t {
-    short int count;
-    short int proposer_id;
-    prepare_req prepares[0];
-} prepare_req_batch;
-#define PREPARE_REQ_BATCH_SIZE(M) (sizeof(prepare_req_batch) + (M->count*sizeof(prepare_req)))
-
-
-typedef struct prepare_ack_batch_t {
-    short int acceptor_id;
-    short int count;
-    char data[0];
-} prepare_ack_batch;
-size_t prepare_ack_batch_size_calc(prepare_ack_batch * pab);
-#define PREPARE_ACK_BATCH_SIZE(M) (prepare_ack_batch_size_calc(M))
-
-
-typedef struct accept_req_batch_t {
-    short int count;
-    short int proposer_id;
-    char data[0];
-} accept_req_batch;
-size_t accept_req_batch_size_calc(accept_req_batch * aab);
-#define ACCEPT_REQ_BATCH_SIZE(M) (accept_req_batch_size_calc(M))
-
-typedef struct accept_ack_batch_t {
-    short int   acceptor_id;
-    short int   count;
-    char        data[0];
-} accept_ack_batch;
-size_t accept_ack_batch_size_calc(accept_ack_batch * aab);
-#define ACCEPT_ACK_BATCH_SIZE(M) (accept_ack_batch_size_calc(M))
-
-typedef struct repeat_req_batch_t {
-    short int count;
-    iid_t requests[0];
-} repeat_req_batch;
-#define REPEAT_REQ_BATCH_SIZE(B) (sizeof(repeat_req_batch) + (sizeof(iid_t) * B->count))
-
-/* 
     Failure detection/leader election messages
 */
 typedef struct leader_announce_msg_t {

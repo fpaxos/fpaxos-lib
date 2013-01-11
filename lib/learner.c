@@ -48,7 +48,7 @@ struct learner
 	// libevent handle
 	struct event_base * base;
 	// config reader handle
- 	config* conf;
+ 	struct config* conf;
 	// bufferevent sockets to send data to acceptors
 	struct bufferevent* acceptor_ev[N_OF_ACCEPTORS];
 };
@@ -409,8 +409,8 @@ do_connect(struct learner* l, struct event_base* b, address* a)
 /*-------------------------------------------------------------------------*/
 
 struct learner*
-learner_init_conf(config* c, deliver_function f, void* arg, 
-	struct event_base* b)
+learner_init_conf(struct config* c, deliver_function f, void* arg,
+struct event_base* b)
 {
 	int i;
 	struct learner* l;
@@ -449,15 +449,7 @@ struct learner*
 learner_init(const char* config_file, deliver_function f, void* arg, 
 	struct event_base* b)
 {
-	config* c = read_config(config_file);
+	struct config* c = read_config(config_file);
 	if (c == NULL) return NULL;
 	return learner_init_conf(c, f, arg, b);
-}
-
-int
-learner_is_closed(struct learner* l, iid_t iid)
-{
-	struct instance* i;
-	i = learner_get_instance(l, iid);
-	return ((iid == i->iid) && IS_CLOSED(i));
 }

@@ -62,7 +62,7 @@ struct proposer
 
 
 struct learner* 
-learner_init_conf(config* c, deliver_function f, void* arg, 
+learner_init_conf(struct config* c, deliver_function f, void* arg, 
 	struct event_base* b);
 
 
@@ -496,7 +496,7 @@ proposer_init(int id, const char* config_file, struct event_base* b)
 	int i;
 	struct proposer* p;
 	
-    config* conf = read_config(config_file);
+    struct config* conf = read_config(config_file);
 	if (conf == NULL)
 		return NULL;
 	

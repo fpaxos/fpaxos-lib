@@ -13,45 +13,6 @@
 */
 #define PROPOSER_PREEXEC_WIN_SIZE 128
 
-/* 
-    Number of instances that are concurrently opened by the leader.
-    If this is 1, the leader won't try to send an accept for
-    instance i+1 until instance i is closed.
-    If more than 1, FIFO order of values is not granted.
-    MUST be smaller than PROPOSER_PREEXEC_WIN_SIZE (half or less)
-*/
-#define PROPOSER_P2_CONCURRENCY 3
-
-/* 
-    The timeout for prepare requests. If too high, the leader takes a while
-    to realize the timeout. If too low, requests expire too early.
-    To calibrate, set to an high value (seconds), activate 
-    LEADER_EVENTS_UPDATE_INTERVAL and observe the number of timeouts.
-    Then lower this value until only a few occour.
-    The most important factors are PROPOSER_PREEXEC_WIN_SIZE and
-    the latency of the network.
-    Unit is microseconds - i.e. 1500000 = 1.5 secs
-*/
-#define P1_TIMEOUT_INTERVAL 30000
-
-/* 
-    The timeout for accept requests. If too high, the leader takes a while
-    to realize the timeout. If too low, requests expire too early.
-    To calibrate, set to an high value (seconds), activate 
-    LEADER_EVENTS_UPDATE_INTERVAL and observe the number of timeouts.
-    Then lower this value until only a few occour.
-    The most important factors are the size of submitted values and
-    the latency of the network.
-    Unit is microseconds - i.e. 1500000 = 1.5 secs
-*/
-#define P2_TIMEOUT_INTERVAL 35000
-
-/* 
-    How frequently should the leader proposer try to open new instances.
-    (P2 execution does not rely exclusively on this peridic check, 
-    new ones are opened also when some old instance is closed/delivered).
-    Unit is microseconds - i.e. 1000 = 1ms */
-#define P2_CHECK_INTERVAL 1000
 
 /* 
     The maximum number of proposers must be fixed beforehand
@@ -77,51 +38,6 @@
 
 #define QUORUM (((int)(N_OF_ACCEPTORS/2))+1)
 
-/* 
-    This option makes each acceptor a learner too.
-    Delivered values are written in stable storage.
-    This makes recovery and catch-up easier in some situations,
-    since the other learners (and therefore proposers too) can learn
-    the final value for an instance with a single message.
-    Undefine to disable.
-*/
-// #define ACCEPTOR_UPDATE_ON_DELIVER
-
-/*
-    Periodically (every ACCEPTOR_REPEAT_INTERVAL seconds) the acceptor
-    repeats the latest (by instance id) accept acknowledged. 
-    This is useful to keep the learners updated in very low-traffic 
-    situations.
-*/
-#define ACCEPTOR_REPEAT_INTERVAL 3
-
-/*
-    Periodically the learner checks for "holes": that is cases where
-    instance i is closed but it cannot be delivered since instances i-1 
-    or i-2 are not closed yet.
-    If some hole is detected, it asks the acceptors to repeat
-    their accepted values for those instances.
-    Unit is microseconds - i.e. 1500000 = 1.5 secs
-
-*/
-#define LEARNER_HOLECHECK_INTERVAL 500000
-
-/*
-    The maximum size of the pending list of values in the leader proposer.
-    It has to be limited since client my retry to submit too early, if they send 
-    at a rate higher than the proposer can digest, the list grows to infinity
-*/
-#define LEADER_MAX_QUEUE_LENGTH 50
-
-
-/*** FAILURE DETECTOR SETTINGS ***/
-
-/*
-    How frequently each proposer sends it's 'alive' message
-    to the failure oracle.
-    Unit is microseconds.
-*/
-#define FAILURE_DETECTOR_PING_INTERVAL 3000000
 
 /*** ACCEPTORS DB SETTINGS ***/
 
@@ -178,18 +94,6 @@
 */
 #define MAX_UDP_MSG_SIZE 7500
 
-/* 
-  Multicast <address, port> for the respective groups
-  The first three are used by the protocol. Only on the fourth one
-  the client is allowed to send submitted values.
-  The fifth and sixth are reserved for leader election and failure detection
-*/
-#define PAXOS_LEARNERS_NET  {{"239.0.0.1", 6001}}
-#define PAXOS_ACCEPTORS_NET {{"239.1.0.1", 6002}}
-#define PAXOS_PROPOSERS_NET {{"239.2.0.1", 6003}}
-#define PAXOS_SUBMIT_NET    {{"239.3.0.1", 6004}}
-#define PAXOS_ORACLE_NET    {{"239.4.0.1", 6005}}
-#define PAXOS_PINGS_NET     {{"239.5.0.1", 6006}}
 
 /*
   If defined, UDP sockets created (to send) are non-blocking.
@@ -218,15 +122,6 @@
 /*** DEBUGGING SETTINGS ***/
 
 /*
-   How frequently the current leader prints the status report
-   The counters printed are particularly useful for calibration
-   (i.e. number of p1/p2 timeouts)
-   10000000 = print every 10 sec
-   Undefine to disable.
-*/
-#define LEADER_EVENTS_UPDATE_INTERVAL 10000000
-
-/*
   Verbosity of the library
   0 -> off (prints only errors)
   1 -> verbose 
@@ -243,6 +138,5 @@
 */
 // #define PAXOS_DEBUG_MALLOC
 #define MALLOC_TRACE_FILENAME "malloc_debug_trace.txt"
-
 
 #endif

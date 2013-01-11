@@ -55,7 +55,7 @@ main (int argc, char const *argv[])
 	
 	rate = atoi(argv[2]);
 
-	config* c = read_config(argv[1]);
+	struct config* c = read_config(argv[1]);
 
 	base = event_base_new();    
 	bev = do_connect(base, &c->proposers[0]);

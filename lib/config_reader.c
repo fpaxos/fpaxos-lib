@@ -5,19 +5,21 @@
 
 static const int fields = 4;
 
-static void print_config(address* a, int count) {
+static void print_config(address* a, int count)
+{
 	int i;
 	for (i = 0; i < count; i++) {
 		printf("%s %d\n", a[i].address_string, a[i].port);
 	}
 }
 
-config* read_config(const char* path) {
+struct config* read_config(const char* path)
+{
 	int id;
 	char type;
 	address a;
 	address* tmp;
-	config* c;
+	struct config* c;
 	FILE* f;
 
 	f = fopen(path, "r");
@@ -25,8 +27,8 @@ config* read_config(const char* path) {
 		perror("fopen"); return NULL;
 	}
 	
-	c = malloc(sizeof(config));
-	memset(c, 0, sizeof(config));
+	c = malloc(sizeof(struct config));
+	memset(c, 0, sizeof(struct config));
 	a.address_string = malloc(128);
 	
 	while(fscanf(f, "%c %d %s %d\n", &type, &id,
