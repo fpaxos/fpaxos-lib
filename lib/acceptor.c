@@ -145,7 +145,7 @@ handle_accept_req(struct acceptor* a, struct bufferevent* bev, accept_req* ar)
 //This function is invoked when a new message is ready to be read
 // from the acceptor UDP socket	
 static void 
-acc_handle_newmsg(struct bufferevent* bev, void* arg)
+handle_req(struct bufferevent* bev, void* arg)
 {
 	paxos_msg msg;
 	struct evbuffer* in;
@@ -212,7 +212,7 @@ acceptor_init(int id, const char* config_file, struct event_base* b)
 
 	a->base = b;
 	a->receiver = tcp_receiver_new(a->base,
-		&a->conf->acceptors[id], acc_handle_newmsg, a);
+		&a->conf->acceptors[id], handle_req, a);
 	
     printf("Acceptor %d is ready\n", id);
 

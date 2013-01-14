@@ -12,9 +12,6 @@
 #include "paxos_net.h"
 #include "config_reader.h"
 
-#define LEARNER_ERROR (-1)
-#define LEARNER_READY (0)
-#define LEARNER_STARTING (1)
 #define INST_INFO_EMPTY (0)
 #define IS_CLOSED(INST) (INST->final_value != NULL)
 

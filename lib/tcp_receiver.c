@@ -73,7 +73,6 @@ on_listener_error(struct evconnlistener* l, void* arg)
     event_base_loopexit(base, NULL);
 }
 
-
 void
 tcp_receiver_write_all(struct tcp_receiver* r, const void* data, size_t size)
 {

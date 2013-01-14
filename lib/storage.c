@@ -485,5 +485,4 @@ storage_save_final_value(struct storage* s, char* value, size_t size, iid_t iid,
 
     assert(result == 0);    
     return record_buffer;
-	
 }

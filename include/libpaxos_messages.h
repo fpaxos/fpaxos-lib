@@ -78,6 +78,4 @@ typedef struct alive_ping_msg_t {
     long unsigned int sequence_number;
 } alive_ping_msg;
 
-
-
-#endif /* end of include guard: LIBPAXOS_MESSAGES_H_HP8GZLGD */
+#endif
