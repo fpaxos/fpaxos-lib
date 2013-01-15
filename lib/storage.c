@@ -22,7 +22,8 @@ struct storage
 };
 
 static int 
-bdb_init_tx_handle(struct storage* s, int tx_mode, char* db_env_path) {
+bdb_init_tx_handle(struct storage* s, int tx_mode, char* db_env_path)
+{
     int result;
 	DB_ENV* dbenv = s->env;
 	
@@ -88,14 +89,16 @@ static int
 bdb_init_db(struct storage* s, char* db_path)
 {
     int result;
-	DB* dbp = s->db;
+	DB* dbp;
 	
     //Create the DB file
-    result = db_create(&dbp, s->env, 0);
+    result = db_create(&(s->db), s->env, 0);
     if (result != 0) {
         printf("db_create failed: %s\n", db_strerror(result));
         return -1;
     }
+	
+	dbp = s->db;
     
     if (DURABILITY_MODE == 0 || DURABILITY_MODE == 20) {
         //Set the size of the memory cache
@@ -123,7 +126,7 @@ bdb_init_db(struct storage* s, char* db_path)
 
     storage_tx_commit(s);
 
-    if(result != 0) {
+    if (result != 0) {
         printf("DB open failed: %s\n", db_strerror(result));
         return -1;
     }
@@ -339,12 +342,12 @@ storage_get_record(struct storage* s, iid_t iid)
     //Read the record
     flags = 0;
     result = dbp->get(dbp, 
-        txn, 
-        &dbkey, 
-        &dbdata, 
+        txn,
+        &dbkey,
+        &dbdata,
         flags);
     
-    if(result == DB_NOTFOUND || result == DB_KEYEMPTY) {
+    if (result == DB_NOTFOUND || result == DB_KEYEMPTY) {
         //Record does not exist
         LOG(DBG, ("The record for iid:%u does not exist\n", iid));
         return NULL;
