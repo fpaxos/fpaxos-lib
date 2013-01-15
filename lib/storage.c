@@ -139,6 +139,7 @@ storage_open(int acceptor_id, int do_recovery)
 	char db_file_path[512];
 	
 	struct storage* s = malloc(sizeof(struct storage));
+	memset(s, 0, sizeof(struct storage));
 
     //Create path to db file in db dir
     sprintf(db_env_path, ACCEPTOR_DB_PATH);    
@@ -234,7 +235,7 @@ storage_open(int acceptor_id, int do_recovery)
         return NULL;
     }
     
-    return 0;
+    return s;
 }
 
 int

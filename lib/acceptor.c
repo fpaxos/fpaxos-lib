@@ -204,10 +204,11 @@ acceptor_init(int id, const char* config_file, struct event_base* b)
     a->acceptor_id = id;
 
     // Initialize BDB 
-    if (storage_open(id, 0) != 0) {
-        printf("Acceptor stable storage init failed\n");
+	a->store = storage_open(id, 0);
+    if (a->store == NULL) {
+		printf("Acceptor stable storage init failed\n");
 		free(a);
-        return NULL;
+		return NULL;
     }
 
 	a->base = b;
@@ -216,7 +217,7 @@ acceptor_init(int id, const char* config_file, struct event_base* b)
 	
     printf("Acceptor %d is ready\n", id);
 
-    return 0;
+    return a;
 }
 
 // struct acceptor*
