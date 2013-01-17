@@ -5,9 +5,9 @@
 
 #include "libpaxos.h"
 
-int acceptor_id;
-struct acceptor* a;
-struct event_base* b;
+static int acceptor_id;
+static struct acceptor* a;
+static struct event_base* b;
 
 void
 handle_cltr_c (int sig) {
