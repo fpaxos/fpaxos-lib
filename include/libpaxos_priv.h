@@ -11,20 +11,6 @@
 
 typedef accept_ack acceptor_record;
 
-
-/*** MALLOC DEBUGGING MACROs ***/
-
-#ifdef PAXOS_DEBUG_MALLOC
-void * paxos_debug_malloc(size_t size, char* file, int line);
-void paxos_debug_free(void* p, char* file, int line);
-#define PAX_MALLOC(x) paxos_debug_malloc(x, __FILE__, __LINE__)
-#define PAX_FREE(x) paxos_debug_free(x, __FILE__, __LINE__)
-#else
-void* paxos_normal_malloc(size_t size);
-#define PAX_MALLOC(x) paxos_normal_malloc(x);
-#define PAX_FREE(x) free(x)
-#endif
-
 /*** LOGGING MACROS ***/
 
 #define VRB 1
