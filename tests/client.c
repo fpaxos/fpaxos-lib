@@ -59,6 +59,9 @@ main (int argc, char const *argv[])
 
 	base = event_base_new();    
 	bev = do_connect(base, &c->proposers[0]);
+	if (bev == NULL) {
+		printf("Connection failed\n");
+	}
 	
 	while(1) {
 		int i;
