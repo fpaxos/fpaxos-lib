@@ -1,15 +1,18 @@
 #ifndef _LIBPAXOS_PRIV_H_
 #define _LIBPAXOS_PRIV_H_
 
-#include <time.h>
-#include <sys/time.h>
-
 #include "libpaxos.h"
 #include "paxos_config.h"
 
 #include "libpaxos_messages.h"
 
 typedef accept_ack acceptor_record;
+
+typedef struct address_t {
+	char* address_string;
+	int port;
+} address;
+
 
 /*** LOGGING MACROS ***/
 
@@ -21,12 +24,4 @@ typedef accept_ack acceptor_record;
    printf S ;\
 }
 
-
-typedef struct address_t {
-	char* address_string;
-	int port;
-} address;
-
-/*** MISC MACROS ***/
-
-#endif /* _LIBPAXOS_PRIV_H_ */
+#endif
