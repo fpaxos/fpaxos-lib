@@ -55,7 +55,6 @@ instance_new()
 	return inst;
 }
 
-
 /*
 	Checks if a given instance is closed, that is if a quorum of acceptor
 	accepted the same value ballot pair.
@@ -179,13 +178,11 @@ learner_state_get_instance(struct learner_state* s, iid_t iid)
 	return inst;
 }
 
-
 static struct instance*
 learner_state_get_current_instance(struct learner_state* s)
 {
 	return learner_state_get_instance(s, s->current_iid);
 }
-
 
 accept_ack*
 learner_state_deliver_next(struct learner_state* s)
