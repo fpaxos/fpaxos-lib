@@ -107,14 +107,12 @@
 /*
   Size of the in-meory table of instances for the proposer.
   MUST be bigger than PROPOSER_PREEXEC_WIN_SIZE (double or more)
-  MUST be a power of 2
 */
 #define PROPOSER_ARRAY_SIZE 2048
 
 /* 
   Size of the in-meory table of instances for the learner.
   MUST be bigger than PROPOSER_PREEXEC_WIN_SIZE (double or more)
-  MUST be a power of 2
 */
 #define LEARNER_ARRAY_SIZE 2048
 
@@ -126,17 +124,7 @@
   0 -> off (prints only errors)
   1 -> verbose 
   3 -> debug
-  
-  //TODO set most useful as VRB
 */
-#define VERBOSITY_LEVEL 0
-
-/*
-  If PAXOS_DEBUG_MALLOC is defined, it turns on
-  malloc debugging to detect memory leaks.
-  The trace filename must be defined anyway
-*/
-// #define PAXOS_DEBUG_MALLOC
-#define MALLOC_TRACE_FILENAME "malloc_debug_trace.txt"
+#define VERBOSITY_LEVEL 3
 
 #endif
