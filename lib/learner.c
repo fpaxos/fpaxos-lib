@@ -32,8 +32,8 @@ struct learner
 static void 
 learner_deliver_next_closed(struct learner* l)
 {
-	accept_ack* ack;
 	int prop_id;
+	accept_ack* ack;
 	while ((ack = learner_state_deliver_next(l->state)) != NULL) {
 		// deliver the value through callback
 		prop_id = ack->ballot % MAX_N_OF_PROPOSERS;
@@ -43,8 +43,9 @@ learner_deliver_next_closed(struct learner* l)
 	}
 }
 
-// Called when an accept_ack is received, the learner will update it's status
-// for that instance and afterward check if the instance is closed
+// Called when an accept_ack is received, the learner will update 
+// it's status for that instance and afterwards check if the instance
+// is closed
 static void
 learner_handle_accept_ack(struct learner* l, accept_ack * aa)
 {
@@ -69,7 +70,8 @@ learner_handle_msg(struct learner* l, struct bufferevent* bev)
             learner_handle_accept_ack(l, (accept_ack*)buffer);
         	break;
         default:
-            printf("Unknow msg type %d received from acceptors\n", msg.type);
+            printf("Unknow msg type %d received from acceptors\n", 
+				msg.type);
     }
 }
 
@@ -99,9 +101,9 @@ static void
 on_event(struct bufferevent *bev, short events, void *ptr)
 {
     if (events & BEV_EVENT_CONNECTED) {
-    	LOG(VRB, ("Proposer connected...\n"));
+    	LOG(VRB, ("Learner connected...\n"));
 	} else if (events & BEV_EVENT_ERROR) {
-		LOG(VRB, ("Proposer connection error...\n"));
+		LOG(VRB, ("Learner connection error...\n"));
 		bufferevent_disable(bev, EV_READ|EV_WRITE);
 	}
 }
@@ -129,7 +131,8 @@ do_connect(struct learner* l, struct event_base* b, address* a)
 }
 
 struct learner*
-learner_init_conf(struct config* c, deliver_function f, void* arg, struct event_base* b)
+learner_init_conf(struct config* c, deliver_function f, void* arg, 
+	struct event_base* b)
 {
 	int i;
 	struct learner* l;
