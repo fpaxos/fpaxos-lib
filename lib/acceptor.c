@@ -1,15 +1,14 @@
 #include <event2/event.h>
 #include <event2/util.h>
-#include <event2/event_compat.h>
 #include <event2/event_struct.h>
 #include <event2/buffer.h>
 
 #include "libpaxos.h"
 #include "libpaxos_priv.h"
 #include "paxos_net.h"
-#include "storage.h"
 #include "config_reader.h"
 #include "tcp_receiver.h"
+#include "acceptor_state.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,120 +19,41 @@ struct acceptor
 {
 	struct config* conf;
 	int acceptor_id;
-	struct storage* store;
 	struct event_base* base;
 	struct tcp_receiver* receiver;
+	struct acceptor_state* state;
 };
 
 
-/*-------------------------------------------------------------------------*/
-// Helpers
-/*-------------------------------------------------------------------------*/
-
-// Given an accept request (phase 2a) message and the current record
-// will update the record if the request is legal
-// Return NULL for no changes, the new record if the accept was applied
-static acceptor_record *
-acc_apply_accept(struct acceptor* a, accept_req * ar, acceptor_record * rec)
-{
-    //We already have a more recent ballot
-    if (rec != NULL && rec->ballot < ar->ballot) {
-        LOG(DBG, ("Accept for iid:%u dropped (ballots curr:%u recv:%u)\n", 
-            ar->iid, rec->ballot, ar->ballot));
-        return NULL;
-    }
-    
-    //Record not found or smaller ballot
-    // in both cases overwrite and store
-    LOG(DBG, ("Accepting for iid:%u (ballot:%u)\n", 
-        ar->iid, ar->ballot));
-    
-    //Store the updated record
-    rec = storage_save_accept(a->store, ar);
-    
-    return rec;
-}
-
-//Given a prepare (phase 1a) request message and the
-// corresponding record, will update if the request is valid
-// Return NULL for no changes, the new record if the promise was made
-static acceptor_record *
-acc_apply_prepare(struct acceptor* a, prepare_req * pr, acceptor_record * rec)
-{
-    //We already have a more recent ballot
-    if (rec != NULL && rec->ballot >= pr->ballot) {
-        LOG(DBG, ("Prepare request for iid:%u dropped (ballots curr:%u recv:%u)\n", 
-            pr->iid, rec->ballot, pr->ballot));
-        return NULL;
-    }
-    
-    //Stored value is final, the instance is closed already
-    if (rec != NULL && rec->is_final) {
-        LOG(DBG, ("Prepare request for iid:%u dropped \
-            (stored value is final)\n", pr->iid));
-        return NULL;
-    }
-    
-    //Record not found or smaller ballot
-    // in both cases overwrite and store
-    LOG(DBG, ("Prepare request is valid for iid:%u (ballot:%u)\n", 
-        pr->iid, pr->ballot));
-    
-    //Store the updated record
-    rec = storage_save_prepare(a->store, pr, rec);
-
-    return rec;
-}
-
-
-/*-------------------------------------------------------------------------*/
-// Event handlers
-/*-------------------------------------------------------------------------*/
-
-//Received a batch of prepare requests (phase 1a), 
+// Received a batch of prepare requests (phase 1a), 
 // may answer with multiple messages, all reads/updates
 // needs to be wrapped into transactions and made persistent
 // before sending the corresponding acknowledgement
 static void 
-handle_prepare_req(struct acceptor* a, struct bufferevent* bev, prepare_req* pr)
+handle_prepare_req(struct acceptor* a, 
+	struct bufferevent* bev, prepare_req* pr)
 {
-	acceptor_record * rec;
-	
-    LOG(DBG, ("Handle prepare request for instance %d ballot %d\n", pr->iid, pr->ballot));
+	acceptor_record * rec;	
+    LOG(DBG, ("Handling prepare iid %d ballot %d\n", pr->iid, pr->ballot));
 
-    // Wrap changes in a transaction
-    storage_tx_begin(a->store);
+	rec = acceptor_state_receive_prepare(a->state, pr);
 	
-	// Retrieve corresponding record
-	rec = storage_get_record(a->store, pr->iid);
-	// Try to apply prepare
-	rec = acc_apply_prepare(a, pr, rec);
-	// If accepted, send accept_ack
-    storage_tx_commit(a->store);
-
 	if (rec != NULL)
 		sendbuf_add_prepare_ack(bev, rec, a->acceptor_id);
 }
 
-//Received a batch of accept requests (phase 2a)
+// Received a batch of accept requests (phase 2a)
 // may answer with multiple messages, all reads/updates
 // needs to be wrapped into transactions and made persistent
 // before sending the corresponding acknowledgement
 static void 
-handle_accept_req(struct acceptor* a, struct bufferevent* bev, accept_req* ar)
+handle_accept_req(struct acceptor* a,
+	struct bufferevent* bev, accept_req* ar)
 {
     LOG(DBG, ("Handling accept for instance %d\n", ar->iid));
 
 	acceptor_record* rec;
-	
-    // Wrap in a transaction
-    storage_tx_begin(a->store);
-	// Retrieve corresponding record
-	rec = storage_get_record(a->store, ar->iid);
-	// Try to apply accept
-	rec = acc_apply_accept(a, ar, rec);
-	
-	storage_tx_commit(a->store);
+	rec = acceptor_state_receive_accept(a->state, ar);
 
 	// If accepted, send accept_ack
 	if (rec != NULL) {
@@ -142,8 +62,8 @@ handle_accept_req(struct acceptor* a, struct bufferevent* bev, accept_req* ar)
 	}
 }
 
-//This function is invoked when a new message is ready to be read
-// from the acceptor UDP socket	
+// This function is invoked when a new message is ready to be read
+// from the acceptor socket	
 static void 
 handle_req(struct bufferevent* bev, void* arg)
 {
@@ -202,19 +122,10 @@ acceptor_init(int id, const char* config_file, struct event_base* b)
 	}
 
     a->acceptor_id = id;
-
-    // Initialize BDB 
-	a->store = storage_open(id, 0);
-    if (a->store == NULL) {
-		printf("Acceptor stable storage init failed\n");
-		free(a);
-		return NULL;
-    }
-
 	a->base = b;
-	a->receiver = tcp_receiver_new(a->base,
-		&a->conf->acceptors[id], handle_req, a);
-	
+	a->receiver = tcp_receiver_new(a->base, &a->conf->acceptors[id],
+		handle_req, a);
+	a->state = acceptor_state_new(id);
     printf("Acceptor %d is ready\n", id);
 
     return a;
@@ -231,9 +142,7 @@ acceptor_init(int id, const char* config_file, struct event_base* b)
 int
 acceptor_exit(struct acceptor* a)
 {
-    if (storage_close(a->store) != 0) {
-        printf("storage shutdown failed!\n");
-    }
+	acceptor_state_delete(a->state);
 	event_base_loopexit(a->base, NULL);
     return 0;
 }
