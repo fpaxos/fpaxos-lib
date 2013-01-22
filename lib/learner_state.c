@@ -16,13 +16,9 @@ struct instance
 
 struct learner_state
 {
-	// Highest instance closed (can be higher than current!)
-	// TODO: not used
-	iid_t highest_iid_closed;
-	//Highest instance for which a message was seen
-	iid_t highest_iid_seen;
-	// Current instance, incremented when current is closed and 
-	// the corresponding value is delivered
+	// current instance id, incremented when current
+	// instance is closed and the corresponding value
+	// is delivered
 	iid_t current_iid;
 	// the instances we store
 	struct carray* instances;
@@ -210,11 +206,6 @@ learner_state_receive_accept(struct learner_state* s, accept_ack* ack)
 	int relevant;
 	struct instance* inst;
 	
-	// Keep track of highest seen instance id
-	if (ack->iid > s->highest_iid_seen) {
-		s->highest_iid_seen = ack->iid;
-	}
-
 	// Already closed and delivered, ignore message
 	if (ack->iid < s->current_iid) {
 		LOG(DBG, ("Dropping accept_ack for already delivered iid: %u\n",
@@ -232,7 +223,6 @@ learner_state_receive_accept(struct learner_state* s, accept_ack* ack)
 
 	// Message is within interesting bounds
 	// Update the corresponding record
-
 	inst = learner_state_get_instance(s, ack->iid);
 	relevant = instance_update(inst, ack);
 
@@ -248,10 +238,6 @@ learner_state_receive_accept(struct learner_state* s, accept_ack* ack)
 		LOG(DBG, ("Not yet a quorum for iid: %u\n", ack->iid));
 		return;
 	}
-
-	// Keep track of highest closed
-	if (inst->iid > s->highest_iid_closed)
-		s->highest_iid_closed = inst->iid;
 }
 
 static void
@@ -270,8 +256,6 @@ learner_state_new(int instances)
 	struct learner_state* s;
 	s = malloc(sizeof(struct learner_state));
 	initialize_instances(s, instances);
-	s->highest_iid_seen = 1;
-	s->highest_iid_closed = 0;
 	s->current_iid = 1;
 	return s;
 }
