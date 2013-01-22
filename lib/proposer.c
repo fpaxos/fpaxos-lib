@@ -33,6 +33,15 @@ do_prepare(struct proposer* p)
 }
 
 static void
+proposer_preexecute(struct proposer* p, int count)
+{
+	int i;
+	for (i = 0; i < count; i++)
+		do_prepare(p);
+	LOG(DBG, ("Opened %d new instances\n", count));
+}
+
+static void
 try_accept(struct proposer* p)
 {
 	int i;
@@ -160,15 +169,6 @@ on_client_msg(struct bufferevent* bev, void* arg)
         default:
             printf("Unknown msg type %d received from client\n", msg.type);
     }
-}
-
-static void
-proposer_preexecute(struct proposer* p, int count)
-{
-	int i;
-	for (i = 0; i < count; i++)
-		do_prepare(p);
-	LOG(DBG, ("Opened %d new instances\n", count));
 }
 
 struct proposer*
