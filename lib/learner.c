@@ -49,7 +49,6 @@ learner_deliver_next_closed(struct learner* l)
 static void
 learner_handle_accept_ack(struct learner* l, accept_ack * aa)
 {
-
 	learner_state_receive_accept(l->state, aa);
 	learner_deliver_next_closed(l);
 }
