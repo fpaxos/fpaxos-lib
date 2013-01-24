@@ -112,7 +112,8 @@ do_connect(struct learner* l, struct event_base* b, address* a)
 {
 	struct sockaddr_in sin;
 	struct bufferevent* bev;
-	
+
+	// TODO reuse set_sockaddr_in
 	memset(&sin, 0, sizeof(sin));
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = inet_addr(a->address_string);
