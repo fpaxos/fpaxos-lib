@@ -91,10 +91,6 @@ handle_req(struct bufferevent* bev, void* arg)
     }
 }
 
-
-/*-------------------------------------------------------------------------*/
-// Public functions (see libpaxos.h for more details)
-/*-------------------------------------------------------------------------*/
 struct acceptor* 
 acceptor_init(int id, const char* config_file, struct event_base* b)
 {
