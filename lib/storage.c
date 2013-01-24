@@ -164,7 +164,8 @@ storage_open(int acceptor_id, int do_recovery)
     
     //Create the directory if it does not exist
     if (!dir_exists && (mkdir(db_env_path, S_IRWXU) != 0)) {
-        printf("Failed to create env dir %s: %s\n", db_env_path, strerror(errno));
+        printf("Failed to create env dir %s: %s\n", 
+			db_env_path, strerror(errno));
         return NULL;
     } 
     
@@ -175,7 +176,8 @@ storage_open(int acceptor_id, int do_recovery)
         
         if((system(rm_command) != 0) || 
             (mkdir(db_env_path, S_IRWXU) != 0)) {
-            printf("Failed to recreate empty env dir %s: %s\n", db_env_path, strerror(errno));
+            printf("Failed to recreate empty env dir %s: %s\n",
+				 db_env_path, strerror(errno));
         }
     }
     
@@ -405,7 +407,7 @@ storage_save_accept(struct storage* s, accept_req * ar)
 }
 
 acceptor_record*
-storage_save_prepare(struct storage* s, prepare_req * pr, acceptor_record * rec)
+storage_save_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
 {
 	int flags, result;
     DBT dbkey, dbdata;
@@ -452,7 +454,8 @@ storage_save_prepare(struct storage* s, prepare_req * pr, acceptor_record * rec)
 }
 
 acceptor_record*
-storage_save_final_value(struct storage* s, char* value, size_t size, iid_t iid, ballot_t b)
+storage_save_final_value(struct storage* s, char* value, size_t size, 
+		iid_t iid, ballot_t b)
 {
 	int flags, result;
     DBT dbkey, dbdata;
