@@ -27,7 +27,7 @@ sendbuf_add_prepare_req(struct bufferevent* bev, iid_t iid, ballot_t ballot)
 }
 
 void
-sendbuf_add_prepare_ack(struct bufferevent* bev, acceptor_record * rec, int id)
+sendbuf_add_prepare_ack(struct bufferevent* bev, acceptor_record* rec, int id)
 {
 	size_t s;
 	prepare_ack pa;
@@ -67,18 +67,16 @@ sendbuf_add_accept_req(struct bufferevent* bev, iid_t iid,
 }
 
 void
-sendbuf_add_accept_ack(struct tcp_receiver* r, acceptor_record* rec)
+sendbuf_add_accept_ack(struct bufferevent* bev, accept_ack* aa)
 {
-	paxos_msg msg;
+	size_t s;
 	
-	LOG(VRB, ("sending accept req for inst %d ballot %d\n", 
-		rec->iid, rec->ballot));
-
-	msg.data_size = ACCEPT_ACK_SIZE(rec);
-	msg.type = accept_acks;
-	tcp_receiver_write_all(r, &msg, sizeof(paxos_msg));
-	tcp_receiver_write_all(r, rec, sizeof(acceptor_record));
-	tcp_receiver_write_all(r, rec->value, rec->value_size);
+	LOG(VRB, ("sending accept ack for inst %d ballot %d\n", 
+		aa->iid, aa->ballot));
+	
+	s = ACCEPT_ACK_SIZE(aa);
+	add_paxos_header(bev, accept_acks, s);
+	bufferevent_write(bev, aa, s);
 }
 
 void

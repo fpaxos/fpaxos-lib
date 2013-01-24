@@ -54,11 +54,14 @@ handle_accept_req(struct acceptor* a,
 
 	acceptor_record* rec;
 	rec = acceptor_state_receive_accept(a->state, ar);
-
-	// If accepted, send accept_ack
-	if (rec != NULL) {
-		rec->acceptor_id = a->acceptor_id;
-		sendbuf_add_accept_ack(a->receiver, rec);
+	
+	if (rec != NULL) { 	// if accepted, send accept_ack
+		int i;
+		struct carray* bevs = tcp_receiver_get_events(a->receiver);
+		for (i = 0; i < carray_count(bevs); i++) {
+			rec->acceptor_id = a->acceptor_id; // TODO needed?
+			sendbuf_add_accept_ack(carray_at(bevs, i), rec);
+		}
 	}
 }
 

@@ -105,3 +105,9 @@ tcp_receiver_new(struct event_base* b, address* a,
 	
 	return r;
 }
+
+struct carray*
+tcp_receiver_get_events(struct tcp_receiver* r)
+{
+	return r->bevs;
+}
