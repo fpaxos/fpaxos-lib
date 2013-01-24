@@ -2,9 +2,6 @@
 #include "storage.h"
 #include <stdlib.h>
 
-// TODO this should be configurable
-#define BDB_MODE 0
-
 struct acceptor_state {
 	struct storage* store;
 };
@@ -19,9 +16,15 @@ apply_accept(struct storage* s, accept_req* ar, acceptor_record* rec);
 struct acceptor_state*
 acceptor_state_new(int id)
 {
+	/*
+		TODO Acceptors should be able to "recover" from the existing BDB file. 
+		For now we just force do_recovery to be false (BDB creates a new
+		database from scratch each time the acceptor starts).
+	*/
+	int do_recovery = 0; 
 	struct acceptor_state* s;
 	s = malloc(sizeof(struct acceptor_state));
-	s->store = storage_open(id, BDB_MODE);
+	s->store = storage_open(id, do_recovery); 
 	if (s->store == NULL) {
 		free(s);
 		return NULL;	
