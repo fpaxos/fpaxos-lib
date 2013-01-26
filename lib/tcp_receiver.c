@@ -88,22 +88,29 @@ tcp_receiver_new(struct event_base* b, address* a,
 {
 	struct tcp_receiver* r;
 	struct sockaddr_in sin;
+	unsigned flags = LEV_OPT_CLOSE_ON_EXEC
+		| LEV_OPT_CLOSE_ON_FREE
+		| LEV_OPT_REUSEABLE;
 	
 	r = malloc(sizeof(struct tcp_receiver));
-
 	set_sockaddr_in(&sin, a);
 	r->callback = cb;
 	r->arg = arg;
-	
 	r->listener = evconnlistener_new_bind(
-		b, on_accept, r, LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE,
-		-1, (struct sockaddr*)&sin, sizeof(sin));
-
+		b, on_accept, r, flags,	-1, (struct sockaddr*)&sin, sizeof(sin));
 	assert(r->listener != NULL);
 	evconnlistener_set_error_cb(r->listener, on_listener_error);
 	r->bevs = carray_new(10);
 	
 	return r;
+}
+
+void 
+tcp_receiver_free(struct tcp_receiver* r)
+{
+	evconnlistener_free(r->listener);
+	carray_free(r->bevs);
+	free(r);
 }
 
 struct carray*
