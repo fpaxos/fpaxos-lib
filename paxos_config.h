@@ -125,6 +125,6 @@
   1 -> verbose 
   3 -> debug
 */
-#define VERBOSITY_LEVEL 3
+#define VERBOSITY_LEVEL 0
 
 #endif
