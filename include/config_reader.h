@@ -7,10 +7,8 @@
 
 struct config
 {
-	int learners_count;
 	int proposers_count;
 	int acceptors_count;
-	address learners[MAX_ADDR];
 	address proposers[MAX_ADDR];
 	address acceptors[MAX_ADDR];
 };
