@@ -148,9 +148,9 @@ static ballot_t
 proposer_state_next_ballot(struct proposer_state* s, ballot_t b)
 {
 	if (b > 0)
-		return MAX_N_OF_PROPOSERS + s->id;
-	else
 		return MAX_N_OF_PROPOSERS + b;
+	else
+		return MAX_N_OF_PROPOSERS + s->id;
 }
 
 void
