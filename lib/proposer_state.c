@@ -129,8 +129,23 @@ proposer_state_get_instance(struct proposer_state* s, iid_t iid)
 {
 	struct instance* inst;
 	inst = carray_at(s->instances, iid);
-	assert(inst->iid == iid || inst->iid == 0);
-	return inst;
+    if (inst->iid != iid) {
+        return NULL;
+    }
+    return inst;
+}
+
+static struct instance*
+proposer_state_create_instance(struct proposer_state* s, iid_t iid, ballot_t ballot)
+{
+	struct instance* inst;
+	inst = carray_at(s->instances, iid);
+    assert(inst->iid == 0);
+
+    inst->iid = iid;
+    inst->status = p1_pending;
+    inst->my_ballot = ballot;
+    return inst;
 }
 
 static int
@@ -165,13 +180,11 @@ proposer_state_prepare(struct proposer_state* s, iid_t* i, ballot_t* b)
 	struct instance* inst;
 	iid_t iid = s->next_prepare_iid + 1;
 	
-	// Get instance from state array
 	inst = proposer_state_get_instance(s, iid);
 
-	if (inst->status == empty) {
-		inst->iid = iid;
-	   	inst->status = p1_pending;
-	    inst->my_ballot = proposer_state_next_ballot(s, inst->my_ballot);
+	if (inst == NULL) {
+        // new instance, create it
+        inst = proposer_state_create_instance(s, iid, proposer_state_next_ballot(s, 0));
 	} else if (inst->status == p1_pending) {
 		assert(inst->iid == iid);
 		//Reset fields used for previous phase 1
@@ -196,9 +209,11 @@ proposer_state_receive_prepare(struct proposer_state* s, prepare_ack* ack)
 {
 	struct instance* inst;
 	inst = proposer_state_get_instance(s, ack->iid);
-	
-    // If not p1_pending, drop
-    if (inst->status != p1_pending) {
+
+    if (inst == NULL) { // instance not stored (too old)
+        LOG(DBG, ("Promise dropped, iid:%u too old\n", ack->iid));
+        return;
+    } else if (inst->status != p1_pending) { // If not p1_pending, drop
         LOG(DBG, ("Promise dropped, iid:%u not pending\n", ack->iid));
         return;
     }
@@ -230,6 +245,7 @@ proposer_state_accept(struct proposer_state* s, iid_t* iout,
 		return 0;
 	
 	inst = proposer_state_get_instance(s, iid);
+    assert(inst != NULL); // proposer_state_instance_ready should have caught this!
 		
     if (inst->p1_value == NULL && inst->p2_value == NULL) {
 		// Happens when p1 completes without value        
@@ -286,8 +302,8 @@ do_learn(struct proposer_state* s, accept_ack* ack)
 	// but we have to check if the call actually returns
 	// the right iid
 	inst = proposer_state_get_instance(s, ack->iid);
-    if (inst->iid != ack->iid) { 
-	    // Instance not even initialized, skip
+    if (inst == NULL) {
+	    // Instance not stored. Probably too old.
         return;
     }
     
