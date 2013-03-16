@@ -66,11 +66,11 @@ static void
 on_listener_error(struct evconnlistener* l, void* arg)
 {
 	struct event_base *base = evconnlistener_get_base(l);
-    int err = EVUTIL_SOCKET_ERROR();
-    fprintf(stderr, "Got an error %d (%s) on the listener. "
-            "Shutting down.\n", err, evutil_socket_error_to_string(err));
+	int err = EVUTIL_SOCKET_ERROR();
+	fprintf(stderr, "Got an error %d (%s) on the listener. "
+		"Shutting down.\n", err, evutil_socket_error_to_string(err));
 
-    event_base_loopexit(base, NULL);
+	event_base_loopexit(base, NULL);
 }
 
 void

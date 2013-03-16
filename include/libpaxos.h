@@ -21,13 +21,13 @@ typedef unsigned int ballot_t;
 typedef uint32_t iid_t;
 
 /* 
-    When starting a learner you must pass a function to be invoked whenever
-    a value is delivered.
-    This defines the type of such function.
-    Example: 
-    void my_deliver_fun(char * value, size_t size, iid_t iid, ballot_t ballot, int proposer) {
-        ...
-    }
+	When starting a learner you must pass a function to be invoked whenever
+	a value is delivered.
+	This defines the type of such function.
+	Example: 
+	void my_deliver_fun(char * value, size_t size, iid_t iid, ballot_t ballot, int proposer) {
+		...
+	}
 */
 typedef void (* deliver_function)(char*, size_t, iid_t, ballot_t, int, void*);
 
@@ -51,33 +51,33 @@ struct learner* learner_init(const char* config_file, deliver_function f,
 	void* arg, struct event_base* base);
 
 /*
-    Starts an acceptor and returns when the initialization is complete.
-    Return value is 0 if successful
-    acceptor_id -> Must be in the range [0...(N_OF_ACCEPTORS-1)]
+	Starts an acceptor and returns when the initialization is complete.
+	Return value is 0 if successful
+	acceptor_id -> Must be in the range [0...(N_OF_ACCEPTORS-1)]
 */
 struct acceptor*
 acceptor_init(int id, const char* config, struct event_base* b);
 
 /*
-    Starts an acceptor that instead of creating a clean DB,
-    tries to recover from an existing one.
-    Return value is 0 if successful
+	Starts an acceptor that instead of creating a clean DB,
+	tries to recover from an existing one.
+	Return value is 0 if successful
 */
 struct acceptor*
 acceptor_init_recover(int id, const char* config, struct event_base* b);
 
 /*
-    Shuts down the acceptor in the current process.
-    It may take a few seconds to complete since the DB needs to be closed.
+	Shuts down the acceptor in the current process.
+	It may take a few seconds to complete since the DB needs to be closed.
 */
 //FIXME should delegate close to libevent thread
 int
 acceptor_exit(struct acceptor* a);
 
 /*
-    Starts a proposer with the given ID (which MUST be unique).
-    Return value is 0 if successful
-    proposer_id -> Must be in the range [0...(MAX_N_OF_PROPOSERS-1)]
+	Starts a proposer with the given ID (which MUST be unique).
+	Return value is 0 if successful
+	proposer_id -> Must be in the range [0...(MAX_N_OF_PROPOSERS-1)]
 */
 struct proposer*
 proposer_init(int id, const char* config, struct event_base* b);

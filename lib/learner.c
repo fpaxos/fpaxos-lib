@@ -24,7 +24,7 @@ struct learner
 	// libevent handle
 	struct event_base * base;
 	// config reader handle
- 	struct config* conf;
+	struct config* conf;
 	// bufferevent sockets to send data to acceptors
 	struct bufferevent* acceptor_ev[N_OF_ACCEPTORS];
 };
@@ -65,11 +65,11 @@ learner_handle_msg(struct learner* l, struct bufferevent* bev)
 	evbuffer_remove(in, buffer, msg.data_size);
 	
 	switch (msg.type) {
-        case accept_acks:
-            learner_handle_accept_ack(l, (accept_ack*)buffer);
-        	break;
-        default:
-            printf("Unknow msg type %d received from acceptors\n", 
+		case accept_acks:
+			learner_handle_accept_ack(l, (accept_ack*)buffer);
+			break;
+		default:
+			printf("Unknow msg type %d received from acceptors\n", 
 				msg.type);
     }
 }
@@ -99,7 +99,7 @@ on_acceptor_msg(struct bufferevent* bev, void* arg)
 static void
 on_event(struct bufferevent *bev, short events, void *ptr)
 {
-    if (events & BEV_EVENT_CONNECTED) {
+	if (events & BEV_EVENT_CONNECTED) {
     	LOG(VRB, ("Learner connected...\n"));
 	} else if (events & BEV_EVENT_ERROR) {
 		LOG(VRB, ("Learner connection error...\n"));
@@ -120,12 +120,12 @@ do_connect(struct learner* l, struct event_base* b, address* a)
 	sin.sin_port = htons(a->port);
 	
 	bev = bufferevent_socket_new(b, -1, BEV_OPT_CLOSE_ON_FREE);
-    bufferevent_setcb(bev, on_acceptor_msg, NULL, on_event, l);
-    bufferevent_enable(bev, EV_READ|EV_WRITE);
+	bufferevent_setcb(bev, on_acceptor_msg, NULL, on_event, l);
+	bufferevent_enable(bev, EV_READ|EV_WRITE);
 	struct sockaddr* addr = (struct sockaddr*)&sin;
 	if (bufferevent_socket_connect(bev, addr, sizeof(sin)) < 0) {
-        bufferevent_free(bev);
-        return NULL;
+		bufferevent_free(bev);
+		return NULL;
 	}
 	return bev;
 }
@@ -149,8 +149,8 @@ learner_init_conf(struct config* c, deliver_function f, void* arg,
 		l->acceptor_ev[i] = do_connect(l, b, &l->conf->acceptors[i]);
 	}
 	
-    LOG(VRB, ("Learner is ready\n"));
-    return l;
+	LOG(VRB, ("Learner is ready\n"));
+	return l;
 }
 
 struct learner*

@@ -23,11 +23,11 @@ do_connect(struct event_base* b, address* a)
 	sin.sin_port = htons(a->port);
 	
 	bev = bufferevent_socket_new(b, -1, BEV_OPT_CLOSE_ON_FREE);
-    bufferevent_enable(bev, EV_WRITE);
+	bufferevent_enable(bev, EV_WRITE);
 	struct sockaddr* addr = (struct sockaddr*)&sin;
 	if (bufferevent_socket_connect(bev, addr, sizeof(sin)) < 0) {
-        bufferevent_free(bev);
-        return NULL;
+		bufferevent_free(bev);
+		return NULL;
 	}
 	return bev;
 }
@@ -36,7 +36,7 @@ void
 handle_cltr_c (int sig)
 {
 	printf("Caught signal %d\n", sig);
-    exit(0);
+	exit(0);
 }
 
 
@@ -44,14 +44,14 @@ int
 main (int argc, char const *argv[])
 {
 	struct event_base* base;
-    struct bufferevent* bev;
+	struct bufferevent* bev;
 	
 	signal(SIGINT, handle_cltr_c);
 	
-    if (argc != 3) {
-        printf("Usage: %s config rate\n", argv[0]);
-        exit(1);
-    }
+	if (argc != 3) {
+		printf("Usage: %s config rate\n", argv[0]);
+		exit(1);
+	}
 	
 	rate = atoi(argv[2]);
 
@@ -71,5 +71,5 @@ main (int argc, char const *argv[])
 		}
 		sleep(1);
 	}
-    return 0;
+	return 0;
 }

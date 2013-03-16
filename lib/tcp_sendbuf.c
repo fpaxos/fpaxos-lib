@@ -18,8 +18,8 @@ sendbuf_add_prepare_req(struct bufferevent* bev, iid_t iid, ballot_t ballot)
 	
 	LOG(VRB, ("sending prepare iid: %d ballot: %d\n", iid, ballot));
 	
-    pr.iid = iid;
-    pr.ballot = ballot;
+	pr.iid = iid;
+	pr.ballot = ballot;
 	s = PREPARE_REQ_SIZE(pr);
 	
 	add_paxos_header(bev, prepare_reqs, s);
@@ -33,17 +33,17 @@ sendbuf_add_prepare_ack(struct bufferevent* bev, acceptor_record* rec, int id)
 	prepare_ack pa;
 	
 	pa.acceptor_id = id;
-    pa.iid = rec->iid;
-    pa.ballot = rec->ballot;
-    pa.value_ballot = rec->value_ballot;
-    pa.value_size = rec->value_size;
+	pa.iid = rec->iid;
+	pa.ballot = rec->ballot;
+	pa.value_ballot = rec->value_ballot;
+	pa.value_size = rec->value_size;
 
 	LOG(VRB, ("sending prepare ack iid: %d ballot %d\n", rec->iid, rec->ballot));
 
 	s = PREPARE_ACK_SIZE((&pa));
 	add_paxos_header(bev, prepare_acks, s);
 	bufferevent_write(bev, &pa, s);
-    if (pa.value_size > 0)
+	if (pa.value_size > 0)
 		bufferevent_write(bev, rec->value, rec->value_size);
 }
 
@@ -54,12 +54,12 @@ sendbuf_add_accept_req(struct bufferevent* bev, iid_t iid,
 	size_t s;
 	accept_req ar;
 	s = sizeof(accept_req) + payload->data_size;
-	
+
 	LOG(VRB, ("sending accept req for inst %d ballot %d\n", iid, ballot));
 	
-    ar.iid = iid;
-    ar.ballot = ballot;
-    ar.value_size = payload->data_size;
+	ar.iid = iid;
+	ar.ballot = ballot;
+	ar.value_size = payload->data_size;
 	
 	add_paxos_header(bev, accept_reqs, s);
 	bufferevent_write(bev, &ar, sizeof(accept_req));
@@ -73,7 +73,7 @@ sendbuf_add_accept_ack(struct bufferevent* bev, accept_ack* aa)
 	
 	LOG(VRB, ("sending accept ack for inst %d ballot %d\n", 
 		aa->iid, aa->ballot));
-	
+
 	s = ACCEPT_ACK_SIZE(aa);
 	add_paxos_header(bev, accept_acks, s);
 	bufferevent_write(bev, aa, s);

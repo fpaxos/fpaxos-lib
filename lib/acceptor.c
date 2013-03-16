@@ -34,7 +34,7 @@ handle_prepare_req(struct acceptor* a,
 	struct bufferevent* bev, prepare_req* pr)
 {
 	acceptor_record * rec;	
-    LOG(DBG, ("Handling prepare iid %d ballot %d\n", pr->iid, pr->ballot));
+	LOG(DBG, ("Handling prepare iid %d ballot %d\n", pr->iid, pr->ballot));
 
 	rec = acceptor_state_receive_prepare(a->state, pr);
 	
@@ -50,7 +50,7 @@ static void
 handle_accept_req(struct acceptor* a,
 	struct bufferevent* bev, accept_req* ar)
 {
-    LOG(DBG, ("Handling accept for instance %d\n", ar->iid));
+	LOG(DBG, ("Handling accept for instance %d\n", ar->iid));
 
 	acceptor_record* rec;
 	rec = acceptor_state_receive_accept(a->state, ar);
@@ -79,16 +79,16 @@ handle_req(struct bufferevent* bev, void* arg)
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
 	evbuffer_remove(in, buffer, msg.data_size);
 	
-    switch (msg.type) {
-        case prepare_reqs:
-            handle_prepare_req(a, bev, (prepare_req*)buffer);
-        	break;
-        case accept_reqs:
-            handle_accept_req(a, bev, (accept_req*)buffer);
-        	break;
-        default:
-            printf("Unknow msg type %d received by acceptor\n", msg.type);
-    }
+	switch (msg.type) {
+		case prepare_reqs:
+			handle_prepare_req(a, bev, (prepare_req*)buffer);
+			break;
+		case accept_reqs:
+			handle_accept_req(a, bev, (accept_req*)buffer);
+			break;
+		default:
+		printf("Unknow msg type %d received by acceptor\n", msg.type);
+	}
 }
 
 struct acceptor* 
@@ -99,21 +99,21 @@ acceptor_init(int id, const char* config_file, struct event_base* b)
 	LOG(VRB, ("Acceptor %d starting...\n", id));
 		
 	// Check that n_of_acceptor is not too big
-    if (N_OF_ACCEPTORS >= (sizeof(unsigned int)*8)) {
-        printf("Error, this library currently supports at most:%d acceptors\n",
-            (int)(sizeof(unsigned int)*8));
-        printf("(the number of bits in a 'unsigned int', used as acceptor id)\n");
-        return NULL;
-    }
+	if (N_OF_ACCEPTORS >= (sizeof(unsigned int)*8)) {
+		printf("Error, this library currently supports at most:%d acceptors\n",
+		(int)(sizeof(unsigned int)*8));
+		printf("(the number of bits in a 'unsigned int', used as acceptor id)\n");
+		return NULL;
+	}
 
-    //Check id validity of acceptor_id
-    if (id < 0 || id >= N_OF_ACCEPTORS) {
-        printf("Invalid acceptor id:%d\n", id);
-        return NULL;
-    }
+	//Check id validity of acceptor_id
+	if (id < 0 || id >= N_OF_ACCEPTORS) {
+		printf("Invalid acceptor id:%d\n", id);
+		return NULL;
+	}
 
 	a = malloc(sizeof(struct acceptor));
-  	
+
 	a->conf = read_config(config_file);
 	if (a->conf == NULL) {
 		free(a);
@@ -143,5 +143,5 @@ acceptor_exit(struct acceptor* a)
 {
 	acceptor_state_delete(a->state);
 	event_base_loopexit(a->base, NULL);
-    return 0;
+	return 0;
 }

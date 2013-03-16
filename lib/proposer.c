@@ -81,15 +81,15 @@ proposer_handle_msg(struct proposer* p, struct bufferevent* bev)
 	evbuffer_remove(in, buffer, msg.data_size);
 	
 	switch (msg.type) {
-        case prepare_acks:
-            proposer_handle_prepare_ack(p, (prepare_ack*)buffer);
-        	break;
+		case prepare_acks:
+			proposer_handle_prepare_ack(p, (prepare_ack*)buffer);
+			break;
 		case accept_acks:
 			proposer_handle_accept_ack(p, (accept_ack*)buffer);
 			break;
-        default:
+		default:
 			LOG(VRB, ("Unknown msg type %d received from acceptors\n", msg.type));
-    }
+	}
 }
 
 static void
@@ -116,8 +116,8 @@ on_acceptor_msg(struct bufferevent* bev, void* arg)
 static void
 on_event(struct bufferevent *bev, short events, void *ptr)
 {
-    if (events & BEV_EVENT_CONNECTED) {
-    	LOG(VRB, ("Proposer connected...\n"));
+	if (events & BEV_EVENT_CONNECTED) {
+	LOG(VRB, ("Proposer connected...\n"));
 	} else if (events & BEV_EVENT_ERROR) {
 		LOG(VRB, ("Proposer connection error...\n"));
 		bufferevent_disable(bev, EV_READ|EV_WRITE);
@@ -136,12 +136,12 @@ do_connect(struct proposer* p, struct event_base* b, address* a)
 	sin.sin_port = htons(a->port);
 	
 	bev = bufferevent_socket_new(b, -1, BEV_OPT_CLOSE_ON_FREE);
-    bufferevent_setcb(bev, on_acceptor_msg, NULL, on_event, p);
-    bufferevent_enable(bev, EV_READ|EV_WRITE);
+	bufferevent_setcb(bev, on_acceptor_msg, NULL, on_event, p);
+	bufferevent_enable(bev, EV_READ|EV_WRITE);
 	struct sockaddr* addr = (struct sockaddr*)&sin;
 	if (bufferevent_socket_connect(bev, addr, sizeof(sin)) < 0) {
-        bufferevent_free(bev);
-        return NULL;
+		bufferevent_free(bev);
+		return NULL;
 	}
 	return bev;
 }
@@ -158,17 +158,17 @@ on_client_msg(struct bufferevent* bev, void* arg)
 	in = bufferevent_get_input(bev);
 	evbuffer_copyout(in, &msg, sizeof(paxos_msg));
 	
-    switch (msg.type) {
-        case submit:
+	switch (msg.type) {
+		case submit:
 			size = PAXOS_MSG_SIZE((&msg));
 			client_value = malloc(size);
 			evbuffer_remove(in, client_value, size);
 			proposer_state_propose(p->state, client_value);
 			try_accept(p);
-        	break;
-        default:
-            printf("Unknown msg type %d received from client\n", msg.type);
-    }
+			break;
+		default:
+			printf("Unknown msg type %d received from client\n", msg.type);
+	}
 }
 
 struct proposer*
@@ -177,15 +177,15 @@ proposer_init(int id, const char* config_file, struct event_base* b)
 	int i;
 	struct proposer* p;
 	
-    struct config* conf = read_config(config_file);
+	struct config* conf = read_config(config_file);
 	if (conf == NULL)
 		return NULL;
 	
-    // Check id validity of proposer_id
-    if (id < 0 || id >= MAX_N_OF_PROPOSERS) {
-        printf("Invalid proposer id:%d\n", id);
-        return NULL;
-    }
+	// Check id validity of proposer_id
+	if (id < 0 || id >= MAX_N_OF_PROPOSERS) {
+		printf("Invalid proposer id:%d\n", id);
+		return NULL;
+	}
 
 	p = malloc(sizeof(struct proposer));
 
@@ -196,7 +196,7 @@ proposer_init(int id, const char* config_file, struct event_base* b)
     LOG(VRB, ("Proposer %d starting...\n", id));
 		
 	// Setup client listener
- 	p->receiver = tcp_receiver_new(b, &conf->proposers[id], on_client_msg, p);
+	p->receiver = tcp_receiver_new(b, &conf->proposers[id], on_client_msg, p);
 	
 	// Setup connections to acceptors
 	for (i = 0; i < conf->acceptors_count; i++) {
@@ -207,6 +207,6 @@ proposer_init(int id, const char* config_file, struct event_base* b)
 	p->state = proposer_state_new(p->id, PROPOSER_ARRAY_SIZE);
 	proposer_preexecute(p, PROPOSER_PREEXEC_WIN_SIZE);
 	
-    LOG(VRB, ("Proposer is ready\n"));
-    return p;
+	LOG(VRB, ("Proposer is ready\n"));
+	return p;
 }

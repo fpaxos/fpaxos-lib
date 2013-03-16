@@ -20,8 +20,8 @@ typedef struct address_t {
 #define DBG 3
 
 #define LOG(L, S) if(VERBOSITY_LEVEL >= L) {\
-   printf("[%s] ", __func__) ;\
-   printf S ;\
+	printf("[%s] ", __func__) ;\
+	printf S ;\
 }
 
 #endif

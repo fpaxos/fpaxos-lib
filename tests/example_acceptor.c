@@ -12,19 +12,19 @@ static struct event_base* b;
 void
 handle_cltr_c (int sig) {
 	printf("Caught signal %d\n", sig);
-    acceptor_exit(a);
-    exit(0);
+	acceptor_exit(a);
+	exit(0);
 }
 
 int 
 main (int argc, char const *argv[])
 {	
-    signal(SIGINT, handle_cltr_c);
+	signal(SIGINT, handle_cltr_c);
     
-    if (argc != 3) {
-        printf("Usage: %s id config\n", argv[0]);
-        exit(1);
-    }
+	if (argc != 3) {
+		printf("Usage: %s id config\n", argv[0]);
+		exit(1);
+	}
 	
 	acceptor_id = atoi(argv[1]);
 	
