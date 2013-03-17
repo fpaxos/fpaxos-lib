@@ -1,7 +1,7 @@
 #ifndef _CONFIG_READER_H_
 #define _CONFIG_READER_H_
 
-#include "paxos_net.h"
+#include "libpaxos_priv.h"
 
 #define MAX_ADDR 10
 

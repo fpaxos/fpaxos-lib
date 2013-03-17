@@ -1,5 +1,5 @@
 #include "config_reader.h"
-#include "paxos_net.h"
+#include "tcp_sendbuf.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

@@ -1,5 +1,5 @@
-#ifndef _PAXOS_NET_H_
-#define _PAXOS_NET_H_
+#ifndef _TCP_SENDBUF_H_
+#define _TCP_SENDBUF_H_
 
 #include <sys/socket.h>
 #include <netinet/in.h>

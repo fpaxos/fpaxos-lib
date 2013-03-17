@@ -10,7 +10,7 @@
 #include "libpaxos.h"
 #include "libpaxos_priv.h"
 #include "learner_state.h"
-#include "paxos_net.h"
+#include "tcp_sendbuf.h"
 #include "config_reader.h"
 
 struct learner
