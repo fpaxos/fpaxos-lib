@@ -65,17 +65,4 @@ typedef struct accept_ack_t {
 } accept_ack;
 #define ACCEPT_ACK_SIZE(M) (M->value_size + sizeof(accept_ack))
 
-
-/* 
-	Failure detection/leader election messages
-*/
-typedef struct leader_announce_msg_t {
-	short int current_leader;
-} leader_announce_msg;
-
-typedef struct alive_ping_msg_t {
-	short int proposer_id;
-	long unsigned int sequence_number;
-} alive_ping_msg;
-
 #endif
