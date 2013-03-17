@@ -80,7 +80,7 @@ sendbuf_add_accept_ack(struct bufferevent* bev, accept_ack* aa)
 }
 
 void
-sendbuf_add_submit_val(struct bufferevent* bev, char* value, int size)
+paxos_submit(struct bufferevent* bev, char* value, int size)
 {
 	add_paxos_header(bev, submit, size);
 	bufferevent_write(bev, value, size);

@@ -1,10 +1,10 @@
 #include "config_reader.h"
-#include "tcp_sendbuf.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
+#include <libpaxos.h>
 #include <event2/event.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
@@ -66,7 +66,7 @@ main (int argc, char const *argv[])
 	while(1) {
 		int i;
 		for (i = 0; i < rate; ++i) {
-			sendbuf_add_submit_val(bev, "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", 100);
+			paxos_submit(bev, "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", 100);
 			event_base_dispatch(base);
 		}
 		sleep(1);

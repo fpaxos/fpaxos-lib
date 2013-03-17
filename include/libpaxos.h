@@ -1,10 +1,10 @@
 #ifndef _LIBPAXOS_H_
 #define _LIBPAXOS_H_
 
-#include "paxos_config.h"
 #include <sys/types.h>
 #include <stdint.h>
 #include <event2/event.h>
+#include <event2/bufferevent.h>
 
 /* 
     The maximum size that can be submitted by a client.
@@ -81,6 +81,12 @@ acceptor_exit(struct acceptor* a);
 */
 struct proposer*
 proposer_init(int id, const char* config, struct event_base* b);
+
+/*
+	Function used for submitting values to a proposer.
+*/
+void
+paxos_submit(struct bufferevent* bev, char* value, int size);
 
 
 #endif /* _LIBPAXOS_H_ */
