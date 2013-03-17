@@ -15,3 +15,7 @@ target_link_libraries(paxos_shared ${LIBPAXOS_LINKER_LIBS} ${BDB_LIBRARIES}
 	${LIBEVENT_LIBRARIES})
 target_link_libraries(paxos ${LIBPAXOS_LINKER_LIBS} ${BDB_LIBRARIES}
 	${LIBEVENT_LIBRARIES})
+
+INSTALL(TARGETS paxos paxos_shared DESTINATION lib)
+INSTALL(FILES ${CMAKE_SOURCE_DIR}/include/libpaxos.h DESTINATION include)
+INSTALL(DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include/libpaxos)
