@@ -73,15 +73,6 @@ on_listener_error(struct evconnlistener* l, void* arg)
 	event_base_loopexit(base, NULL);
 }
 
-void
-tcp_receiver_write_all(struct tcp_receiver* r, const void* data, size_t size)
-{
-	int i;
-	for (i = 0; i < carray_count(r->bevs); i++) {
-		bufferevent_write(carray_at(r->bevs, i), data, size);
-	}
-}
-
 struct tcp_receiver*
 tcp_receiver_new(struct event_base* b, address* a,
  	bufferevent_data_cb cb, void* arg)
