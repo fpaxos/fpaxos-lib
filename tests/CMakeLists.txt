@@ -11,3 +11,5 @@ foreach(p ${TEST_SOURCES})
 	target_link_libraries(${target} paxos ${LIBPAXOS_LINKER_LIBS} 
 	${BDB_LIBRARIES} ${LIBEVENT_LIBRARIES})
 endforeach(p)
+
+INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/example_acceptor ${CMAKE_CURRENT_BINARY_DIR}/example_learner ${CMAKE_CURRENT_BINARY_DIR}/example_proposer DESTINATION bin)
