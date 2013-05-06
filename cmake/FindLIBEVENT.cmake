@@ -11,7 +11,7 @@ find_path(LIBEVENT_INCLUDE_DIR event.h
     HINTS "${LIBEVENT_ROOT}/include")
 
 find_library(LIBEVENT_LIBRARY
-   NAMES libevent.a event
+   NAMES event
    HINTS "${LIBEVENT_ROOT}/lib")
 
 set(LIBEVENT_LIBRARIES ${LIBEVENT_LIBRARY})
