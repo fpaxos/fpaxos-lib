@@ -8,12 +8,6 @@
 
 typedef accept_ack acceptor_record;
 
-typedef struct address_t {
-	char* address_string;
-	int port;
-} address;
-
-
 /*** LOGGING MACROS ***/
 
 #define VRB 1

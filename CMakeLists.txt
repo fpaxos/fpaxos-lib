@@ -10,4 +10,5 @@ if (NOT APPLE)
 endif()
 
 add_subdirectory(lib)
+add_subdirectory(evpaxos)
 add_subdirectory(tests)

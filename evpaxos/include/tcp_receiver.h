@@ -1,7 +1,7 @@
 #ifndef _TCP_RECEIVER_H_
 #define _TCP_RECEIVER_H_
 
-#include "libpaxos_priv.h"
+#include "evpaxos.h"
 #include "carray.h"
 #include <event2/event.h>
 #include <event2/bufferevent.h>

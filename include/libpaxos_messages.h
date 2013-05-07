@@ -1,6 +1,8 @@
 #ifndef _LIBPAXOS_MESSAGES_H_
 #define _LIBPAXOS_MESSAGES_H_
 
+#include "libpaxos.h"
+
 /*
     Paxos message types
 */
