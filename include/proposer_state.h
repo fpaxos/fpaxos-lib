@@ -1,7 +1,7 @@
 #ifndef _PROPOSER_STATE_H_
 #define _PROPOSER_STATE_H_
 
-#include "libpaxos_priv.h"
+#include "libpaxos.h"
 #include "libpaxos_messages.h"
 
 struct proposer_state;

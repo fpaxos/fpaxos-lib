@@ -1,4 +1,4 @@
-#include "libpaxos_priv.h"
+#include "evpaxos.h"
 #include "config_reader.h"
 #include "tcp_receiver.h"
 #include "proposer_state.h"

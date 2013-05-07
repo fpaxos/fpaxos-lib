@@ -2,6 +2,7 @@
 #define _LIBPAXOS_MESSAGES_H_
 
 #include "libpaxos.h"
+#include <stdlib.h>
 
 /*
     Paxos message types
@@ -66,5 +67,8 @@ typedef struct accept_ack_t {
 	char value[0];
 } accept_ack;
 #define ACCEPT_ACK_SIZE(M) (M->value_size + sizeof(accept_ack))
+
+//Storage type
+typedef accept_ack acceptor_record;
 
 #endif

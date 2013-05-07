@@ -1,12 +1,13 @@
 #ifndef _EVPAXOS_H_
 #define _EVPAXOS_H_
 
+#include "libpaxos.h"
+#include "libpaxos_messages.h"
+
 #include <sys/types.h>
 #include <stdint.h>
 #include <event2/event.h>
 #include <event2/bufferevent.h>
-#include "libpaxos.h"
-
 
 typedef struct address_t {
 	char* address_string;

@@ -1,7 +1,8 @@
 #ifndef _ACCEPTOR_STATE_H_
 #define _ACCEPTOR_STATE_H_
 
-#include "libpaxos_priv.h"
+#include "libpaxos.h"
+#include "libpaxos_messages.h"
 
 struct acceptor_state;
 

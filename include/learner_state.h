@@ -1,7 +1,7 @@
 #ifndef _LEARNER_STATE_H_
 #define _LEARNER_STATE_H_
 
-#include "libpaxos_priv.h"
+#include "libpaxos.h"
 #include "libpaxos_messages.h"
 
 struct learner_state;

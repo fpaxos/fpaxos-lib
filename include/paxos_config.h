@@ -86,22 +86,6 @@
 #define ACCEPTOR_ACCESS_METHOD DB_RECNO
 
 
-/*** NETWORK SETTINGS ***/
-
-/* 
-  Maximum size of UDP messages for the current network and host OS.
-  Check carefully, if not set properly, message send will fail.
-*/
-#define MAX_UDP_MSG_SIZE 7500
-
-
-/*
-  If defined, UDP sockets created (to send) are non-blocking.
-  The send call may return before data is actually transmitted.
-  Comment the definition below to make the send blocking.
-*/
-// #define PAXOS_UDP_SEND_NONBLOCK
-
 /*** STRUCTURES SETTINGS ***/
 
 /*

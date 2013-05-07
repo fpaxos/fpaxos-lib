@@ -335,7 +335,7 @@ storage_get_record(struct storage* s, iid_t iid)
     
 	//Data is our buffer
 	dbdata.data = record_buffer;
-	dbdata.ulen = MAX_UDP_MSG_SIZE;
+	dbdata.ulen = PAXOS_MAX_VALUE_SIZE;
 	//Force copy to the specified buffer
 	dbdata.flags = DB_DBT_USERMEM;
 
