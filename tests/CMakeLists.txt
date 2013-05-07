@@ -1,6 +1,6 @@
+include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/evpaxos/include)
 include_directories(${LIBEVENT_INCLUDE_DIRS})
-# include_directories(${BDB_INCLUDE_DIRS})
 
 set(TEST_SOURCES example_learner.c example_acceptor.c example_proposer.c 
 	client.c)

@@ -3,7 +3,7 @@
 #include <event2/event_struct.h>
 #include <event2/buffer.h>
 
-#include "libpaxos.h"
+#include "evpaxos.h"
 #include "libpaxos_priv.h"
 #include "tcp_sendbuf.h"
 #include "config_reader.h"

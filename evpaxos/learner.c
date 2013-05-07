@@ -7,7 +7,7 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 
-#include "libpaxos.h"
+#include "evpaxos.h"
 #include "libpaxos_priv.h"
 #include "learner_state.h"
 #include "tcp_sendbuf.h"

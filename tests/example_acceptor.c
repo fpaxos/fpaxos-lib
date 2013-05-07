@@ -2,8 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
-
-#include "libpaxos.h"
+#include "evpaxos.h"
 
 static int acceptor_id;
 static struct acceptor* a;

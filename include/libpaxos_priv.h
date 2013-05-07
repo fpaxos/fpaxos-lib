@@ -3,8 +3,8 @@
 
 #include "libpaxos.h"
 #include "paxos_config.h"
-
 #include "libpaxos_messages.h"
+#include <stdio.h>
 
 typedef accept_ack acceptor_record;
 

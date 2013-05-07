@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-#include "libpaxos.h"
+#include "evpaxos.h"
 
 static void
 handle_cltr_c(int sig)
