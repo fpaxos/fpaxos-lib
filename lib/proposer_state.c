@@ -298,9 +298,6 @@ do_learn(struct proposer_state* s, accept_ack* ack)
 	
 	struct instance* inst;
 	
-	// this is quite wheird... we ask for instance iid,
-	// but we have to check if the call actually returns
-	// the right iid
 	inst = proposer_state_get_instance(s, ack->iid);
 	if (inst == NULL) {
 		// Instance not stored. Probably too old.
