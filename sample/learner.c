@@ -1,15 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <signal.h>
+#include <evpaxos.h>
 
-#include "evpaxos.h"
-
-static void
-handle_cltr_c(int sig)
+void
+handle_sigint(int sig, short ev, void* arg)
 {
+	struct event_base* base = arg;
 	printf("Caught signal %d\n", sig);
-	exit(0);
+	event_base_loopexit(base, NULL);
 }
 
 static char
@@ -35,23 +33,26 @@ deliver(char* value, size_t size, iid_t iid, ballot_t b,
 int
 main(int argc, char const *argv[])
 {
-	struct learner* l;
-	struct event_base* b;
+	struct event* sig;
+	struct evlearner* lea;
+	struct event_base* base;
 
-	signal(SIGINT, handle_cltr_c);
-	
 	if (argc != 2) {
 		printf("Usage: %s config\n", argv[0]);
 		exit(1);
 	}
 
-	b = event_base_new();
-	l = learner_init(argv[1], deliver, NULL, b);
-	
-	if (l == NULL) {
+	base = event_base_new();
+
+	lea = evlearner_init(argv[1], deliver, NULL, base);
+	if (lea == NULL) {
 		printf("Could not start the learner!\n");
 		exit(1);
 	}
-	event_base_dispatch(b);
+	
+	sig = evsignal_new(base, SIGINT, handle_sigint, base);
+	evsignal_add(sig, NULL);
+	
+	event_base_dispatch(base);
 	return 0;
 }

@@ -12,7 +12,7 @@
 #include <event2/bufferevent.h>
 
 
-struct proposer
+struct evproposer
 {
 	int id;
 	int acceptors_count;
@@ -24,7 +24,7 @@ struct proposer
 
 
 static void
-do_prepare(struct proposer* p)
+do_prepare(struct evproposer* p)
 {
 	int i;
 	iid_t iid;
@@ -35,7 +35,7 @@ do_prepare(struct proposer* p)
 }
 
 static void
-proposer_preexecute(struct proposer* p, int count)
+proposer_preexecute(struct evproposer* p, int count)
 {
 	int i;
 	for (i = 0; i < count; i++)
@@ -44,7 +44,7 @@ proposer_preexecute(struct proposer* p, int count)
 }
 
 static void
-try_accept(struct proposer* p)
+try_accept(struct evproposer* p)
 {
 	int i;
 	iid_t iid;
@@ -59,20 +59,20 @@ try_accept(struct proposer* p)
 }
 
 static void 
-proposer_handle_prepare_ack(struct proposer* p, prepare_ack* ack)
+proposer_handle_prepare_ack(struct evproposer* p, prepare_ack* ack)
 {
 	proposer_state_receive_prepare(p->state, ack);
 	try_accept(p);
 }
 
 static void
-proposer_handle_accept_ack(struct proposer* p, accept_ack* ack)
+proposer_handle_accept_ack(struct evproposer* p, accept_ack* ack)
 {
 	proposer_state_receive_accept(p->state, ack);
 }
 
 static void
-proposer_handle_msg(struct proposer* p, struct bufferevent* bev)
+proposer_handle_msg(struct evproposer* p, struct bufferevent* bev)
 {
 	paxos_msg msg;
 	struct evbuffer* in;
@@ -100,7 +100,7 @@ on_acceptor_msg(struct bufferevent* bev, void* arg)
 	size_t len;
 	paxos_msg msg;
 	struct evbuffer* in;
-	struct proposer* p;
+	struct evproposer* p;
 	
 	p = arg;
 	in = bufferevent_get_input(bev);
@@ -127,7 +127,7 @@ on_event(struct bufferevent *bev, short events, void *ptr)
 }
 
 static struct bufferevent* 
-do_connect(struct proposer* p, struct event_base* b, address* a) 
+do_connect(struct evproposer* p, struct event_base* b, address* a) 
 {
 	struct sockaddr_in sin;
 	struct bufferevent* bev;
@@ -155,7 +155,7 @@ on_client_msg(struct bufferevent* bev, void* arg)
 	paxos_msg msg;
 	paxos_msg* client_value;
 	struct evbuffer* in;
-	struct proposer* p = arg;
+	struct evproposer* p = arg;
 	
 	in = bufferevent_get_input(bev);
 	evbuffer_copyout(in, &msg, sizeof(paxos_msg));
@@ -173,11 +173,11 @@ on_client_msg(struct bufferevent* bev, void* arg)
 	}
 }
 
-struct proposer*
-proposer_init(int id, const char* config_file, struct event_base* b)
+struct evproposer*
+evproposer_init(int id, const char* config_file, struct event_base* b)
 {
 	int i;
-	struct proposer* p;
+	struct evproposer* p;
 	
 	struct config* conf = read_config(config_file);
 	if (conf == NULL)
@@ -189,7 +189,7 @@ proposer_init(int id, const char* config_file, struct event_base* b)
 		return NULL;
 	}
 
-	p = malloc(sizeof(struct proposer));
+	p = malloc(sizeof(struct evproposer));
 
 	p->id = id;
 	p->base = b;

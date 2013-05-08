@@ -2,8 +2,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/evpaxos/include)
 include_directories(${LIBEVENT_INCLUDE_DIRS})
 
-set(TEST_SOURCES example_learner.c example_acceptor.c example_proposer.c 
-	client.c)
+set(TEST_SOURCES learner.c acceptor.c proposer.c client.c)
 
 foreach(p ${TEST_SOURCES})
 	get_filename_component(target "${p}" NAME_WE)
@@ -12,7 +11,7 @@ foreach(p ${TEST_SOURCES})
 		${LIBEVENT_LIBRARIES} ${LIBPAXOS_LINKER_LIBS})
 endforeach(p)
 
-INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/example_acceptor 
-	${CMAKE_CURRENT_BINARY_DIR}/example_learner 
-	${CMAKE_CURRENT_BINARY_DIR}/example_proposer 
+INSTALL(PROGRAMS
+	${CMAKE_CURRENT_BINARY_DIR}/acceptor
+	${CMAKE_CURRENT_BINARY_DIR}/proposer 
 	DESTINATION bin)

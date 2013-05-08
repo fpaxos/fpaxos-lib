@@ -14,10 +14,10 @@
 #include <assert.h>
 
 
-struct acceptor
+struct evacceptor
 {
-	struct config* conf;
 	int acceptor_id;
+	struct config* conf;
 	struct event_base* base;
 	struct tcp_receiver* receiver;
 	struct acceptor_state* state;
@@ -29,7 +29,7 @@ struct acceptor
 // needs to be wrapped into transactions and made persistent
 // before sending the corresponding acknowledgement
 static void 
-handle_prepare_req(struct acceptor* a, 
+handle_prepare_req(struct evacceptor* a, 
 	struct bufferevent* bev, prepare_req* pr)
 {
 	acceptor_record * rec;	
@@ -46,7 +46,7 @@ handle_prepare_req(struct acceptor* a,
 // needs to be wrapped into transactions and made persistent
 // before sending the corresponding acknowledgement
 static void 
-handle_accept_req(struct acceptor* a,
+handle_accept_req(struct evacceptor* a,
 	struct bufferevent* bev, accept_req* ar)
 {
 	LOG(DBG, ("Handling accept for instance %d\n", ar->iid));
@@ -72,7 +72,7 @@ handle_req(struct bufferevent* bev, void* arg)
 	paxos_msg msg;
 	struct evbuffer* in;
 	char buffer[PAXOS_MAX_VALUE_SIZE];
-	struct acceptor* a = (struct acceptor*)arg;
+	struct evacceptor* a = (struct evacceptor*)arg;
 	
 	in = bufferevent_get_input(bev);
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
@@ -90,10 +90,10 @@ handle_req(struct bufferevent* bev, void* arg)
 	}
 }
 
-struct acceptor* 
-acceptor_init(int id, const char* config_file, struct event_base* b)
+struct evacceptor* 
+evacceptor_init(int id, const char* config_file, struct event_base* b)
 {
-	struct acceptor* a;
+	struct evacceptor* a;
 
 	LOG(VRB, ("Acceptor %d starting...\n", id));
 		
@@ -111,7 +111,7 @@ acceptor_init(int id, const char* config_file, struct event_base* b)
 		return NULL;
 	}
 
-	a = malloc(sizeof(struct acceptor));
+	a = malloc(sizeof(struct evacceptor));
 
 	a->conf = read_config(config_file);
 	if (a->conf == NULL) {
@@ -138,7 +138,7 @@ acceptor_init(int id, const char* config_file, struct event_base* b)
 // }
 
 int
-acceptor_exit(struct acceptor* a)
+evacceptor_exit(struct evacceptor* a)
 {
 	acceptor_state_delete(a->state);
 	event_base_loopexit(a->base, NULL);

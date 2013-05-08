@@ -12,7 +12,7 @@
 #include "tcp_sendbuf.h"
 #include "config_reader.h"
 
-struct learner
+struct evlearner
 {
 	struct learner_state* state;
 	// Function to invoke when the current_iid is closed, 
@@ -29,7 +29,7 @@ struct learner
 };
 
 static void 
-learner_deliver_next_closed(struct learner* l)
+learner_deliver_next_closed(struct evlearner* l)
 {
 	int prop_id;
 	accept_ack* ack;
@@ -46,14 +46,14 @@ learner_deliver_next_closed(struct learner* l)
 // it's status for that instance and afterwards check if the instance
 // is closed
 static void
-learner_handle_accept_ack(struct learner* l, accept_ack * aa)
+learner_handle_accept_ack(struct evlearner* l, accept_ack * aa)
 {
 	learner_state_receive_accept(l->state, aa);
 	learner_deliver_next_closed(l);
 }
 
 static void
-learner_handle_msg(struct learner* l, struct bufferevent* bev)
+learner_handle_msg(struct evlearner* l, struct bufferevent* bev)
 {
 	paxos_msg msg;
 	struct evbuffer* in;
@@ -80,7 +80,7 @@ on_acceptor_msg(struct bufferevent* bev, void* arg)
 	size_t len;
 	paxos_msg msg;
 	struct evbuffer* in;
-	struct learner* l;
+	struct evlearner* l;
 	
 	l = arg;
 	in = bufferevent_get_input(bev);
@@ -107,7 +107,7 @@ on_event(struct bufferevent *bev, short events, void *ptr)
 }
 
 static struct bufferevent* 
-do_connect(struct learner* l, struct event_base* b, address* a)
+do_connect(struct evlearner* l, struct event_base* b, address* a)
 {
 	struct sockaddr_in sin;
 	struct bufferevent* bev;
@@ -129,14 +129,14 @@ do_connect(struct learner* l, struct event_base* b, address* a)
 	return bev;
 }
 
-struct learner*
-learner_init_conf(struct config* c, deliver_function f, void* arg, 
+struct evlearner*
+evlearner_init_conf(struct config* c, deliver_function f, void* arg, 
 	struct event_base* b)
 {
 	int i;
-	struct learner* l;
+	struct evlearner* l;
 	
-	l = malloc(sizeof(struct learner));
+	l = malloc(sizeof(struct evlearner));
 	l->conf = c;
 	l->base = b;
 	l->delfun = f;
@@ -152,11 +152,11 @@ learner_init_conf(struct config* c, deliver_function f, void* arg,
 	return l;
 }
 
-struct learner*
-learner_init(const char* config_file, deliver_function f, void* arg, 
+struct evlearner*
+evlearner_init(const char* config_file, deliver_function f, void* arg, 
 	struct event_base* b)
 {
 	struct config* c = read_config(config_file);
 	if (c == NULL) return NULL;
-	return learner_init_conf(c, f, arg, b);
+	return evlearner_init_conf(c, f, arg, b);
 }

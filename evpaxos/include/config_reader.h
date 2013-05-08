@@ -1,9 +1,12 @@
 #ifndef _CONFIG_READER_H_
 #define _CONFIG_READER_H_
 
-#include "evpaxos.h"
-
 #define MAX_ADDR 10
+
+typedef struct address_t {
+	char* address_string;
+	int port;
+} address;
 
 struct config
 {

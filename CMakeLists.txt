@@ -13,7 +13,7 @@ endif()
 
 add_subdirectory(lib)
 add_subdirectory(evpaxos)
-add_subdirectory(tests)
+add_subdirectory(sample)
 
 if (BUILD_UNIT)
 	enable_testing()

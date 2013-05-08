@@ -2,8 +2,8 @@ include_directories(include)
 include_directories(${LIBEVENT_INCLUDE_DIRS})
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-SET(LOCAL_SOURCES acceptor.c config_reader.c learner.c proposer.c
-	tcp_receiver.c tcp_sendbuf.c)
+SET(LOCAL_SOURCES config_reader.c tcp_receiver.c tcp_sendbuf.c
+	evacceptor.c evlearner.c evproposer.c)
 
 add_library(evpaxos SHARED ${LOCAL_SOURCES})
 

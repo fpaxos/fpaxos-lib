@@ -1,24 +1,21 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <signal.h>
-
-#include "evpaxos.h"
+#include <evpaxos.h>
 
 void
-handle_cltr_c(int sig)
+handle_sigint(int sig, short ev, void* arg)
 {
+	struct event_base* base = arg;
 	printf("Caught signal %d\n", sig);
-	exit(0);
+	event_base_loopexit(base, NULL);
 }
 
 int
 main (int argc, char const *argv[])
 {
 	int id;
+	struct event* sig;
 	struct event_base* base;
-		
-	signal(SIGINT, handle_cltr_c);
 
 	if (argc != 3) {
 		printf("Usage: %s id config\n", argv[0]);
@@ -26,13 +23,16 @@ main (int argc, char const *argv[])
 	}
 
 	base = event_base_new();    
+
 	id = atoi(argv[1]);
-	
-	if (proposer_init(id, argv[2], base) == NULL) {
+	if (evproposer_init(id, argv[2], base) == NULL) {
 		printf("Could not start the proposer!\n");
 		exit(1);
 	}
-
+	
+	sig = evsignal_new(base, SIGINT, handle_sigint, base);
+	evsignal_add(sig, NULL);	
+	
 	event_base_dispatch(base);
 	return 0;
 }
