@@ -141,6 +141,5 @@ int
 evacceptor_exit(struct evacceptor* a)
 {
 	acceptor_state_delete(a->state);
-	event_base_loopexit(a->base, NULL);
 	return 0;
 }

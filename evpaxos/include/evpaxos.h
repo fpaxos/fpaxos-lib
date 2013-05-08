@@ -66,7 +66,6 @@ evacceptor_init_recover(int id, const char* config, struct event_base* b);
 	Shuts down the acceptor in the current process.
 	It may take a few seconds to complete since the DB needs to be closed.
 */
-//FIXME should delegate close to libevent thread
 int
 evacceptor_exit(struct evacceptor* a);
 

@@ -5,9 +5,9 @@
 void
 handle_sigint(int sig, short ev, void* arg)
 {
-	struct evacceptor* acc = arg;
+	struct event_base* base = arg;
 	printf("Caught signal %d\n", sig);
-	evacceptor_exit(acc);
+	event_base_loopexit(base, NULL);
 }
 
 int 
@@ -32,9 +32,11 @@ main (int argc, char const *argv[])
 		return 0;
 	}
 	
-	sig = evsignal_new(base, SIGINT, handle_sigint, acc);
+	sig = evsignal_new(base, SIGINT, handle_sigint, base);
 	evsignal_add(sig, NULL);
 	
 	event_base_dispatch(base);
+	evacceptor_exit(acc);
+	
 	return 1;
 }
