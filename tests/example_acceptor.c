@@ -9,7 +9,8 @@ static struct acceptor* a;
 static struct event_base* b;
 
 void
-handle_cltr_c (int sig) {
+handle_cltr_c (int sig)
+{
 	printf("Caught signal %d\n", sig);
 	acceptor_exit(a);
 	exit(0);
