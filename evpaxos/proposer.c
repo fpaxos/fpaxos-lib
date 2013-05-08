@@ -1,10 +1,12 @@
 #include "evpaxos.h"
 #include "config_reader.h"
+#include "tcp_sendbuf.h"
 #include "tcp_receiver.h"
 #include "proposer_state.h"
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 #include <event2/event.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
