@@ -10,7 +10,6 @@
 #include <assert.h>
 
 
-#define MAX_BUFFER_SIZE 8192
 #define MEM_CACHE_SIZE (0), (4*1024*1024)
 
 struct storage
@@ -19,7 +18,7 @@ struct storage
 	DB_ENV* env;
 	DB_TXN* txn;
 	int acceptor_id;
-	char record_buf[MAX_BUFFER_SIZE];
+	char record_buf[PAXOS_MAX_VALUE_SIZE];
 };
 
 static int 
