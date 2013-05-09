@@ -376,6 +376,7 @@ storage_save_accept(struct storage* s, accept_req * ar)
 
     
 	//Store as acceptor_record (== accept_ack)
+	record_buffer->acceptor_id = s->acceptor_id;
 	record_buffer->iid = ar->iid;
 	record_buffer->ballot = ar->ballot;
 	record_buffer->value_ballot = ar->ballot;

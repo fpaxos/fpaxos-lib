@@ -101,7 +101,7 @@ static acceptor_record*
 apply_accept(struct storage* s, accept_req* ar, acceptor_record* rec)
 {
 	// We already have a more recent ballot
-	if (rec != NULL && rec->ballot < ar->ballot) {
+	if (rec != NULL && rec->ballot > ar->ballot) {
 		LOG(DBG, ("Accept for iid:%u dropped (ballots curr:%u recv:%u)\n", 
 		ar->iid, rec->ballot, ar->ballot));
 		return NULL;
