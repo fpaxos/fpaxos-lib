@@ -38,7 +38,7 @@ handle_prepare_req(struct evacceptor* a,
 	rec = acceptor_receive_prepare(a->state, pr);
 	
 	if (rec != NULL)
-		sendbuf_add_prepare_ack(bev, rec, a->acceptor_id);
+		sendbuf_add_prepare_ack(bev, rec);
 }
 
 // Received a batch of accept requests (phase 2a)

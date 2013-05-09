@@ -27,12 +27,12 @@ sendbuf_add_prepare_req(struct bufferevent* bev, iid_t iid, ballot_t ballot)
 }
 
 void
-sendbuf_add_prepare_ack(struct bufferevent* bev, acceptor_record* rec, int id)
+sendbuf_add_prepare_ack(struct bufferevent* bev, acceptor_record* rec)
 {
 	size_t s;
 	prepare_ack pa;
 	
-	pa.acceptor_id = id;
+	pa.acceptor_id = rec->acceptor_id;
 	pa.iid = rec->iid;
 	pa.ballot = rec->ballot;
 	pa.value_ballot = rec->value_ballot;

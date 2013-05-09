@@ -18,6 +18,7 @@ struct storage
 	DB* db;
 	DB_ENV* env;
 	DB_TXN* txn;
+	int acceptor_id;
 	char record_buf[MAX_BUFFER_SIZE];
 };
 
@@ -141,6 +142,8 @@ storage_open(int acceptor_id, int do_recovery)
 	
 	struct storage* s = malloc(sizeof(struct storage));
 	memset(s, 0, sizeof(struct storage));
+	
+	s->acceptor_id = acceptor_id;
 
 	//Create path to db file in db dir
 	sprintf(db_env_path, ACCEPTOR_DB_PATH);    
@@ -418,6 +421,7 @@ storage_save_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
 	if (rec == NULL) {
 		//Record does not exist yet
 		rec = record_buffer;
+		rec->acceptor_id = s->acceptor_id;
 		rec->iid = pr->iid;
 		rec->ballot = pr->ballot;
 		rec->value_ballot = 0;
