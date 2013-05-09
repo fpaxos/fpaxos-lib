@@ -8,13 +8,13 @@
 #include <event2/bufferevent.h>
 
 #include "evpaxos.h"
-#include "learner_state.h"
+#include "learner.h"
 #include "tcp_sendbuf.h"
 #include "config_reader.h"
 
 struct evlearner
 {
-	struct learner_state* state;
+	struct learner* state;
 	// Function to invoke when the current_iid is closed, 
 	// the final value and some other informations is passed as argument
 	deliver_function delfun;
@@ -33,7 +33,7 @@ learner_deliver_next_closed(struct evlearner* l)
 {
 	int prop_id;
 	accept_ack* ack;
-	while ((ack = learner_state_deliver_next(l->state)) != NULL) {
+	while ((ack = learner_deliver_next(l->state)) != NULL) {
 		// deliver the value through callback
 		prop_id = ack->ballot % MAX_N_OF_PROPOSERS;
 		l->delfun(ack->value, ack->value_size, ack->iid, 
@@ -48,7 +48,7 @@ learner_deliver_next_closed(struct evlearner* l)
 static void
 learner_handle_accept_ack(struct evlearner* l, accept_ack * aa)
 {
-	learner_state_receive_accept(l->state, aa);
+	learner_receive_accept(l->state, aa);
 	learner_deliver_next_closed(l);
 }
 
@@ -141,7 +141,7 @@ evlearner_init_conf(struct config* c, deliver_function f, void* arg,
 	l->base = b;
 	l->delfun = f;
 	l->delarg = arg;
-	l->state = learner_state_new(LEARNER_ARRAY_SIZE);
+	l->state = learner_new(LEARNER_ARRAY_SIZE);
 	
 	// setup connections to acceptors
 	for (i = 0; i < l->conf->acceptors_count; i++) {

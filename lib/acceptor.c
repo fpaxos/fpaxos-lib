@@ -1,8 +1,8 @@
-#include "acceptor_state.h"
+#include "acceptor.h"
 #include "storage.h"
 #include <stdlib.h>
 
-struct acceptor_state {
+struct acceptor {
 	struct storage* store;
 };
 
@@ -13,8 +13,8 @@ static acceptor_record*
 apply_accept(struct storage* s, accept_req* ar, acceptor_record* rec);
 
 
-struct acceptor_state*
-acceptor_state_new(int id)
+struct acceptor*
+acceptor_new(int id)
 {
 	/*
 		TODO Acceptors should be able to "recover" from the existing BDB file. 
@@ -22,8 +22,8 @@ acceptor_state_new(int id)
 		database from scratch each time the acceptor starts).
 	*/
 	int do_recovery = 0; 
-	struct acceptor_state* s;
-	s = malloc(sizeof(struct acceptor_state));
+	struct acceptor* s;
+	s = malloc(sizeof(struct acceptor));
 	s->store = storage_open(id, do_recovery); 
 	if (s->store == NULL) {
 		free(s);
@@ -33,7 +33,7 @@ acceptor_state_new(int id)
 }
 
 int
-acceptor_state_delete(struct acceptor_state* s) 
+acceptor_delete(struct acceptor* s) 
 {
 	int rv;
 	rv = storage_close(s->store);
@@ -42,7 +42,7 @@ acceptor_state_delete(struct acceptor_state* s)
 }
 
 acceptor_record*
-acceptor_state_receive_prepare(struct acceptor_state* s, prepare_req* req)
+acceptor_receive_prepare(struct acceptor* s, prepare_req* req)
 {
 	acceptor_record* rec;
 	storage_tx_begin(s->store);
@@ -53,7 +53,7 @@ acceptor_state_receive_prepare(struct acceptor_state* s, prepare_req* req)
 }
 
 acceptor_record*
-acceptor_state_receive_accept(struct acceptor_state* s, accept_req* req)
+acceptor_receive_accept(struct acceptor* s, accept_req* req)
 {
 	acceptor_record* rec;
 	storage_tx_begin(s->store);

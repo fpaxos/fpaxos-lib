@@ -1,4 +1,4 @@
-#include "learner_state.h"
+#include "learner.h"
 #include "carray.h"
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +14,7 @@ struct instance
 };
 
 
-struct learner_state
+struct learner
 {
 	// current instance id, incremented when current
 	// instance is closed and the corresponding value
@@ -166,7 +166,7 @@ instance_update(struct instance* inst, accept_ack* ack)
 }
 
 static struct instance*
-learner_state_get_instance(struct learner_state* s, iid_t iid)
+learner_get_instance(struct learner* s, iid_t iid)
 {
 	struct instance* inst;
 	inst = carray_at(s->instances, iid);
@@ -175,17 +175,17 @@ learner_state_get_instance(struct learner_state* s, iid_t iid)
 }
 
 static struct instance*
-learner_state_get_current_instance(struct learner_state* s)
+learner_get_current_instance(struct learner* s)
 {
-	return learner_state_get_instance(s, s->current_iid);
+	return learner_get_instance(s, s->current_iid);
 }
 
 accept_ack*
-learner_state_deliver_next(struct learner_state* s)
+learner_deliver_next(struct learner* s)
 {
 	struct instance* inst;
 	accept_ack* ack = NULL;
-	inst = learner_state_get_current_instance(s);
+	inst = learner_get_current_instance(s);
 	if (instance_has_quorum(inst)) {
 		size_t size = ACCEPT_ACK_SIZE(inst->final_value);
 		
@@ -201,7 +201,7 @@ learner_state_deliver_next(struct learner_state* s)
 }
 
 void
-learner_state_receive_accept(struct learner_state* s, accept_ack* ack)
+learner_receive_accept(struct learner* s, accept_ack* ack)
 {
 	int relevant;
 	struct instance* inst;
@@ -223,7 +223,7 @@ learner_state_receive_accept(struct learner_state* s, accept_ack* ack)
 
 	// Message is within interesting bounds
 	// Update the corresponding record
-	inst = learner_state_get_instance(s, ack->iid);
+	inst = learner_get_instance(s, ack->iid);
 	relevant = instance_update(inst, ack);
 
 	if (!relevant) {
@@ -241,7 +241,7 @@ learner_state_receive_accept(struct learner_state* s, accept_ack* ack)
 }
 
 static void
-initialize_instances(struct learner_state* s, int count)
+initialize_instances(struct learner* s, int count)
 {
 	int i;
 	s->instances = carray_new(count);
@@ -250,11 +250,11 @@ initialize_instances(struct learner_state* s, int count)
 		carray_push_back(s->instances, instance_new());
 }
 
-struct learner_state*
-learner_state_new(int instances)
+struct learner*
+learner_new(int instances)
 {
-	struct learner_state* s;
-	s = malloc(sizeof(struct learner_state));
+	struct learner* s;
+	s = malloc(sizeof(struct learner));
 	initialize_instances(s, instances);
 	s->current_iid = 1;
 	return s;

@@ -1,5 +1,5 @@
-#include "proposer_state.h"
-#include "learner_state.h"
+#include "proposer.h"
+#include "learner.h"
 #include "carray.h"
 #include <assert.h>
 #include <string.h>
@@ -29,14 +29,14 @@ struct instance
 };
 
 
-struct proposer_state 
+struct proposer 
 {
 	int id;
 	iid_t next_prepare_iid;
 	iid_t next_accept_iid;
 	struct carray* values;
 	struct carray* instances;
-	struct learner_state* learner;
+	struct learner* learner;
 };
 
 
@@ -125,7 +125,7 @@ instance_add_prepare_ack(struct instance* inst, prepare_ack* ack)
 }
 
 static struct instance*
-proposer_state_get_instance(struct proposer_state* s, iid_t iid)
+proposer_get_instance(struct proposer* s, iid_t iid)
 {
 	struct instance* inst;
 	inst = carray_at(s->instances, iid);
@@ -136,7 +136,7 @@ proposer_state_get_instance(struct proposer_state* s, iid_t iid)
 }
 
 static struct instance*
-proposer_state_create_instance(struct proposer_state* s, iid_t iid, ballot_t ballot)
+proposer_create_instance(struct proposer* s, iid_t iid, ballot_t ballot)
 {
 	struct instance* inst;
 	inst = carray_at(s->instances, iid);
@@ -149,7 +149,7 @@ proposer_state_create_instance(struct proposer_state* s, iid_t iid, ballot_t bal
 }
 
 static int
-proposer_state_instance_ready(struct proposer_state* s, iid_t iid)
+proposer_instance_ready(struct proposer* s, iid_t iid)
 {
 	struct instance* inst;
 	inst = carray_at(s->instances, iid);
@@ -160,7 +160,7 @@ proposer_state_instance_ready(struct proposer_state* s, iid_t iid)
 }
 
 static ballot_t 
-proposer_state_next_ballot(struct proposer_state* s, ballot_t b)
+proposer_next_ballot(struct proposer* s, ballot_t b)
 {
 	if (b > 0)
 		return MAX_N_OF_PROPOSERS + b;
@@ -169,22 +169,22 @@ proposer_state_next_ballot(struct proposer_state* s, ballot_t b)
 }
 
 void
-proposer_state_propose(struct proposer_state* s, paxos_msg* msg)
+proposer_propose(struct proposer* s, paxos_msg* msg)
 {
 	carray_push_back(s->values, msg);
 }
 
 void 
-proposer_state_prepare(struct proposer_state* s, iid_t* i, ballot_t* b)
+proposer_prepare(struct proposer* s, iid_t* i, ballot_t* b)
 {
 	struct instance* inst;
 	iid_t iid = s->next_prepare_iid + 1;
 	
-	inst = proposer_state_get_instance(s, iid);
+	inst = proposer_get_instance(s, iid);
 
 	if (inst == NULL) {
 		// new instance, create it
-		inst = proposer_state_create_instance(s, iid, proposer_state_next_ballot(s, 0));
+		inst = proposer_create_instance(s, iid, proposer_next_ballot(s, 0));
 	} else if (inst->status == p1_pending) {
 		assert(inst->iid == iid);
 		//Reset fields used for previous phase 1
@@ -194,7 +194,7 @@ proposer_state_prepare(struct proposer_state* s, iid_t* i, ballot_t* b)
 		if (inst->p1_value != NULL) free(inst->p1_value);
 		inst->p1_value = NULL;
 		//Ballot is incremented
-		inst->my_ballot = proposer_state_next_ballot(s, inst->my_ballot);
+		inst->my_ballot = proposer_next_ballot(s, inst->my_ballot);
 	}
 	
 	s->next_prepare_iid++;
@@ -205,10 +205,10 @@ proposer_state_prepare(struct proposer_state* s, iid_t* i, ballot_t* b)
 }
 
 void
-proposer_state_receive_prepare(struct proposer_state* s, prepare_ack* ack)
+proposer_receive_prepare(struct proposer* s, prepare_ack* ack)
 {
 	struct instance* inst;
-	inst = proposer_state_get_instance(s, ack->iid);
+	inst = proposer_get_instance(s, ack->iid);
 
 	if (inst == NULL) { // instance not stored (too old)
 		LOG(DBG, ("Promise dropped, iid:%u too old\n", ack->iid));
@@ -235,17 +235,17 @@ proposer_state_receive_prepare(struct proposer_state* s, prepare_ack* ack)
 }
 
 int 
-proposer_state_accept(struct proposer_state* s, iid_t* iout,
+proposer_accept(struct proposer* s, iid_t* iout,
 	ballot_t* bout, paxos_msg** vout)
 {
 	struct instance* inst;
 	iid_t iid = s->next_accept_iid + 1;
 	
-	if (!proposer_state_instance_ready(s, iid) || carray_empty(s->values))
+	if (!proposer_instance_ready(s, iid) || carray_empty(s->values))
 		return 0;
 	
-	inst = proposer_state_get_instance(s, iid);
-	assert(inst != NULL); // proposer_state_instance_ready should have caught this!
+	inst = proposer_get_instance(s, iid);
+	assert(inst != NULL); // proposer_instance_ready should have caught this!
 		
 	if (inst->p1_value == NULL && inst->p2_value == NULL) {
 		// Happens when p1 completes without value        
@@ -292,13 +292,13 @@ proposer_state_accept(struct proposer_state* s, iid_t* iout,
 }
 
 static void 
-do_learn(struct proposer_state* s, accept_ack* ack)
+do_learn(struct proposer* s, accept_ack* ack)
 {	
     LOG(DBG, ("Learning outcome of instance %u \n", ack->iid));
 	
 	struct instance* inst;
 	
-	inst = proposer_state_get_instance(s, ack->iid);
+	inst = proposer_get_instance(s, ack->iid);
 	if (inst == NULL) {
 		// Instance not stored. Probably too old.
 		return;
@@ -324,24 +324,24 @@ do_learn(struct proposer_state* s, accept_ack* ack)
 }
 
 static void 
-try_learn(struct proposer_state* s)
+try_learn(struct proposer* s)
 {
 	accept_ack* ack;
-	while ((ack = learner_state_deliver_next(s->learner)) != NULL) {
+	while ((ack = learner_deliver_next(s->learner)) != NULL) {
 		do_learn(s, ack);
 		free(ack);
 	}
 }
 
 void
-proposer_state_receive_accept(struct proposer_state* s, accept_ack* ack) 
+proposer_receive_accept(struct proposer* s, accept_ack* ack) 
 {
-	learner_state_receive_accept(s->learner, ack);
+	learner_receive_accept(s->learner, ack);
 	try_learn(s);
 }
 
 static void
-initialize_instances(struct proposer_state* s, int count)
+initialize_instances(struct proposer* s, int count)
 {
 	int i;
 	s->instances = carray_new(count);
@@ -350,17 +350,17 @@ initialize_instances(struct proposer_state* s, int count)
 		carray_push_back(s->instances, instance_new());
 }
 
-struct proposer_state*
-proposer_state_new(int id, int instances)
+struct proposer*
+proposer_new(int id, int instances)
 {
-	struct proposer_state *s;
-	s = malloc(sizeof(struct proposer_state));
+	struct proposer *s;
+	s = malloc(sizeof(struct proposer));
 	s->id = id;	
 	s->next_prepare_iid = 0;
 	s->next_accept_iid  = 0;
-	s->learner = learner_state_new(LEARNER_ARRAY_SIZE);
+	s->learner = learner_new(LEARNER_ARRAY_SIZE);
 	if (s->learner == NULL) {
-		printf("learner_state_new failed\n");
+		printf("learner_new failed\n");
 		return NULL;
 	}
 	initialize_instances(s, instances);

@@ -2,7 +2,7 @@
 #include "config_reader.h"
 #include "tcp_sendbuf.h"
 #include "tcp_receiver.h"
-#include "proposer_state.h"
+#include "proposer.h"
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
@@ -19,7 +19,7 @@ struct evproposer
 	struct bufferevent* acceptor_ev[N_OF_ACCEPTORS];
 	struct tcp_receiver* receiver;
 	struct event_base* base;
-	struct proposer_state* state;
+	struct proposer* state;
 };
 
 
@@ -29,7 +29,7 @@ do_prepare(struct evproposer* p)
 	int i;
 	iid_t iid;
 	ballot_t ballot;
-	proposer_state_prepare(p->state, &iid, &ballot);
+	proposer_prepare(p->state, &iid, &ballot);
 	for (i = 0; i < p->acceptors_count; i++)
 		sendbuf_add_prepare_req(p->acceptor_ev[i], iid, ballot);
 }
@@ -50,7 +50,7 @@ try_accept(struct evproposer* p)
 	iid_t iid;
 	ballot_t ballot;
 	paxos_msg* value;
-	while (proposer_state_accept(p->state, &iid, &ballot, &value)) {
+	while (proposer_accept(p->state, &iid, &ballot, &value)) {
 		for (i = 0; i < p->acceptors_count; i++)
 	    	sendbuf_add_accept_req(p->acceptor_ev[i], iid, ballot, value);
 		// we pre-execute the next instance right away
@@ -61,14 +61,14 @@ try_accept(struct evproposer* p)
 static void 
 proposer_handle_prepare_ack(struct evproposer* p, prepare_ack* ack)
 {
-	proposer_state_receive_prepare(p->state, ack);
+	proposer_receive_prepare(p->state, ack);
 	try_accept(p);
 }
 
 static void
 proposer_handle_accept_ack(struct evproposer* p, accept_ack* ack)
 {
-	proposer_state_receive_accept(p->state, ack);
+	proposer_receive_accept(p->state, ack);
 }
 
 static void
@@ -165,7 +165,7 @@ on_client_msg(struct bufferevent* bev, void* arg)
 			size = PAXOS_MSG_SIZE((&msg));
 			client_value = malloc(size);
 			evbuffer_remove(in, client_value, size);
-			proposer_state_propose(p->state, client_value);
+			proposer_propose(p->state, client_value);
 			try_accept(p);
 			break;
 		default:
@@ -206,7 +206,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 		assert(p->acceptor_ev[i] != NULL);
 	}
 	
-	p->state = proposer_state_new(p->id, PROPOSER_ARRAY_SIZE);
+	p->state = proposer_new(p->id, PROPOSER_ARRAY_SIZE);
 	proposer_preexecute(p, PROPOSER_PREEXEC_WIN_SIZE);
 	
 	LOG(VRB, ("Proposer is ready\n"));

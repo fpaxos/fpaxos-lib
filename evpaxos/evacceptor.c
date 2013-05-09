@@ -7,7 +7,7 @@
 #include "tcp_sendbuf.h"
 #include "config_reader.h"
 #include "tcp_receiver.h"
-#include "acceptor_state.h"
+#include "acceptor.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,7 +20,7 @@ struct evacceptor
 	struct config* conf;
 	struct event_base* base;
 	struct tcp_receiver* receiver;
-	struct acceptor_state* state;
+	struct acceptor* state;
 };
 
 
@@ -35,7 +35,7 @@ handle_prepare_req(struct evacceptor* a,
 	acceptor_record * rec;	
 	LOG(DBG, ("Handling prepare iid %d ballot %d\n", pr->iid, pr->ballot));
 
-	rec = acceptor_state_receive_prepare(a->state, pr);
+	rec = acceptor_receive_prepare(a->state, pr);
 	
 	if (rec != NULL)
 		sendbuf_add_prepare_ack(bev, rec, a->acceptor_id);
@@ -52,7 +52,7 @@ handle_accept_req(struct evacceptor* a,
 	LOG(DBG, ("Handling accept for instance %d\n", ar->iid));
 
 	acceptor_record* rec;
-	rec = acceptor_state_receive_accept(a->state, ar);
+	rec = acceptor_receive_accept(a->state, ar);
 	
 	if (rec != NULL) { 	// if accepted, send accept_ack
 		int i;
@@ -123,7 +123,7 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 	a->base = b;
 	a->receiver = tcp_receiver_new(a->base, &a->conf->acceptors[id],
 		handle_req, a);
-	a->state = acceptor_state_new(id);
+	a->state = acceptor_new(id);
     printf("Acceptor %d is ready\n", id);
 
     return a;
@@ -140,6 +140,6 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 int
 evacceptor_exit(struct evacceptor* a)
 {
-	acceptor_state_delete(a->state);
+	acceptor_delete(a->state);
 	return 0;
 }
