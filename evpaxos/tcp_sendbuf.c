@@ -11,19 +11,12 @@ add_paxos_header(struct bufferevent* bev, paxos_msg_code c, size_t s)
 }
 
 void 
-sendbuf_add_prepare_req(struct bufferevent* bev, iid_t iid, ballot_t ballot)
+sendbuf_add_prepare_req(struct bufferevent* bev, prepare_req* pr)
 {
-	size_t s;
-	prepare_req pr;
-	
-	LOG(VRB, ("sending prepare iid: %d ballot: %d\n", iid, ballot));
-	
-	pr.iid = iid;
-	pr.ballot = ballot;
-	s = PREPARE_REQ_SIZE(pr);
-	
+	LOG(VRB, ("sending prepare iid: %d ballot: %d\n", pr->iid, pr->ballot));
+	size_t s = PREPARE_REQ_SIZE(pr);
 	add_paxos_header(bev, prepare_reqs, s);
-	bufferevent_write(bev, &pr, s);
+	bufferevent_write(bev, pr, s);
 }
 
 void

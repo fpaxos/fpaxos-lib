@@ -14,7 +14,7 @@ struct proposer* proposer_new(int id, int instances);
 void proposer_propose(struct proposer* s, paxos_msg* msg);
 
 // phase 1
-void proposer_prepare(struct proposer* s, iid_t* iout, ballot_t* bout);
+prepare_req proposer_prepare(struct proposer* s);
 void proposer_receive_prepare(struct proposer* s, prepare_ack* ack);
 
 // phase 2

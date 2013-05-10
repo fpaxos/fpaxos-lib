@@ -27,11 +27,10 @@ static void
 do_prepare(struct evproposer* p)
 {
 	int i;
-	iid_t iid;
-	ballot_t ballot;
-	proposer_prepare(p->state, &iid, &ballot);
+	prepare_req pr;
+	pr = proposer_prepare(p->state);
 	for (i = 0; i < p->acceptors_count; i++)
-		sendbuf_add_prepare_req(p->acceptor_ev[i], iid, ballot);
+		sendbuf_add_prepare_req(p->acceptor_ev[i], &pr);
 }
 
 static void

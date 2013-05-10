@@ -174,11 +174,8 @@ proposer_propose(struct proposer* s, paxos_msg* msg)
 	carray_push_back(s->values, msg);
 }
 
-/*
-	TODO should proposer_prepare() return a prepare_req?
-*/
-void 
-proposer_prepare(struct proposer* s, iid_t* i, ballot_t* b)
+prepare_req 
+proposer_prepare(struct proposer* s)
 {
 	struct instance* inst;
 	iid_t iid = s->next_prepare_iid + 1;
@@ -201,10 +198,8 @@ proposer_prepare(struct proposer* s, iid_t* i, ballot_t* b)
 	}
 	
 	s->next_prepare_iid++;
-
-	// return values
-	*i = inst->iid;
-	*b = inst->my_ballot;
+		
+	return (prepare_req) {inst->iid, inst->my_ballot};
 }
 
 void
