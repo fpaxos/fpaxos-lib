@@ -46,14 +46,12 @@ static void
 try_accept(struct evproposer* p)
 {
 	int i;
-	iid_t iid;
-	ballot_t ballot;
-	paxos_msg* value;
-	while (proposer_accept(p->state, &iid, &ballot, &value)) {
+	accept_req* ar;
+	while ((ar = proposer_accept(p->state)) != NULL) {
 		for (i = 0; i < p->acceptors_count; i++)
-	    	sendbuf_add_accept_req(p->acceptor_ev[i], iid, ballot, value);
-		// we pre-execute the next instance right away
-		do_prepare(p);
+	    	sendbuf_add_accept_req(p->acceptor_ev[i], ar);
+		free(ar);
+		do_prepare(p); // pre-execute the next instance right away
 	}
 }
 

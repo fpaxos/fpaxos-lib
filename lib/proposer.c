@@ -234,19 +234,18 @@ proposer_receive_prepare(struct proposer* s, prepare_ack* ack)
 	LOG(DBG, ("Quorum for iid:%u reached\n", ack->iid));
 }
 
-int 
-proposer_accept(struct proposer* s, iid_t* iout,
-	ballot_t* bout, paxos_msg** vout)
+accept_req* 
+proposer_accept(struct proposer* s)
 {
 	struct instance* inst;
 	iid_t iid = s->next_accept_iid + 1;
 	
 	if (!proposer_instance_ready(s, iid) || carray_empty(s->values))
-		return 0;
+		return NULL;
 	
 	inst = proposer_get_instance(s, iid);
 	assert(inst != NULL); // proposer_instance_ready should have caught this!
-		
+	
 	if (inst->p1_value == NULL && inst->p2_value == NULL) {
 		// Happens when p1 completes without value        
 		// Assign a p2_value and execute
@@ -283,12 +282,13 @@ proposer_accept(struct proposer* s, iid_t* iout,
 	inst->status = p2_pending;
 	s->next_accept_iid += 1;
 	
-	// return values
-	*iout = inst->iid;
-	*bout = inst->my_ballot;
-	*vout = inst->p2_value;
-	
-	return 1;
+	accept_req* req = malloc(sizeof(accept_req) + inst->p2_value->data_size);
+	req->iid = inst->iid;
+	req->ballot = inst->my_ballot;
+	req->value_size = inst->p2_value->data_size;
+	memcpy(req->value, inst->p2_value->data, req->value_size);
+
+	return req;
 }
 
 static void 
