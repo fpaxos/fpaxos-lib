@@ -68,3 +68,60 @@ TEST_F(LearnerTest, LearnInOrder) {
 	ASSERT_NE(delivered, (accept_ack*)NULL);
 	ASSERT_EQ(delivered->iid, 2);
 }
+
+TEST_F(LearnerTest, IgnoreDuplicates) {
+	accept_ack a;
+	accept_ack* delivered;
+
+	a =	(accept_ack) {1, 1, 101, 101, 0, 0};
+	learner_receive_accept(l, &a);
+	learner_receive_accept(l, &a);
+	learner_receive_accept(l, &a);
+	delivered = learner_deliver_next(l);
+	ASSERT_EQ(delivered , (accept_ack*)NULL);
+	
+	a = (accept_ack) {2, 1, 101, 101, 0, 0};
+	learner_receive_accept(l, &a);
+	delivered = learner_deliver_next(l);
+	ASSERT_EQ(delivered->iid, 1);
+}
+
+TEST_F(LearnerTest, LearnMajority) {
+	accept_ack a;
+	accept_ack* delivered;
+
+	a =	(accept_ack) {1, 1, 101, 101, 0, 0};
+	learner_receive_accept(l, &a);
+	a = (accept_ack) {2, 1, 100, 100, 0, 0};
+	learner_receive_accept(l, &a);
+	
+	delivered = learner_deliver_next(l);
+	ASSERT_EQ(delivered , (accept_ack*)NULL);
+	
+	a = (accept_ack) {3, 1, 101, 101, 0, 0};
+	learner_receive_accept(l, &a);
+	
+	delivered = learner_deliver_next(l);
+	ASSERT_EQ(delivered->iid, 1);
+	ASSERT_EQ(delivered->ballot, 101);
+}
+
+TEST_F(LearnerTest, IgnoreOlderBallot) {
+	accept_ack a;
+	accept_ack* delivered;
+
+	a =	(accept_ack) {1, 1, 101, 101, 0, 0};
+	learner_receive_accept(l, &a);
+	a = (accept_ack) {1, 1, 201, 201, 0, 0};
+	learner_receive_accept(l, &a);
+	
+	delivered = learner_deliver_next(l);
+	ASSERT_EQ(delivered , (accept_ack*)NULL);
+	
+	a = (accept_ack) {2, 1, 201, 201, 0, 0};
+	learner_receive_accept(l, &a);
+	
+	delivered = learner_deliver_next(l);
+	ASSERT_EQ(delivered->iid, 1);
+	ASSERT_EQ(delivered->ballot, 201);
+}
