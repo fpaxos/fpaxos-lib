@@ -1,6 +1,10 @@
 #ifndef _PROPOSER_H_
 #define _PROPOSER_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "libpaxos.h"
 #include "libpaxos_messages.h"
 
@@ -16,5 +20,9 @@ void proposer_receive_prepare(struct proposer* s, prepare_ack* ack);
 // phase 2
 int proposer_accept(struct proposer* s, iid_t* iout, ballot_t* bout, paxos_msg** vout);
 void proposer_receive_accept(struct proposer* s, accept_ack* ack);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
