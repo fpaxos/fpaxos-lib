@@ -31,7 +31,7 @@ TEST_F(ProposerTest, ReceivePrepare) {
 	ballot_t ballot;
 	prepare_req pr;
 	prepare_ack pa;
-	paxos_msg* value = (paxos_msg*)303;
+	paxos_msg* value;
 	
 	pr = proposer_prepare(p);
 
@@ -44,7 +44,7 @@ TEST_F(ProposerTest, ReceivePrepare) {
 	// we have no value to propose!
 	ASSERT_EQ(proposer_accept(p, &iid, &ballot, &value), 0);
 	
-	proposer_propose(p, value);	
+	proposer_propose(p, (char*)"value", 6);
 	ASSERT_NE(proposer_accept(p, &iid, &ballot, &value), 0);
-	ASSERT_EQ(value, (paxos_msg*)303);
+	ASSERT_EQ(value->data_size, 6);
 }

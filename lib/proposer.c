@@ -169,8 +169,10 @@ proposer_next_ballot(struct proposer* s, ballot_t b)
 }
 
 void
-proposer_propose(struct proposer* s, paxos_msg* msg)
+proposer_propose(struct proposer* s, char* value, size_t size)
 {
+	paxos_msg* msg;
+	msg = wrap_value(value, size);
 	carray_push_back(s->values, msg);
 }
 

@@ -11,7 +11,7 @@ extern "C" {
 struct proposer;
 
 struct proposer* proposer_new(int id, int instances);
-void proposer_propose(struct proposer* s, paxos_msg* msg);
+void proposer_propose(struct proposer* s, char* value, size_t size);
 
 // phase 1
 prepare_req proposer_prepare(struct proposer* s);

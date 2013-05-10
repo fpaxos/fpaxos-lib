@@ -71,6 +71,13 @@ proposer_handle_accept_ack(struct evproposer* p, accept_ack* ack)
 }
 
 static void
+proposer_handle_client_msg(struct evproposer* p, char* value, int size)
+{
+	proposer_propose(p->state, value, size);
+	try_accept(p);
+}
+
+static void
 proposer_handle_msg(struct evproposer* p, struct bufferevent* bev)
 {
 	paxos_msg msg;
@@ -88,13 +95,16 @@ proposer_handle_msg(struct evproposer* p, struct bufferevent* bev)
 		case accept_acks:
 			proposer_handle_accept_ack(p, (accept_ack*)buffer);
 			break;
+		case submit:
+			proposer_handle_client_msg(p, buffer, msg.data_size);
+			break;
 		default:
 			LOG(VRB, ("Unknown msg type %d received from acceptors\n", msg.type));
 	}
 }
 
 static void
-on_acceptor_msg(struct bufferevent* bev, void* arg)
+handle_request(struct bufferevent* bev, void* arg)
 {
 	size_t len;
 	paxos_msg msg;
@@ -137,7 +147,7 @@ do_connect(struct evproposer* p, struct event_base* b, address* a)
 	sin.sin_port = htons(a->port);
 	
 	bev = bufferevent_socket_new(b, -1, BEV_OPT_CLOSE_ON_FREE);
-	bufferevent_setcb(bev, on_acceptor_msg, NULL, on_event, p);
+	bufferevent_setcb(bev, handle_request, NULL, on_event, p);
 	bufferevent_enable(bev, EV_READ|EV_WRITE);
 	struct sockaddr* addr = (struct sockaddr*)&sin;
 	if (bufferevent_socket_connect(bev, addr, sizeof(sin)) < 0) {
@@ -145,31 +155,6 @@ do_connect(struct evproposer* p, struct event_base* b, address* a)
 		return NULL;
 	}
 	return bev;
-}
-
-static void
-on_client_msg(struct bufferevent* bev, void* arg)
-{
-	int size;
-	paxos_msg msg;
-	paxos_msg* client_value;
-	struct evbuffer* in;
-	struct evproposer* p = arg;
-	
-	in = bufferevent_get_input(bev);
-	evbuffer_copyout(in, &msg, sizeof(paxos_msg));
-	
-	switch (msg.type) {
-		case submit:
-			size = PAXOS_MSG_SIZE((&msg));
-			client_value = malloc(size);
-			evbuffer_remove(in, client_value, size);
-			proposer_propose(p->state, client_value);
-			try_accept(p);
-			break;
-		default:
-			printf("Unknown msg type %d received from client\n", msg.type);
-	}
 }
 
 struct evproposer*
@@ -197,7 +182,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
     LOG(VRB, ("Proposer %d starting...\n", id));
 		
 	// Setup client listener
-	p->receiver = tcp_receiver_new(b, &conf->proposers[id], on_client_msg, p);
+	p->receiver = tcp_receiver_new(b, &conf->proposers[id], handle_request, p);
 	
 	// Setup connections to acceptors
 	for (i = 0; i < conf->acceptors_count; i++) {
