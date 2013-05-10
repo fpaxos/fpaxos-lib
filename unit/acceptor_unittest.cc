@@ -128,3 +128,18 @@ TEST_F(AcceptorTest, AcceptSmallerBallot) {
 	rec = acceptor_receive_accept(a, &ar);
 	ASSERT_EQ(rec, (acceptor_record*)NULL);
 }
+
+TEST_F(AcceptorTest, PrepareWithAcceptedValue) {
+	acceptor_record* rec;
+	prepare_req pr = {1, 101};
+	accept_req ar = {1, 101, 0};
+	
+	acceptor_receive_prepare(a, &pr);
+	acceptor_receive_accept(a, &ar);
+	
+	pr = (prepare_req) {1, 201};
+	rec = acceptor_receive_prepare(a, &pr);
+	ASSERT_NE(rec, (acceptor_record*)NULL);
+	ASSERT_EQ(rec->ballot, 201);
+	ASSERT_EQ(rec->value_ballot, 101);
+}
