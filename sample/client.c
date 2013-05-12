@@ -66,8 +66,10 @@ main (int argc, char const *argv[])
 	
 	while(1) {
 		int i;
+		char value[] = "hello!";
+		int len = strlen(value) + 1;
 		for (i = 0; i < rate; ++i) {
-			paxos_submit(bev, "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789", 100);
+			paxos_submit(bev, value, len);
 			event_base_dispatch(base);
 		}
 		sleep(1);

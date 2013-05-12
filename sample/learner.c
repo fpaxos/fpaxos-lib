@@ -10,24 +10,12 @@ handle_sigint(int sig, short ev, void* arg)
 	event_base_loopexit(base, NULL);
 }
 
-static char
-as_char(char c)
-{
-	if (c < 33 || c > 126)
-		return '!';
-	return c;
-}
-
 static void
 deliver(char* value, size_t size, iid_t iid, ballot_t b, 
 	int proposer, void* arg)
 {
 	printf("Paxos instance %u closed by ballot %u\n", iid, b);
-	printf("Value (by proposer:%d, size: %d) ->", proposer, (int)size);
-	printf("[%c][%c][%c][...]\n", 
-		as_char(value[0]), 
-		as_char(value[1]), 
-		as_char(value[2]));
+	printf("%s\n", value);
 }
 
 int
