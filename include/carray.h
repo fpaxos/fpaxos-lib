@@ -12,6 +12,7 @@ void carray_free(struct carray* a);
 int carray_empty(struct carray* a);
 int carray_size(struct carray* a);
 int carray_push_back(struct carray* a, void* p);
+int carray_push_front(struct carray* a, void* p);
 void* carray_front(struct carray* a);
 void* carray_pop_front(struct carray* a);
 int carray_count(struct carray* a);

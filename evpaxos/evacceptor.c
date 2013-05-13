@@ -24,48 +24,45 @@ struct evacceptor
 };
 
 
-// Received a batch of prepare requests (phase 1a), 
-// may answer with multiple messages, all reads/updates
-// needs to be wrapped into transactions and made persistent
-// before sending the corresponding acknowledgement
+/*
+	Received a prepare request (phase 1a).
+*/
 static void 
 handle_prepare_req(struct evacceptor* a, 
 	struct bufferevent* bev, prepare_req* pr)
 {
-	acceptor_record * rec;	
-	LOG(DBG, ("Handling prepare iid %d ballot %d\n", pr->iid, pr->ballot));
-
-	rec = acceptor_receive_prepare(a->state, pr);
+	LOG(DBG, ("Handling prepare for instance %d ballot %d\n", 
+		pr->iid, pr->ballot));
 	
-	if (rec != NULL)
-		sendbuf_add_prepare_ack(bev, rec);
+	acceptor_record * rec;
+	rec = acceptor_receive_prepare(a->state, pr);
+	sendbuf_add_prepare_ack(bev, rec);
 }
 
-// Received a batch of accept requests (phase 2a)
-// may answer with multiple messages, all reads/updates
-// needs to be wrapped into transactions and made persistent
-// before sending the corresponding acknowledgement
+/*
+	Received a accept request (phase 2a).
+*/
 static void 
 handle_accept_req(struct evacceptor* a,
 	struct bufferevent* bev, accept_req* ar)
 {
-	LOG(DBG, ("Handling accept for instance %d\n", ar->iid));
+	LOG(DBG, ("Handling accept for instance %d ballot %d\n",
+	ar->iid, ar->ballot));
 
-	acceptor_record* rec;
-	rec = acceptor_receive_accept(a->state, ar);
-	
-	if (rec != NULL) { 	// if accepted, send accept_ack
-		int i;
-		struct carray* bevs = tcp_receiver_get_events(a->receiver);
-		for (i = 0; i < carray_count(bevs); i++) {
-			rec->acceptor_id = a->acceptor_id; // TODO needed?
+	int i;
+	struct carray* bevs = tcp_receiver_get_events(a->receiver);
+	acceptor_record* rec = acceptor_receive_accept(a->state, ar);
+	rec->acceptor_id = a->acceptor_id; // TODO id should already be set!
+	if (ar->ballot == rec->ballot) // accepted!
+		for (i = 0; i < carray_count(bevs); i++)
 			sendbuf_add_accept_ack(carray_at(bevs, i), rec);
-		}
-	}
+	else
+		sendbuf_add_accept_ack(bev, rec); // send nack
 }
 
-// This function is invoked when a new message is ready to be read
-// from the acceptor socket	
+/*
+	This function is invoked when a new message is ready to be read.
+*/
 static void 
 handle_req(struct bufferevent* bev, void* arg)
 {
@@ -97,17 +94,10 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 
 	LOG(VRB, ("Acceptor %d starting...\n", id));
 		
-	// Check that n_of_acceptor is not too big
-	if (N_OF_ACCEPTORS >= (sizeof(unsigned int)*8)) {
-		printf("Error, this library currently supports at most:%d acceptors\n",
-		(int)(sizeof(unsigned int)*8));
-		printf("(the number of bits in a 'unsigned int', used as acceptor id)\n");
-		return NULL;
-	}
-
-	//Check id validity of acceptor_id
+	// Check id validity of acceptor_id
 	if (id < 0 || id >= N_OF_ACCEPTORS) {
 		printf("Invalid acceptor id:%d\n", id);
+		printf("Should be between 0 and %d\n", N_OF_ACCEPTORS);
 		return NULL;
 	}
 

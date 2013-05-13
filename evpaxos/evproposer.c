@@ -24,21 +24,22 @@ struct evproposer
 
 
 static void
-do_prepare(struct evproposer* p)
+do_prepare(struct evproposer* p, prepare_req* pr)
 {
 	int i;
-	prepare_req pr;
-	pr = proposer_prepare(p->state);
 	for (i = 0; i < p->acceptors_count; i++)
-		sendbuf_add_prepare_req(p->acceptor_ev[i], &pr);
+		sendbuf_add_prepare_req(p->acceptor_ev[i], pr);
 }
 
 static void
 proposer_preexecute(struct evproposer* p, int count)
 {
 	int i;
-	for (i = 0; i < count; i++)
-		do_prepare(p);
+	prepare_req pr;
+	for (i = 0; i < count; i++) {
+		pr = proposer_prepare(p->state);
+		do_prepare(p, &pr);
+	}
 	LOG(DBG, ("Opened %d new instances\n", count));
 }
 
@@ -51,21 +52,30 @@ try_accept(struct evproposer* p)
 		for (i = 0; i < p->acceptors_count; i++)
 	    	sendbuf_add_accept_req(p->acceptor_ev[i], ar);
 		free(ar);
-		do_prepare(p); // pre-execute the next instance right away
+		proposer_preexecute(p, 1);
 	}
 }
 
 static void 
 proposer_handle_prepare_ack(struct evproposer* p, prepare_ack* ack)
 {
-	proposer_receive_prepare(p->state, ack);
+	prepare_req* pr = proposer_receive_prepare_ack(p->state, ack);
+	if (pr != NULL) {
+		do_prepare(p, pr);
+		free(pr);
+	}
 	try_accept(p);
 }
 
 static void
 proposer_handle_accept_ack(struct evproposer* p, accept_ack* ack)
 {
-	proposer_receive_accept(p->state, ack);
+	prepare_req* pr = proposer_receive_accept_ack(p->state, ack);
+	if (pr != NULL) {
+		do_prepare(p, pr);
+		free(pr);
+	}
+	try_accept(p);
 }
 
 static void
@@ -97,7 +107,8 @@ proposer_handle_msg(struct evproposer* p, struct bufferevent* bev)
 			proposer_handle_client_msg(p, buffer, msg.data_size);
 			break;
 		default:
-			LOG(VRB, ("Unknown msg type %d received from acceptors\n", msg.type));
+			LOG(VRB, ("Unknown msg type %d received from acceptors\n",
+				msg.type));
 	}
 }
 

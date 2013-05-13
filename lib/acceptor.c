@@ -63,57 +63,47 @@ acceptor_receive_accept(struct acceptor* s, accept_req* req)
 	return rec;
 }
 
-// Given a prepare (phase 1a) request message and the
-// corresponding record, will update if the request is valid.
-// Returns the new record if the promise was made, otherwise NULL.
 static acceptor_record*
 apply_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
 {
-	//We already have a more recent ballot
+	// We already have a more recent ballot
 	if (rec != NULL && rec->ballot >= pr->ballot) {
 		LOG(DBG, ("Prepare iid:%u dropped (ballots curr:%u recv:%u)\n", 
-		pr->iid, rec->ballot, pr->ballot));
-		return NULL;
+			pr->iid, rec->ballot, pr->ballot));
+		return rec;
 	}
 	
-	//Stored value is final, the instance is closed already
+	// Stored value is final, the instance is closed already
 	if (rec != NULL && rec->is_final) {
 		LOG(DBG, ("Prepare request for iid:%u dropped \
 			(stored value is final)\n", pr->iid));
-		return NULL;
+		return rec;
 	}
 	
-	//Record not found or smaller ballot
+	// Record not found or smaller ballot
 	// in both cases overwrite and store
 	LOG(DBG, ("Prepare request is valid for iid:%u (ballot:%u)\n", 
-	pr->iid, pr->ballot));
+		pr->iid, pr->ballot));
 	
-	//Store the updated record
-	rec = storage_save_prepare(s, pr, rec);
-	
-	return rec;
+	// Store the updated record
+	return storage_save_prepare(s, pr, rec);
 }
 
-// Given an accept request (phase 2a) message and the current record
-// will update the record if the request is legal.
-// Returns the new record if the accept was applied, NULL otherwise.
 static acceptor_record*
 apply_accept(struct storage* s, accept_req* ar, acceptor_record* rec)
 {
 	// We already have a more recent ballot
 	if (rec != NULL && rec->ballot > ar->ballot) {
 		LOG(DBG, ("Accept for iid:%u dropped (ballots curr:%u recv:%u)\n", 
-		ar->iid, rec->ballot, ar->ballot));
-		return NULL;
+			ar->iid, rec->ballot, ar->ballot));
+		return rec;
 	}
 	
 	// Record not found or smaller ballot
 	// in both cases overwrite and store
 	LOG(DBG, ("Accepting for iid:%u (ballot:%u)\n", 
-	ar->iid, ar->ballot));
+		ar->iid, ar->ballot));
 	
 	// Store the updated record
-	rec = storage_save_accept(s, ar);
-	
-	return rec;
+	return storage_save_accept(s, ar);
 }

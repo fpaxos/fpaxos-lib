@@ -73,6 +73,21 @@ int carray_push_back(struct carray* a, void* p) {
 }
 
 
+int carray_push_front(struct carray* a, void* p) {
+	if (carray_full(a))
+		carray_grow(a);
+	if (carray_empty(a))
+		return carray_push_back(a, p);
+	if (a->head - 1 >= 0)
+		a->head--;
+	else
+		a->head = a->size-1;
+	a->array[a->head] = p;
+	a->count++;
+	return 0;
+}
+
+
 void* carray_front(struct carray* a) {
 	return a->array[a->head];
 }
