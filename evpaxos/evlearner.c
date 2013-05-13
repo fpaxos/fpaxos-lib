@@ -25,8 +25,19 @@ struct evlearner
 	// config reader handle
 	struct config* conf;
 	// bufferevent sockets to send data to acceptors
+	int acceptors_count;
 	struct bufferevent* acceptor_ev[N_OF_ACCEPTORS];
 };
+
+
+static void
+do_prepare(struct evlearner* l, prepare_req* pr)
+{
+	int i;
+	for (i = 0; i < l->acceptors_count; i++)
+		sendbuf_add_prepare_req(l->acceptor_ev[i], pr);
+	free(pr);
+}
 
 static void 
 learner_deliver_next_closed(struct evlearner* l)
@@ -48,7 +59,16 @@ learner_deliver_next_closed(struct evlearner* l)
 static void
 learner_handle_accept_ack(struct evlearner* l, accept_ack * aa)
 {
-	learner_receive_accept(l->state, aa);
+	prepare_req* req;
+	req = learner_receive_accept(l->state, aa);
+	if (req != NULL) do_prepare(l, req);
+	learner_deliver_next_closed(l);
+}
+
+static void
+learner_handle_prepare_req(struct evlearner* l, prepare_ack* pa)
+{
+	learner_receive_prepare_ack(l, pa);
 	learner_deliver_next_closed(l);
 }
 
@@ -64,6 +84,9 @@ learner_handle_msg(struct evlearner* l, struct bufferevent* bev)
 	evbuffer_remove(in, buffer, msg.data_size);
 	
 	switch (msg.type) {
+		case prepare_acks:
+			learner_handle_prepare_req(l, (prepare_ack*)buffer);
+			break;
 		case accept_acks:
 			learner_handle_accept_ack(l, (accept_ack*)buffer);
 			break;
@@ -142,9 +165,10 @@ evlearner_init_conf(struct config* c, deliver_function f, void* arg,
 	l->delfun = f;
 	l->delarg = arg;
 	l->state = learner_new(LEARNER_ARRAY_SIZE);
+	l->acceptors_count = c->acceptors_count;
 	
 	// setup connections to acceptors
-	for (i = 0; i < l->conf->acceptors_count; i++) {
+	for (i = 0; i < l->acceptors_count; i++) {
 		l->acceptor_ev[i] = do_connect(l, b, &l->conf->acceptors[i]);
 	}
 	

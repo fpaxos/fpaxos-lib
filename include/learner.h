@@ -11,7 +11,7 @@ extern "C" {
 struct learner;
 
 struct learner* learner_new(int instances);
-void learner_receive_accept(struct learner* s, accept_ack* ack);
+prepare_req* learner_receive_accept(struct learner* s, accept_ack* ack);
 accept_ack* learner_deliver_next(struct learner* s);
 
 #ifdef __cplusplus

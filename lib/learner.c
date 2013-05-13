@@ -133,7 +133,7 @@ instance_update(struct instance* inst, accept_ack* ack)
     
 	// Instance closed already, drop
 	if (instance_has_quorum(inst)) {
-		LOG(DBG, ("Dropping accept_ack for iid: %u", ack->iid));
+		LOG(DBG, ("Dropping accept_ack for iid: %u\n", ack->iid));
 		LOG(DBG, ("already closed\n"));
 		return 0;
 	}
@@ -152,7 +152,7 @@ instance_update(struct instance* inst, accept_ack* ack)
     
 	// Already more recent info in the record, accept_ack is old
 	if (prev_ack->ballot >= ack->ballot) {
-		LOG(DBG, ("Dropping accept_ack for iid: %u ", ack->iid));
+		LOG(DBG, ("Dropping accept_ack for iid: %u\n", ack->iid));
 		LOG(DBG, ("stored ballot is newer or equal\n"));
 		return 0;
 	}
@@ -200,7 +200,16 @@ learner_deliver_next(struct learner* s)
 	return ack;
 }
 
-void
+static prepare_req*
+prepare_request_for_iid(iid_t iid)
+{
+	prepare_req* r = malloc(sizeof(prepare_req));
+	r->iid = iid;
+	r->ballot = 0;
+	return r;
+}
+
+prepare_req*
 learner_receive_accept(struct learner* s, accept_ack* ack)
 {
 	int relevant;
@@ -210,17 +219,17 @@ learner_receive_accept(struct learner* s, accept_ack* ack)
 	if (ack->iid < s->current_iid) {
 		LOG(DBG, ("Dropping accept_ack for already delivered iid: %u\n",
 		ack->iid));
-		return;
+		return NULL;
 	}
 
 	// We are late w.r.t the current iid, ignore message
 	// (The instance received is too ahead and will overwrite something)
 	if (ack->iid >= s->current_iid + carray_size(s->instances)) {
 		LOG(DBG, ("Dropping accept_ack for iid: %u, too far in future\n",
-		ack->iid));
-		return;
+			ack->iid));
+		return NULL;
 	}
-
+	
 	// Message is within interesting bounds
 	// Update the corresponding record
 	inst = learner_get_instance(s, ack->iid);
@@ -229,15 +238,35 @@ learner_receive_accept(struct learner* s, accept_ack* ack)
 	if (!relevant) {
 		//Not really interesting (i.e. a duplicate message)
 		LOG(DBG, ("Learner discarding learn for iid: %u\n", ack->iid));
-		return;
+		return NULL;
 	}
 
 	// Message contained some relevant info, 
 	// check if instance can be declared closed
 	if (!instance_has_quorum(inst)) {
 		LOG(DBG, ("Not yet a quorum for iid: %u\n", ack->iid));
+		return NULL;
+	} 
+	
+	// Detect holes
+	if (inst->iid > (s->current_iid + 1))
+		return prepare_request_for_iid(s->current_iid);
+	
+	return NULL;
+}
+
+void
+learner_receive_prepare_ack(struct learner* l, prepare_ack* ack)
+{
+	// Already closed and delivered, ignore message
+	if (ack->iid < s->current_iid) {
+		LOG(DBG, ("Dropping prepare_ack for already delivered iid: %u\n",
+			ack->iid));
 		return;
 	}
+	
+	
+	
 }
 
 static void
