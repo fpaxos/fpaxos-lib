@@ -14,5 +14,6 @@ acceptor_record* storage_get_record(struct storage* s, iid_t iid);
 acceptor_record* storage_save_accept(struct storage* s, accept_req * ar);
 acceptor_record* storage_save_prepare(struct storage* s, prepare_req * pr, acceptor_record * rec);
 acceptor_record* storage_save_final_value(struct storage* s, char * value, size_t size, iid_t iid, ballot_t ballot);
+iid_t storage_get_max_iid(struct storage * s);
 
 #endif

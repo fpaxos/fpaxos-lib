@@ -62,7 +62,7 @@
     20  -> "Manually" call DB->sync before answering requests
         (may corrupt database file on crash)
 */
-#define DURABILITY_MODE 0
+#define DURABILITY_MODE 12
 
 /*
     This defines where the acceptors create their database files.
