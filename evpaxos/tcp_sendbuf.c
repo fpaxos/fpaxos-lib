@@ -36,7 +36,7 @@ sendbuf_add_prepare_ack(struct bufferevent* bev, acceptor_record* rec)
 
 	s = PREPARE_ACK_SIZE((&pa));
 	add_paxos_header(bev, prepare_acks, s);
-	bufferevent_write(bev, &pa, s);
+	bufferevent_write(bev, &pa, sizeof(prepare_ack));
 	if (pa.value_size > 0)
 		bufferevent_write(bev, rec->value, rec->value_size);
 }
