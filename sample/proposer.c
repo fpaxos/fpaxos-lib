@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <evpaxos.h>
+#include <signal.h>
 
 void
 handle_sigint(int sig, short ev, void* arg)
