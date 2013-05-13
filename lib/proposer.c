@@ -60,6 +60,12 @@ proposer_propose(struct proposer* p, char* value, size_t size)
 	carray_push_back(p->values, msg);
 }
 
+int
+proposer_prepared_count(struct proposer* p)
+{
+	return carray_count(p->prepare_instances);
+}
+
 prepare_req
 proposer_prepare(struct proposer* p)
 {
