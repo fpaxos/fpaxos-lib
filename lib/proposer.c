@@ -11,6 +11,7 @@ struct instance
 	ballot_t ballot;
 	ballot_t value_ballot;
 	paxos_msg* value;
+	int closed;
 	struct quorum prepare_quorum;
 	struct quorum accept_quorum;
 };
@@ -93,14 +94,18 @@ proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack)
 			ack->acceptor_id, inst->iid));	
 		
 		if (ack->value_size > 0) {
-			LOG(DBG, ("Promise has value"));
+			LOG(DBG, ("Promise has value\n"));
 			if (ack->value_ballot > inst->value_ballot) {
-				if (inst->value != NULL) 
+				if (inst->value != NULL)
 					free(inst->value);
 				inst->ballot = inst->value_ballot;
 				inst->value = wrap_value(ack->value, ack->value_size);
 				inst->value_ballot = ack->value_ballot;
 				LOG(DBG, ("Value in promise saved\n"));
+			} else if (ack->value_ballot == inst->value_ballot) {
+				// TODO this assumes that the QUORUM is 2!
+				LOG(DBG, ("Instance is already closed\n"));
+				inst->closed = 1;	
 			} else {
 				LOG(DBG, ("Value in promise ignored\n"));
 			}
@@ -139,7 +144,13 @@ proposer_accept(struct proposer* p)
 		}
 		LOG(DBG,("Popped next value\n"));
 	} else {
-		LOG(DBG, ("Instance already has value\n"));
+		LOG(DBG, ("Instance has value\n"));
+	}
+	
+	if (inst->closed) {
+		LOG(DBG, ("Instance already closed\n"));
+		carray_pop_front(p->prepare_instances);
+		return NULL;
 	}
 	
 	// we have both a prepared instance and a value
@@ -203,6 +214,7 @@ instance_new(iid_t iid, ballot_t ballot)
 	inst->ballot = ballot;
 	inst->value_ballot = 0;
 	inst->value = NULL;
+	inst->closed = 0;
 	quorum_init(&inst->prepare_quorum, QUORUM);
 	quorum_init(&inst->accept_quorum, QUORUM);
 	return inst;
