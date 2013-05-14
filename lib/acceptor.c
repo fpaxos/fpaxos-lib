@@ -21,7 +21,8 @@ acceptor_new(int id)
 		For now we just force do_recovery to be false (BDB creates a new
 		database from scratch each time the acceptor starts).
 	*/
-	int do_recovery = 0; 
+	int do_recovery;
+	if (DURABILITY_MODE > 0) do_recovery = 1;
 	struct acceptor* s;
 	s = malloc(sizeof(struct acceptor));
 	s->store = storage_open(id, do_recovery); 

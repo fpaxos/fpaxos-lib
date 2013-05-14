@@ -9,6 +9,7 @@ protected:
         
 	virtual void SetUp() {
 		id = 2;
+		system("rm -rf /tmp/acceptor_2");
 		a = acceptor_new(id);
 	}
         
