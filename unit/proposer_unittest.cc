@@ -123,6 +123,10 @@ TEST_F(ProposerTest, AcceptPreempted) {
 	ASSERT_GT(pr_preempt->ballot, ar->ballot);
 	free(ar);
 	
+	// check that proposer pushed the instance back 
+	// to the prepare phase
+	ASSERT_EQ(proposer_prepared_count(p), 1);
+	
 	// finally acquire the instance
 	pa = (prepare_ack) {0, pr_preempt->iid, pr_preempt->ballot, 0, 0};
 	ASSERT_EQ(proposer_receive_prepare_ack(p, &pa), (void*)NULL);
