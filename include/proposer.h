@@ -12,6 +12,7 @@ struct proposer;
 
 struct proposer* proposer_new(int id, int instances);
 void proposer_propose(struct proposer* p, char* value, size_t size);
+int proposer_prepared_count(struct proposer* p);
 
 // phase 1
 prepare_req proposer_prepare(struct proposer* p);

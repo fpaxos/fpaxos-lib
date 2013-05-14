@@ -15,6 +15,7 @@
 struct evproposer
 {
 	int id;
+	int preexec_window;
 	int acceptors_count;
 	struct bufferevent* acceptor_ev[N_OF_ACCEPTORS];
 	struct tcp_receiver* receiver;
@@ -32,10 +33,12 @@ do_prepare(struct evproposer* p, prepare_req* pr)
 }
 
 static void
-proposer_preexecute(struct evproposer* p, int count)
+proposer_preexecute(struct evproposer* p)
 {
 	int i;
 	prepare_req pr;
+	int count = p->preexec_window - proposer_prepared_count(p->state);
+	if (count <= 0) return;
 	for (i = 0; i < count; i++) {
 		pr = proposer_prepare(p->state);
 		do_prepare(p, &pr);
@@ -52,8 +55,8 @@ try_accept(struct evproposer* p)
 		for (i = 0; i < p->acceptors_count; i++)
 	    	sendbuf_add_accept_req(p->acceptor_ev[i], ar);
 		free(ar);
-		proposer_preexecute(p, 1);
 	}
+	proposer_preexecute(p);
 }
 
 static void 
@@ -186,6 +189,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 
 	p->id = id;
 	p->base = b;
+	p->preexec_window = PROPOSER_PREEXEC_WIN_SIZE;
 	p->acceptors_count = conf->acceptors_count;
 	
     LOG(VRB, ("Proposer %d starting...\n", id));
@@ -200,7 +204,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	}
 	
 	p->state = proposer_new(p->id, PROPOSER_ARRAY_SIZE);
-	proposer_preexecute(p, PROPOSER_PREEXEC_WIN_SIZE);
+	proposer_preexecute(p);
 	
 	LOG(VRB, ("Proposer is ready\n"));
 	return p;

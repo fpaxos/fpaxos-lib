@@ -18,12 +18,14 @@ protected:
 };
 
 TEST_F(ProposerTest, Prepare) {
+	int count = 10;
 	prepare_req pr;
-	for (int i = 0; i < 10; ++i) {
+	for (int i = 0; i < count; ++i) {
 		pr = proposer_prepare(p);
 		ASSERT_EQ(pr.iid, i+1);
 		ASSERT_EQ(pr.ballot, id + MAX_N_OF_PROPOSERS);
 	}
+	ASSERT_EQ(count, proposer_prepared_count(p));
 }
 
 TEST_F(ProposerTest, PrepareAndAccept) {
@@ -121,6 +123,10 @@ TEST_F(ProposerTest, AcceptPreempted) {
 	ASSERT_GT(pr_preempt->ballot, ar->ballot);
 	free(ar);
 	
+	// check that proposer pushed the instance back 
+	// to the prepare phase
+	ASSERT_EQ(proposer_prepared_count(p), 1);
+	
 	// finally acquire the instance
 	pa = (prepare_ack) {0, pr_preempt->iid, pr_preempt->ballot, 0, 0};
 	ASSERT_EQ(proposer_receive_prepare_ack(p, &pa), (void*)NULL);
@@ -142,4 +148,33 @@ TEST_F(ProposerTest, AcceptPreempted) {
 	
 	free(ar);
 	free(pr_preempt);
+}
+
+TEST_F(ProposerTest, PreparedCount) {
+	int count = 10;
+	prepare_req pr;
+	prepare_ack pa;
+	accept_req* ar;
+	char value[] = "a value";
+	int value_size = strlen(value) + 1;
+	
+	for (size_t i = 0; i < count; ++i) {
+		pr = proposer_prepare(p);
+		proposer_propose(p, value, value_size);
+		ASSERT_EQ(i + 1, proposer_prepared_count(p));
+	}
+	
+	for (size_t i = 0; i < count; ++i)
+		proposer_accept(p);
+	ASSERT_EQ(count, proposer_prepared_count(p));
+	
+	for (size_t i = 0; i < count; ++i) {
+		pa = (prepare_ack) {0, i+1, pr.ballot, 0, 0};
+		proposer_receive_prepare_ack(p, &pa);
+		pa = (prepare_ack) {1, i+1, pr.ballot, 0, 0};
+		proposer_receive_prepare_ack(p, &pa);
+		ar = proposer_accept(p);
+		free(ar);
+		ASSERT_EQ(count-(i+1), proposer_prepared_count(p));
+	}
 }
