@@ -146,7 +146,7 @@ TEST_F(ProposerTest, AcceptPreempted) {
 	free(pr_preempt);
 }
 
-TEST_F(ProposerTest, ProposedCount) {
+TEST_F(ProposerTest, PreparedCount) {
 	int count = 10;
 	prepare_req pr;
 	prepare_ack pa;
