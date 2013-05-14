@@ -73,6 +73,14 @@ handle_req(struct bufferevent* bev, void* arg)
 	
 	in = bufferevent_get_input(bev);
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
+	if (msg.data_size > PAXOS_MAX_VALUE_SIZE)
+	{
+		evbuffer_drain(in, msg.data_size);
+		printf("Acceptor received req sz %d > %d maximum, discarding\n",
+			msg.data_size, PAXOS_MAX_VALUE_SIZE);
+		
+		return;
+	}
 	evbuffer_remove(in, buffer, msg.data_size);
 	
 	switch (msg.type) {
