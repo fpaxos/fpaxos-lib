@@ -53,15 +53,21 @@ sendbuf_add_accept_req(struct bufferevent* bev, accept_req* ar)
 
 void
 sendbuf_add_accept_ack(struct bufferevent* bev, accept_ack* aa)
-{
-	size_t s;
-	
+{	
 	LOG(VRB, ("sending accept ack for inst %d ballot %d\n", 
 		aa->iid, aa->ballot));
 
-	s = ACCEPT_ACK_SIZE(aa);
+	size_t s = ACCEPT_ACK_SIZE(aa);
 	add_paxos_header(bev, accept_acks, s);
 	bufferevent_write(bev, aa, s);
+}
+
+void
+sendbuf_add_repeat_req(struct bufferevent* bev, iid_t iid)
+{
+	LOG(VRB, ("sending repeat request for inst %d\n", iid));
+	add_paxos_header(bev, repeat_reqs, sizeof(iid_t));
+	bufferevent_write(bev, &iid, sizeof(iid_t));
 }
 
 void

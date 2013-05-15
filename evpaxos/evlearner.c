@@ -24,9 +24,30 @@ struct evlearner
 	struct event_base * base;
 	// config reader handle
 	struct config* conf;
+	// hole check event
+	struct event* hole_timer;
+	struct timeval tv;
 	// bufferevent sockets to send data to acceptors
+	int acceptors_count;
 	struct bufferevent* acceptor_ev[N_OF_ACCEPTORS];
 };
+
+
+static void
+learner_check_holes(evutil_socket_t fd, short event, void *arg)
+{
+	int i, chunks = 10000;
+	iid_t iid, from, to;
+	struct evlearner* l = arg;
+	if (learner_has_holes(l->state, &from, &to)) {
+		if ((to - from) > chunks)
+			to = from + chunks;
+		for (iid = from; iid < to; iid++)
+			for (i = 0; i < l->acceptors_count; i++)
+				sendbuf_add_repeat_req(l->acceptor_ev[i], iid);
+	}
+	event_add(l->hole_timer, &l->tv);
+}
 
 static void 
 learner_deliver_next_closed(struct evlearner* l)
@@ -42,9 +63,10 @@ learner_deliver_next_closed(struct evlearner* l)
 	}
 }
 
-// Called when an accept_ack is received, the learner will update 
-// it's status for that instance and afterwards check if the instance
-// is closed
+/*
+	Called when an accept_ack is received, the learner will update it's status
+    for that instance and afterwards check if the instance is closed
+*/
 static void
 learner_handle_accept_ack(struct evlearner* l, accept_ack * aa)
 {
@@ -68,8 +90,7 @@ learner_handle_msg(struct evlearner* l, struct bufferevent* bev)
 			learner_handle_accept_ack(l, (accept_ack*)buffer);
 			break;
 		default:
-			printf("Unknow msg type %d received from acceptors\n", 
-				msg.type);
+			printf("Unknow msg type %d received from acceptors\n", msg.type);
     }
 }
 
@@ -141,12 +162,18 @@ evlearner_init_conf(struct config* c, deliver_function f, void* arg,
 	l->base = b;
 	l->delfun = f;
 	l->delarg = arg;
-	l->state = learner_new(LEARNER_ARRAY_SIZE);
+	l->state = learner_new(LEARNER_ARRAY_SIZE, 1);
+	l->acceptors_count = c->acceptors_count;
 	
 	// setup connections to acceptors
-	for (i = 0; i < l->conf->acceptors_count; i++) {
+	for (i = 0; i < l->acceptors_count; i++)
 		l->acceptor_ev[i] = do_connect(l, b, &l->conf->acceptors[i]);
-	}
+	
+	// setup hole checking timer
+	l->tv.tv_sec = 0;
+	l->tv.tv_usec = 100000;
+	l->hole_timer = evtimer_new(b, learner_check_holes, l);
+	event_add(l->hole_timer, &l->tv);
 	
 	LOG(VRB, ("Learner is ready\n"));
 	return l;

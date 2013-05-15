@@ -16,11 +16,10 @@ struct instance
 
 struct learner
 {
-	// current instance id, incremented when current
-	// instance is closed and the corresponding value
-	// is delivered
+	int late_start;
 	iid_t current_iid;
-	// the instances we store
+	iid_t highest_iid_seen;
+	iid_t highest_iid_closed;
 	struct carray* instances;
 };
 
@@ -57,7 +56,7 @@ accepted the same value ballot pair.
 Returns 1 if the instance is closed, 0 otherwise
 */
 static int 
-instance_has_quorum(struct instance* inst)
+instance_has_quorum(struct learner* l, struct instance* inst)
 {
 	accept_ack * curr_ack;
 	int i, a_valid_index = -1, count = 0;
@@ -113,58 +112,6 @@ instance_add_accept(struct instance* inst, accept_ack* ack)
 	inst->last_update_ballot = ack->ballot;
 }
 
-/*
-Tries to update the state based on the accept_ack received.
-Returns 0 if the message was discarded because not relevant,
-otherwise 1.
-*/
-static int
-instance_update(struct instance* inst, accept_ack* ack)
-{
-	accept_ack* prev_ack;
-	
-	// First message for this iid
-	if (inst->iid == 0) {
-		LOG(DBG, ("Received first message for instance: %u\n", ack->iid));
-		inst->iid = ack->iid;
-		inst->last_update_ballot = ack->ballot;
-	}
-	assert(inst->iid == ack->iid);
-    
-	// Instance closed already, drop
-	if (instance_has_quorum(inst)) {
-		LOG(DBG, ("Dropping accept_ack for iid: %u", ack->iid));
-		LOG(DBG, ("already closed\n"));
-		return 0;
-	}
-    
-	// No previous message to overwrite for this acceptor
-	if (inst->acks[ack->acceptor_id] == NULL) {
-		LOG(DBG, ("Got first ack for: %u, acceptor: %d\n", 
-		inst->iid, ack->acceptor_id));
-		//Save this accept_ack
-		instance_add_accept(inst, ack);
-		return 1;
-	}
-    
-	// There is already a message from the same acceptor
-	prev_ack = inst->acks[ack->acceptor_id];
-    
-	// Already more recent info in the record, accept_ack is old
-	if (prev_ack->ballot >= ack->ballot) {
-		LOG(DBG, ("Dropping accept_ack for iid: %u ", ack->iid));
-		LOG(DBG, ("stored ballot is newer or equal\n"));
-		return 0;
-	}
-    
-	// Replace the previous ack since the received ballot is newer
-	LOG(DBG, ("Overwriting previous accept_ack for iid: %u\n", ack->iid));
-	free(prev_ack);
-	instance_add_accept(inst, ack);
-
-	return 1;
-}
-
 static struct instance*
 learner_get_instance(struct learner* s, iid_t iid)
 {
@@ -180,13 +127,62 @@ learner_get_current_instance(struct learner* s)
 	return learner_get_instance(s, s->current_iid);
 }
 
+/*
+	Tries to update the state based on the accept_ack received.
+*/
+static void
+learner_update_instance(struct learner* l, accept_ack* ack)
+{
+	accept_ack* prev_ack;
+	struct instance* inst = learner_get_instance(l, ack->iid);
+	
+	// First message for this iid
+	if (inst->iid == 0) {
+		LOG(DBG, ("Received first message for instance: %u\n", ack->iid));
+		inst->iid = ack->iid;
+		inst->last_update_ballot = ack->ballot;
+	}
+	assert(inst->iid == ack->iid);
+    
+	// Instance closed already, drop
+	if (instance_has_quorum(l, inst)) {
+		LOG(DBG, ("Dropping accept_ack for iid %u, already closed\n",
+			 ack->iid));
+		return;
+	}
+    
+	// No previous message to overwrite for this acceptor
+	if (inst->acks[ack->acceptor_id] == NULL) {
+		LOG(DBG, ("Got first ack for: %u, acceptor: %d\n", 
+		inst->iid, ack->acceptor_id));
+		//Save this accept_ack
+		instance_add_accept(inst, ack);
+		return;
+	}
+    
+	// There is already a message from the same acceptor
+	prev_ack = inst->acks[ack->acceptor_id];
+    
+	// Already more recent info in the record, accept_ack is old
+	if (prev_ack->ballot >= ack->ballot) {
+		LOG(DBG, ("Dropping accept_ack for iid: %u\n", ack->iid));
+		LOG(DBG, ("stored ballot is newer or equal\n"));
+		return;
+	}
+    
+	// Replace the previous ack since the received ballot is newer
+	LOG(DBG, ("Overwriting previous accept_ack for iid: %u\n", ack->iid));
+	free(prev_ack);
+	instance_add_accept(inst, ack);
+}
+
 accept_ack*
 learner_deliver_next(struct learner* s)
 {
 	struct instance* inst;
 	accept_ack* ack = NULL;
 	inst = learner_get_current_instance(s);
-	if (instance_has_quorum(inst)) {
+	if (instance_has_quorum(s, inst)) {
 		size_t size = ACCEPT_ACK_SIZE(inst->final_value);
 		
 		// make a copy of the accept_ack to deliver,
@@ -203,8 +199,13 @@ learner_deliver_next(struct learner* s)
 void
 learner_receive_accept(struct learner* s, accept_ack* ack)
 {
-	int relevant;
-	struct instance* inst;
+	if (s->late_start) {
+		s->late_start = 0;
+		s->current_iid = ack->iid;
+	}
+		
+	if (ack->iid > s->highest_iid_seen)
+		s->highest_iid_seen = ack->iid;
 	
 	// Already closed and delivered, ignore message
 	if (ack->iid < s->current_iid) {
@@ -212,32 +213,20 @@ learner_receive_accept(struct learner* s, accept_ack* ack)
 		ack->iid));
 		return;
 	}
-
+	
 	// We are late w.r.t the current iid, ignore message
 	// (The instance received is too ahead and will overwrite something)
 	if (ack->iid >= s->current_iid + carray_size(s->instances)) {
 		LOG(DBG, ("Dropping accept_ack for iid: %u, too far in future\n",
-		ack->iid));
+			ack->iid));
 		return;
 	}
-
-	// Message is within interesting bounds
-	// Update the corresponding record
-	inst = learner_get_instance(s, ack->iid);
-	relevant = instance_update(inst, ack);
-
-	if (!relevant) {
-		//Not really interesting (i.e. a duplicate message)
-		LOG(DBG, ("Learner discarding learn for iid: %u\n", ack->iid));
-		return;
-	}
-
-	// Message contained some relevant info, 
-	// check if instance can be declared closed
-	if (!instance_has_quorum(inst)) {
-		LOG(DBG, ("Not yet a quorum for iid: %u\n", ack->iid));
-		return;
-	}
+	
+	learner_update_instance(s, ack);
+	
+	struct instance* inst = learner_get_instance(s, ack->iid);
+	if (instance_has_quorum(s, inst) && (inst->iid > s->highest_iid_closed))
+		s->highest_iid_closed = inst->iid;
 }
 
 static void
@@ -250,12 +239,31 @@ initialize_instances(struct learner* s, int count)
 		carray_push_back(s->instances, instance_new());
 }
 
+int
+learner_has_holes(struct learner* l, iid_t* from, iid_t* to)
+{
+	if (l->highest_iid_seen > l->current_iid + carray_count(l->instances)) {
+		*from = l->current_iid;
+		*to = l->highest_iid_seen;
+		return 1;
+	}
+	if (l->highest_iid_closed > l->current_iid) {
+		*from = l->current_iid;
+		*to = l->highest_iid_closed;
+		return 1;
+	}
+	return 0;
+}
+
 struct learner*
-learner_new(int instances)
+learner_new(int instances, int recover)
 {
 	struct learner* s;
 	s = malloc(sizeof(struct learner));
 	initialize_instances(s, instances);
 	s->current_iid = 1;
+	s->highest_iid_seen = 1;
+	s->highest_iid_closed = 1;
+	s->late_start = !recover;
 	return s;
 }

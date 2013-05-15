@@ -63,6 +63,16 @@ acceptor_receive_accept(struct acceptor* s, accept_req* req)
 	return rec;
 }
 
+acceptor_record*
+acceptor_receive_repeat(struct acceptor* a, iid_t iid)
+{
+	acceptor_record* rec;
+	storage_tx_begin(a->store);
+	rec = storage_get_record(a->store, iid);
+	storage_tx_commit(a->store);
+	return rec;
+}
+
 static acceptor_record*
 apply_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
 {

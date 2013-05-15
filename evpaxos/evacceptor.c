@@ -47,7 +47,7 @@ handle_accept_req(struct evacceptor* a,
 	struct bufferevent* bev, accept_req* ar)
 {
 	LOG(DBG, ("Handling accept for instance %d ballot %d\n",
-	ar->iid, ar->ballot));
+		ar->iid, ar->ballot));
 
 	int i;
 	struct carray* bevs = tcp_receiver_get_events(a->receiver);
@@ -58,6 +58,15 @@ handle_accept_req(struct evacceptor* a,
 			sendbuf_add_accept_ack(carray_at(bevs, i), rec);
 	else
 		sendbuf_add_accept_ack(bev, rec); // send nack
+}
+
+static void
+handle_repeat_req(struct evacceptor* a, struct bufferevent* bev, iid_t iid)
+{
+	LOG(DBG, ("Handling repeat for instance %d\n", iid));
+	acceptor_record* rec = acceptor_receive_repeat(a->state, iid);
+	if (rec != NULL)
+		sendbuf_add_accept_ack(bev, rec);
 }
 
 /*
@@ -81,6 +90,9 @@ handle_req(struct bufferevent* bev, void* arg)
 			break;
 		case accept_reqs:
 			handle_accept_req(a, bev, (accept_req*)buffer);
+			break;
+		case repeat_reqs:
+			handle_repeat_req(a, bev, *((iid_t*)buffer));
 			break;
 		default:
 		printf("Unknow msg type %d received by acceptor\n", msg.type);
