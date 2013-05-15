@@ -39,13 +39,20 @@ on_read(struct bufferevent* bev, void* arg)
 	}
 }
 
+static int
+match_bufferevent(void* arg, void* item)
+{
+	return arg == item;
+}
+
 static void
 on_error(struct bufferevent *bev, short events, void *arg)
 {
-	if (events & BEV_EVENT_ERROR)
-		perror("Error from bufferevent");
-	if (events & (BEV_EVENT_EOF|BEV_EVENT_ERROR))
+	struct tcp_receiver* r = arg;
+	if (events & (BEV_EVENT_EOF)) {
+		r->bevs = carray_reject(r->bevs, match_bufferevent, bev);
 		bufferevent_free(bev);
+	}
 }
 
 static void
