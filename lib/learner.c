@@ -22,6 +22,8 @@ struct learner
 	iid_t current_iid;
 	// the instances we store
 	struct carray* instances;
+	// A flag that permits the learner to skip ahead instances once
+	int reset;
 };
 
 
@@ -206,6 +208,15 @@ learner_receive_accept(struct learner* s, accept_ack* ack)
 	int relevant;
 	struct instance* inst;
 	
+#ifdef LEARNER_ORDERING_HACK
+	if (s->reset == 0) 
+	{
+		// Whatever ack we get as our first becomes our "starting" point
+		s->current_iid = ack->iid;
+		s->reset = 1;
+	}
+#endif
+	
 	// Already closed and delivered, ignore message
 	if (ack->iid < s->current_iid) {
 		LOG(DBG, ("Dropping accept_ack for already delivered iid: %u\n",
@@ -257,5 +268,6 @@ learner_new(int instances)
 	s = malloc(sizeof(struct learner));
 	initialize_instances(s, instances);
 	s->current_iid = 1;
+	s->reset = 0;
 	return s;
 }

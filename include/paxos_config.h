@@ -100,7 +100,12 @@
 */
 #define LEARNER_ARRAY_SIZE 2048
 
-
+/*
+ * Learners usually should not be able to learn instance i + n if
+ * instance i has not been learned; in order to enable a learner to
+ * restart and continue learning values, relax this restriction
+ */
+#define LEARNER_ORDERING_HACK 
 /*** DEBUGGING SETTINGS ***/
 
 /*
