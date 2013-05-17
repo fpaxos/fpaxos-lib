@@ -91,7 +91,7 @@ proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack)
 	if (inst->ballot == ack->ballot) {	// preempted?
 		
 		if (!quorum_add(&inst->prepare_quorum, ack->acceptor_id)) {
-			LOG(DBG, ("Dropping duplicate promise from: %d, iid: %u\n", 
+			LOG(DBG, ("Dropping promise from %d, instance %u has a quorum\n",
 				ack->acceptor_id, inst->iid));
 			return NULL;
 		}
@@ -101,16 +101,17 @@ proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack)
 		
 		if (ack->value_size > 0) {
 			LOG(DBG, ("Promise has value\n"));
-			if (ack->value_ballot > inst->value_ballot) {
-				if (inst->value != NULL)
-					free(inst->value);
-				inst->ballot = inst->value_ballot;
-				inst->value = wrap_value(ack->value, ack->value_size);
+			if (inst->value == NULL) {
 				inst->value_ballot = ack->value_ballot;
-				LOG(DBG, ("Value in promise saved\n"));
+				inst->value = wrap_value(ack->value, ack->value_size);
+			} else if (ack->value_ballot > inst->value_ballot) {
+				free(inst->value);
+				inst->value_ballot = ack->value_ballot;
+				inst->value = wrap_value(ack->value, ack->value_size);
+				LOG(DBG, ("Value in promise saved, removed older value\n"));
 			} else if (ack->value_ballot == inst->value_ballot) {
 				// TODO this assumes that the QUORUM is 2!
-				LOG(DBG, ("Instance is already closed\n"));
+				LOG(DBG, ("Instance %d closed\n", inst->iid));
 				inst->closed = 1;	
 			} else {
 				LOG(DBG, ("Value in promise ignored\n"));
