@@ -183,44 +183,37 @@ storage_open(int acceptor_id, int do_recovery)
 
 	int ret = 0;
 	char * db_file = db_filename;
-	printf("Durability mode is: ");
 	switch (DURABILITY_MODE) {
 		//In memory cache
 		case 0: {
 			//Give full path if opening without handle
-			printf("no durability!\n");
 			db_file = db_file_path;
 		}
 		break;
 
         //Transactional storage
 		case 10: {
-			printf("transactional, no durability!\n");
 			ret = bdb_init_tx_handle(s, DB_LOG_IN_MEMORY, db_env_path);
 		}
 		break;
 
 		case 11: {
-			printf("transactional, DB_TXN_NOSYNC\n");
 			ret = bdb_init_tx_handle(s, DB_TXN_NOSYNC, db_env_path);
 		}
 		break;
 
 		case 12: {
-			printf("transactional, DB_TXN_WRITE_NOSYNC\n");
 			ret = bdb_init_tx_handle(s, DB_TXN_WRITE_NOSYNC, db_env_path);
 		}
 		break;
 
 		case 13: {
-			printf("transactional, durable\n");
 			ret = bdb_init_tx_handle(s, 0, db_env_path);
 		}
 		break;
 
 		case 20: {
 			//Give full path if opening without handle
-			printf("manual db flush\n");
 			db_file = db_file_path;
 		}
 		break;
