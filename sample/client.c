@@ -1,73 +1,67 @@
 #include "evpaxos.h"
 #include "config_reader.h"
-#include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <signal.h>
-#include <arpa/inet.h>
-#include <event2/event.h>
-#include <event2/buffer.h>
-#include <event2/bufferevent.h>
 
-static int rate = 1; // values per sec
+
+static void
+event_callback(struct bufferevent* bev, short events, void* arg)
+{
+    if (events & BEV_EVENT_CONNECTED) {
+		printf("Connected\n");
+    } else if (events & BEV_EVENT_ERROR) {
+        printf("%s\n", evutil_socket_error_to_string(EVUTIL_SOCKET_ERROR()));
+    }
+}
 
 static struct bufferevent* 
-do_connect(struct event_base* b, address* a)
+connect_to_proposer(struct event_base* b, struct sockaddr* addr)
 {
-	struct sockaddr_in sin;
 	struct bufferevent* bev;
 	
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = inet_addr(a->address_string);
-	sin.sin_port = htons(a->port);
-	
 	bev = bufferevent_socket_new(b, -1, BEV_OPT_CLOSE_ON_FREE);
-	bufferevent_enable(bev, EV_WRITE);
-	struct sockaddr* addr = (struct sockaddr*)&sin;
-	if (bufferevent_socket_connect(bev, addr, sizeof(sin)) < 0) {
+	bufferevent_setcb(bev, NULL, NULL, event_callback, NULL);
+	if (bufferevent_socket_connect(bev, addr, sizeof(struct sockaddr)) < 0) {
 		bufferevent_free(bev);
 		return NULL;
 	}
+	event_base_dispatch(b);
 	return bev;
 }
 
-void 
-handle_cltr_c (int sig)
+void
+usage(const char* progname)
 {
-	printf("Caught signal %d\n", sig);
-	exit(0);
+	printf("Usage: %s address:port rate\n", progname);
+	exit(1);
 }
-
 
 int
 main (int argc, char const *argv[])
 {
+	int rate;
 	struct event_base* base;
 	struct bufferevent* bev;
+	struct sockaddr address;
+	int address_len = sizeof(struct sockaddr);
 	
-	signal(SIGINT, handle_cltr_c);
-	
-	if (argc != 3) {
-		printf("Usage: %s config rate\n", argv[0]);
-		exit(1);
-	}
-	
+	if (argc != 3)
+		usage(argv[0]);
+
+	if (evutil_parse_sockaddr_port(argv[1], &address, &address_len) == -1)
+		usage(argv[0]);
 	rate = atoi(argv[2]);
-
-	struct config* c = read_config(argv[1]);
-
+	
 	base = event_base_new();    
-	bev = do_connect(base, &c->proposers[0]);
-	if (bev == NULL) {
-		printf("Connection failed\n");
-	}
+	bev = connect_to_proposer(base, &address);
+	
+	char value[] = "hello!";
+	int len = strlen(value) + 1;
 	
 	while(1) {
 		int i;
-		char value[] = "hello!";
-		int len = strlen(value) + 1;
 		for (i = 0; i < rate; ++i) {
 			paxos_submit(bev, value, len);
 			event_base_dispatch(base);
