@@ -84,14 +84,19 @@ proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack)
 	inst = instance_find(p->prepare_instances, ack->iid);
 	
 	if (inst == NULL) {
-		LOG(DBG, ("Promise dropped, iid:%u not pending\n", ack->iid));
+		LOG(DBG, ("Promise dropped, instance %u not pending\n", ack->iid));
 		return NULL;
 	}
 	
-	if (inst->ballot == ack->ballot) {	// preempted?
+	if (ack->ballot < inst->ballot) {
+		LOG(DBG, ("Promise dropped, too old\n"));
+		return NULL;
+	}
+	
+	if (ack->ballot == inst->ballot) {	// preempted?
 		
 		if (!quorum_add(&inst->prepare_quorum, ack->acceptor_id)) {
-			LOG(DBG, ("Dropping promise from %d, instance %u has a quorum\n",
+			LOG(DBG, ("Promise dropped %d, instance %u has a quorum\n",
 				ack->acceptor_id, inst->iid));
 			return NULL;
 		}
@@ -105,7 +110,7 @@ proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack)
 				inst->value_ballot = ack->value_ballot;
 				inst->value = wrap_value(ack->value, ack->value_size);
 			} else if (ack->value_ballot > inst->value_ballot) {
-				free(inst->value);
+				carray_push_back(p->values, inst->value);
 				inst->value_ballot = ack->value_ballot;
 				inst->value = wrap_value(ack->value, ack->value_size);
 				LOG(DBG, ("Value in promise saved, removed older value\n"));
@@ -133,12 +138,16 @@ proposer_accept(struct proposer* p)
 	struct instance* inst;
 
 	// is there a prepared instance?
-	inst = carray_front(p->prepare_instances);
-	
-	if (inst == NULL || !quorum_reached(&inst->prepare_quorum)) {
-		LOG(DBG, ("No instance prepared\n"));
-		return NULL;
+	while ((inst = carray_front(p->prepare_instances)) != NULL) {
+		if (inst->closed)
+			free(carray_pop_front(p->prepare_instances));
+		else if (!quorum_reached(&inst->prepare_quorum))
+			return NULL;
+		else break;
 	}
+	
+	if (inst == NULL)
+		return NULL;
 	
 	LOG(DBG, ("Trying to accept iid %u\n", inst->iid));
 	
@@ -152,12 +161,6 @@ proposer_accept(struct proposer* p)
 		LOG(DBG,("Popped next value\n"));
 	} else {
 		LOG(DBG, ("Instance has value\n"));
-	}
-	
-	if (inst->closed) {
-		LOG(DBG, ("Instance already closed\n"));
-		carray_pop_front(p->prepare_instances);
-		return NULL;
 	}
 	
 	// we have both a prepared instance and a value
