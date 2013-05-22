@@ -1,9 +1,9 @@
 #ifndef _EVPAXOS_H_
 #define _EVPAXOS_H_
 
-#include "libpaxos.h"
-#include "libpaxos_messages.h"
-#include "config_reader.h"
+#include "libpaxos/libpaxos.h"
+#include "libpaxos/libpaxos_messages.h"
+#include "evpaxos/config_reader.h"
 
 #include <sys/types.h>
 #include <stdint.h>
