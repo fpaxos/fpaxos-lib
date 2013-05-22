@@ -10,7 +10,7 @@
 #include <assert.h>
 
 
-#define MEM_CACHE_SIZE (0), (4*1024*1024)
+#define MEM_CACHE_SIZE (0), (32*1024*1024)
 
 iid_t storage_get_max_iid(struct storage * s);
 struct storage
