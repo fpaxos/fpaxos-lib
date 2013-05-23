@@ -53,7 +53,6 @@ handle_accept_req(struct evacceptor* a,
 	int i;
 	struct carray* bevs = tcp_receiver_get_events(a->receiver);
 	acceptor_record* rec = acceptor_receive_accept(a->state, ar);
-	rec->acceptor_id = a->acceptor_id; // TODO id should already be set!
 	if (ar->ballot == rec->ballot) // accepted!
 		for (i = 0; i < carray_count(bevs); i++)
 			sendbuf_add_accept_ack(carray_at(bevs, i), rec);
