@@ -190,7 +190,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 
 	p->id = id;
 	p->base = b;
-	p->preexec_window = PROPOSER_PREEXEC_WIN_SIZE;
+	p->preexec_window = 128;
 	p->acceptors_count = conf->acceptors_count;
 	
     LOG(VRB, ("Proposer %d starting...\n", id));

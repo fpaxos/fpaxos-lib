@@ -4,17 +4,6 @@
 /*** PROTOCOL SETTINGS ***/
 
 /* 
-    Number of instances prepared by the leader in advance
-    (executes phase1 even if no value is yet present for phase 2).
-    Setting too high may produce lots of timeout, since the acceptors
-    take a while to answer.
-    Should be a multiple of PROPOSER_P2_CONCURRENCY (double or more)
-    MUST be less than PROPOSER_ARRAY_SIZE (half or less)
-*/
-#define PROPOSER_PREEXEC_WIN_SIZE 128
-
-
-/* 
     The maximum number of proposers must be fixed beforehand
     (this is because of unique ballot generation).
     The proposers must be started with different IDs.
