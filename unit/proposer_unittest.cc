@@ -1,5 +1,6 @@
 #include "gtest.h"
 #include "proposer.h"
+#include "paxos_config.h"
 
 #define CHECK_ACCEPT_REQ(r, i, b, v, s) { \
 	ASSERT_NE(r, (void*)NULL);            \

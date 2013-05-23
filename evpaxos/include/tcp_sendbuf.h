@@ -2,6 +2,7 @@
 #define _TCP_SENDBUF_H_
 
 #include "evpaxos.h"
+#include "libpaxos_messages.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h>

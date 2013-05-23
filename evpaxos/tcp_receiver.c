@@ -1,4 +1,5 @@
 #include "tcp_receiver.h"
+#include "libpaxos_messages.h"
 
 #include <errno.h>
 #include <assert.h>

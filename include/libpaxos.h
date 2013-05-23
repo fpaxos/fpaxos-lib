@@ -1,7 +1,6 @@
 #ifndef _LIBPAXOS_H_
 #define _LIBPAXOS_H_
 
-#include "paxos_config.h"
 #include <sys/types.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -31,5 +30,14 @@ typedef uint32_t iid_t;
 	printf S ;\
 }
 
+/*** DEBUGGING SETTINGS ***/
+
+/*
+  Verbosity of the library
+  0 -> off (prints only errors)
+  1 -> verbose 
+  3 -> debug
+*/
+#define VERBOSITY_LEVEL 0
 
 #endif /* _LIBPAXOS_H_ */

@@ -1,5 +1,6 @@
 #include "acceptor.h"
 #include "storage.h"
+#include "paxos_config.h"
 #include <stdlib.h>
 
 struct acceptor {

@@ -11,6 +11,7 @@
 #include "learner.h"
 #include "tcp_sendbuf.h"
 #include "config_reader.h"
+#include "paxos_config.h"
 
 struct evlearner
 {

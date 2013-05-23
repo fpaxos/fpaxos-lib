@@ -4,6 +4,7 @@
 #include <event2/buffer.h>
 
 #include "evpaxos.h"
+#include "paxos_config.h"
 #include "tcp_sendbuf.h"
 #include "config_reader.h"
 #include "tcp_receiver.h"

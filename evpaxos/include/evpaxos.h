@@ -1,14 +1,27 @@
 #ifndef _EVPAXOS_H_
 #define _EVPAXOS_H_
 
-#include "libpaxos/libpaxos.h"
-#include "libpaxos/libpaxos_messages.h"
-#include "evpaxos/config_reader.h"
+#include "libpaxos.h"
 
 #include <sys/types.h>
 #include <stdint.h>
 #include <event2/event.h>
 #include <event2/bufferevent.h>
+
+#define MAX_ADDR 10
+
+typedef struct address_t {
+	char* address_string;
+	int port;
+} address;
+
+struct config
+{
+	int proposers_count;
+	int acceptors_count;
+	address proposers[MAX_ADDR];
+	address acceptors[MAX_ADDR];
+};
 
 /* 
 	When starting a learner you must pass a function to be invoked whenever

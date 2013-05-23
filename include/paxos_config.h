@@ -100,15 +100,4 @@
 */
 #define LEARNER_ARRAY_SIZE 2048
 
-
-/*** DEBUGGING SETTINGS ***/
-
-/*
-  Verbosity of the library
-  0 -> off (prints only errors)
-  1 -> verbose 
-  3 -> debug
-*/
-#define VERBOSITY_LEVEL 0
-
 #endif
