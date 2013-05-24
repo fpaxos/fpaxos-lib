@@ -23,8 +23,8 @@ Before compiling libpaxos, you need to have compiled both [Berkeley DB](http://w
 	./sample/acceptor 1 ../config.cfg > /dev/null &
 	./sample/proposer 0 ../config.cfg > /dev/null &
 	./sample/learner ../config.cfg > learner.txt &
-	./sample/client ../config.cfg 1
-		
+	./sample/client 127.0.0.1:5550 1
+	
 ##  Unit tests
 
 First enable unit tests
