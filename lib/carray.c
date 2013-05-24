@@ -89,6 +89,7 @@ int carray_push_front(struct carray* a, void* p) {
 
 
 void* carray_front(struct carray* a) {
+	if (carray_empty(a)) return NULL;
 	return a->array[a->head];
 }
 
