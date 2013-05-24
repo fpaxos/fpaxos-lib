@@ -77,12 +77,6 @@
 
 /*** STRUCTURES SETTINGS ***/
 
-/*
-  Size of the in-meory table of instances for the proposer.
-  MUST be bigger than PROPOSER_PREEXEC_WIN_SIZE (double or more)
-*/
-#define PROPOSER_ARRAY_SIZE 2048
-
 /* 
   Size of the in-meory table of instances for the learner.
   MUST be bigger than PROPOSER_PREEXEC_WIN_SIZE (double or more)

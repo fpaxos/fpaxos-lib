@@ -40,9 +40,10 @@ static ballot_t proposer_next_ballot(struct proposer* s, ballot_t b);
 
 
 struct proposer*
-proposer_new(int id, int instances)
+proposer_new(int id)
 {
 	struct proposer *p;
+	int instances = 128;
 	p = malloc(sizeof(struct proposer));
 	p->id = id;
 	p->values = carray_new(instances);

@@ -10,7 +10,7 @@ extern "C" {
 
 struct proposer;
 
-struct proposer* proposer_new(int id, int instances);
+struct proposer* proposer_new(int id);
 void proposer_propose(struct proposer* p, char* value, size_t size);
 int proposer_prepared_count(struct proposer* p);
 

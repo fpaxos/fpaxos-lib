@@ -14,13 +14,11 @@ class ProposerTest : public testing::Test {
 protected:
 
 	int id;
-	int instances;
 	struct proposer* p;
 
 	virtual void SetUp() {
 		id = 2;
-		instances = 100;
-		p = proposer_new(id, instances);
+		p = proposer_new(id);
 	}
 	
 	virtual void TearDown() { }

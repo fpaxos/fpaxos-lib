@@ -204,7 +204,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 		assert(p->acceptor_ev[i] != NULL);
 	}
 	
-	p->state = proposer_new(p->id, PROPOSER_ARRAY_SIZE);
+	p->state = proposer_new(p->id);
 	proposer_preexecute(p);
 	
 	LOG(VRB, ("Proposer is ready\n"));
