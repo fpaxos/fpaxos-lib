@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <assert.h>
 
+#ifdef ACCEPTOR_STORAGE_BDB
 
 #define MEM_CACHE_SIZE (0), (4*1024*1024)
 
@@ -488,3 +489,5 @@ storage_save_final_value(struct storage* s, char* value, size_t size,
 	assert(result == 0);    
 	return record_buffer;
 }
+
+#endif

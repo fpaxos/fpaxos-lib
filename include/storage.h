@@ -4,6 +4,17 @@
 #include "libpaxos.h"
 #include "libpaxos_messages.h"
 
+
+/**
+	Use the #define below to switch between different implementations
+    of acceptor storage:
+
+    ACCEPTOR_STORAGE_MEM
+    ACCEPTOR_STORAGE_BDB
+*/
+#define ACCEPTOR_STORAGE_MEM
+
+
 struct storage;
 
 struct storage* storage_open(int acceptor_id, int recovery);

@@ -1,7 +1,7 @@
 include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${BDB_INCLUDE_DIRS})
 
-SET(LOCAL_SOURCES acceptor.c learner.c proposer.c storage.c carray.c quorum.c)
+SET(LOCAL_SOURCES acceptor.c learner.c proposer.c storage.c carray.c quorum.c storage_mem.c)
 
 add_library(paxos SHARED ${LOCAL_SOURCES})
 
