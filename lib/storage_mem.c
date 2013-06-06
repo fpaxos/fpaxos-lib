@@ -17,22 +17,22 @@
 struct storage
 {
 	int acceptor_id;
-    acceptor_record *records[MAX_RECORDS];
+	acceptor_record *records[MAX_RECORDS];
 };
 
 struct storage*
 storage_open(int acceptor_id, int do_recovery)
 {
 	struct storage* s = malloc(sizeof(struct storage));
-    assert(s != NULL);
+	assert(s != NULL);
 	memset(s, 0, sizeof(struct storage));
 	
-    int i;
-    for (i=0; i<MAX_RECORDS; ++i){
-        s->records[i] = (acceptor_record *) malloc(MAX_SIZE_RECORD);
-        assert(s->records[i] != NULL);
-        s->records[i]->iid = 0;
-    }
+	int i;
+	for (i=0; i<MAX_RECORDS; ++i){
+		s->records[i] = (acceptor_record *) malloc(MAX_SIZE_RECORD);
+		assert(s->records[i] != NULL);
+		s->records[i]->iid = 0;
+	}
 
 	s->acceptor_id = acceptor_id;
 
@@ -42,48 +42,48 @@ storage_open(int acceptor_id, int do_recovery)
 int
 storage_close(struct storage* s)
 {
-    int i;
-    for (i=0; i<MAX_RECORDS; ++i){
-        free(s->records[i]);
-    }
-
-    free(s);
-    
-    return 0;
+	int i;
+	for (i=0; i<MAX_RECORDS; ++i){
+		free(s->records[i]);
+	}
+	
+	free(s);
+	
+	return 0;
 }
 
 void
 storage_tx_begin(struct storage* s)
 {
-    return;
+	return;
 }
 
 void
 storage_tx_commit(struct storage* s)
 {
-    return;
+	return;
 }
 
 acceptor_record* 
 storage_get_record(struct storage* s, iid_t iid)
 {
 	acceptor_record* record_buffer = s->records[iid % MAX_RECORDS];
-    if (iid < record_buffer->iid){
-        fprintf(stderr, "instance too old %d: current is %d", iid, record_buffer->iid);
-        exit(1);
-    }
-    if (iid == record_buffer->iid){
-        return record_buffer;
-    } else {
-        return NULL;
-    }
+	if (iid < record_buffer->iid){
+		fprintf(stderr, "instance too old %d: current is %d", iid, record_buffer->iid);
+		exit(1);
+	}
+	if (iid == record_buffer->iid){
+		return record_buffer;
+	} else {
+		return NULL;
+	}
 }
 
 acceptor_record*
 storage_save_accept(struct storage* s, accept_req * ar)
 {
 	acceptor_record* record_buffer = s->records[ar->iid % MAX_RECORDS];
-    
+	
 	//Store as acceptor_record (== accept_ack)
 	record_buffer->acceptor_id = s->acceptor_id;
 	record_buffer->iid = ar->iid;
@@ -92,15 +92,15 @@ storage_save_accept(struct storage* s, accept_req * ar)
 	record_buffer->is_final = 0;
 	record_buffer->value_size = ar->value_size;
 	memcpy(record_buffer->value, ar->value, ar->value_size);
-
-    return record_buffer;
+	
+	return record_buffer;
 }
 
 acceptor_record*
 storage_save_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
 {
 	acceptor_record* record_buffer = s->records[pr->iid % MAX_RECORDS];
-    
+	
 	//No previous record, create a new one
 	if (rec == NULL) {
 		//Record does not exist yet
@@ -115,8 +115,8 @@ storage_save_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
 		//Record exists, just update the ballot
 		rec->ballot = pr->ballot;
 	}
-
-    return record_buffer;
+	
+	return record_buffer;
 }
 
 acceptor_record*
@@ -132,8 +132,8 @@ storage_save_final_value(struct storage* s, char* value, size_t size,
 	record_buffer->is_final = 1;
 	record_buffer->value_size = size;
 	memcpy(record_buffer->value, value, size);
-
-    return record_buffer;
+	
+		return record_buffer;
 }
 
 #endif
