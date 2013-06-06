@@ -6,8 +6,6 @@
 #include <string.h>
 #include <assert.h>
 
-#ifdef ACCEPTOR_STORAGE_MEM
-
 #define MAX_SIZE_RECORD (8*1024)
 #define MAX_RECORDS (4*1024)
 
@@ -132,5 +130,3 @@ storage_save_final_value(struct storage* s, char* value, size_t size,
 	
 		return record_buffer;
 }
-
-#endif

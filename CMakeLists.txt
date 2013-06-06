@@ -2,10 +2,13 @@ cmake_minimum_required(VERSION 2.6)
 project(libpaxos)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-find_package(BDB REQUIRED)
-find_package(LIBEVENT REQUIRED)
-
 option(BUILD_UNIT "Build unit tests." OFF)
+option(USE_MEM_STORE "Use in-memory storage for acceptors." OFF)
+
+if (NOT USE_MEM_STORE)
+	find_package(BDB REQUIRED)
+endif()
+find_package(LIBEVENT REQUIRED)
 
 if (NOT APPLE)
 	set(LIBPAXOS_LINKER_LIBS ${LIBPAXOS_LINKER_LIBS} m rt)
