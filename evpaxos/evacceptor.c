@@ -76,8 +76,8 @@ handle_req(struct bufferevent* bev, void* arg)
 	if (msg.data_size > PAXOS_MAX_VALUE_SIZE)
 	{
 		evbuffer_drain(in, msg.data_size);
-		printf("Acceptor received req sz %d > %d maximum, discarding\n",
-			msg.data_size, PAXOS_MAX_VALUE_SIZE);
+		LOG(VRB, ("Acceptor received req sz %d > %d maximum, discarding\n",
+			msg.data_size, PAXOS_MAX_VALUE_SIZE));
 		
 		return;
 	}

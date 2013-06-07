@@ -12,7 +12,6 @@
 
 #define MEM_CACHE_SIZE (0), (32*1024*1024)
 
-iid_t storage_get_max_iid(struct storage * s);
 struct storage
 {
 	DB* db;
@@ -158,15 +157,6 @@ storage_open(int acceptor_id, int do_recovery)
 	int dir_exists = (stat(db_env_path, &sb) == 0);
 	int db_exists = (stat(db_file_path, &sb) == 0);
 
-    //Check for old db file if running recovery
-	// Alex: Remove this check; we should recover by default and
-	// recreate the directory if this is a new installation
-// 	if (do_recovery && (!dir_exists || !db_exists)) {
-// 		printf("Error: Acceptor recovery failed!\n");
-// 		printf("The file:%s does not exist\n", db_file_path);
-// 		return NULL;
-// 	}
-//     
     //Create the directory if it does not exist
 	if (!dir_exists && (mkdir(db_env_path, S_IRWXU) != 0)) {
 		printf("Failed to create env dir %s: %s\n", 
@@ -175,10 +165,8 @@ storage_open(int acceptor_id, int do_recovery)
 	} 
     
 	//Delete and recreate an empty dir if not recovering
-	// TODO Create a separate flag for this situation if we need it
 	if (!do_recovery && dir_exists) {
 		char rm_command[600];
-		printf("Clearing and recreating ENV %s\n", db_env_path );
 		sprintf(rm_command, "rm -r %s", db_env_path);
 
 		if ((system(rm_command) != 0) || 
@@ -247,12 +235,6 @@ storage_open(int acceptor_id, int do_recovery)
 		return NULL;
 	}
 	
-	if (do_recovery > 0) {
-		// TEST
-		iid_t max_iid = storage_get_max_iid(s);
-		printf("Maximum IID found %d ", max_iid);
-	}
-    
 	return s;
 }
 

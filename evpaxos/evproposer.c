@@ -100,8 +100,8 @@ proposer_handle_msg(struct evproposer* p, struct bufferevent* bev)
 	if (msg.data_size > PAXOS_MAX_VALUE_SIZE)
 	{
 		evbuffer_drain(in, msg.data_size);
-		printf("Proposer received req sz %d > %d maximum, discarding\n",
-			msg.data_size, PAXOS_MAX_VALUE_SIZE);
+		LOG(VRB, ("Proposer received req sz %d > %d maximum, discarding\n",
+			msg.data_size, PAXOS_MAX_VALUE_SIZE));
 		
 		return;
 	}

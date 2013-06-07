@@ -100,20 +100,6 @@
 */
 #define LEARNER_ARRAY_SIZE 2048
 
-/*
- * Learners usually should not be able to learn instance i + n if
- * instance i has not been learned; in order to enable a learner to
- * restart and continue learning values, relax this restriction
- */
-#define LEARNER_ORDERING_HACK 
-/*** DEBUGGING SETTINGS ***/
-
-/*
-  Verbosity of the library
-  0 -> off (prints only errors)
-  1 -> verbose 
-  3 -> debug
-*/
 #define VERBOSITY_LEVEL 0
 
 #endif
