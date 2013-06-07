@@ -29,7 +29,7 @@
 #include <sys/stat.h>
 #include <assert.h>
 
-#define MEM_CACHE_SIZE (0), (4*1024*1024)
+#define MEM_CACHE_SIZE (0), (32*1024*1024)
 
 struct storage
 {
