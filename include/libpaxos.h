@@ -32,7 +32,7 @@
     (should be accept_ack_batch+accept_ack, around 30 bytes)
     FIXME This should be removed, eventually...
 */
-#define PAXOS_MAX_VALUE_SIZE (8000)
+#define PAXOS_MAX_VALUE_SIZE (256*1000)
 
 /* 
     Alias for instance identifier and ballot number.

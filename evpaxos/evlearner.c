@@ -104,6 +104,14 @@ learner_handle_msg(struct evlearner* l, struct bufferevent* bev)
 
 	in = bufferevent_get_input(bev);
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
+	if (msg.data_size > PAXOS_MAX_VALUE_SIZE)
+	{
+		evbuffer_drain(in, msg.data_size);
+		LOG(VRB, ("Learner received req sz %d > %d maximum, discarding\n",
+			msg.data_size, PAXOS_MAX_VALUE_SIZE));
+		
+		return;
+	}
 	evbuffer_remove(in, buffer, msg.data_size);
 	
 	switch (msg.type) {

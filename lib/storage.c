@@ -44,7 +44,7 @@ static int
 bdb_init_tx_handle(struct storage* s, int tx_mode, char* db_env_path)
 {
 	int result;
-	DB_ENV* dbenv = s->env;
+	DB_ENV* dbenv; 
 	
 	//Create environment handle
 	result = db_env_create(&dbenv, 0);
@@ -83,11 +83,12 @@ bdb_init_tx_handle(struct storage* s, int tx_mode, char* db_env_path)
 	flags =
 		DB_CREATE       |  /* Create if not existing */ 
 		DB_RECOVER      |  /* Run normal recovery. */
-		// DB_INIT_LOCK    |  /* Initialize the locking subsystem */
+		DB_INIT_LOCK    |  /* Initialize the locking subsystem */
 		DB_INIT_LOG     |  /* Initialize the logging subsystem */
 		DB_INIT_TXN     |  /* Initialize the transactional subsystem. */
-		DB_PRIVATE      |  /* DB is for this process only */
-		// DB_THREAD       |  /* Cause the environment to be free-threaded */  
+		//DB_PRIVATE      |  /* DB is for this process only */
+		DB_THREAD       |  /* Cause the environment to be free-threaded */  
+		DB_REGISTER 	|
 		DB_INIT_MPOOL;     /* Initialize the memory pool (in-memory cache) */
 
 	//Open the DB environment
@@ -101,6 +102,7 @@ bdb_init_tx_handle(struct storage* s, int tx_mode, char* db_env_path)
 		return -1;
 	}
 
+	s->env = dbenv;
 	return 0;
 }
 
@@ -174,13 +176,6 @@ storage_open(int acceptor_id, int do_recovery)
 	int dir_exists = (stat(db_env_path, &sb) == 0);
 	int db_exists = (stat(db_file_path, &sb) == 0);
 
-    //Check for old db file if running recovery
-	if (do_recovery && (!dir_exists || !db_exists)) {
-		printf("Error: Acceptor recovery failed!\n");
-		printf("The file:%s does not exist\n", db_file_path);
-		return NULL;
-	}
-    
     //Create the directory if it does not exist
 	if (!dir_exists && (mkdir(db_env_path, S_IRWXU) != 0)) {
 		printf("Failed to create env dir %s: %s\n", 
@@ -251,7 +246,7 @@ storage_open(int acceptor_id, int do_recovery)
 		printf("Failed to open DB file\n");
 		return NULL;
 	}
-    
+	
 	return s;
 }
 
@@ -506,4 +501,47 @@ storage_save_final_value(struct storage* s, char* value, size_t size,
 	
 	assert(result == 0);    
 	return record_buffer;
+}
+
+/*@
+ * Walk through the database and return the highest iid we have seen. 
+ * If this is a RECNO database this can probably be done more cheaply
+ * but for now we will make this usable regardless of the index impl
+ */
+iid_t 
+storage_get_max_iid(struct storage * s)
+{
+	int ret;
+	DB *dbp = s->db;
+	DBC *dbcp;
+	DBT key, data;
+	iid_t max_iid = 0;
+    /* Acquire a cursor for the database. */
+    if ((ret = dbp->cursor(dbp, NULL, &dbcp, 0)) != 0) {
+        dbp->err(dbp, ret, "DB->cursor");
+        return (1);
+    }
+
+    /* Re-initialize the key/data pair. */ memset(&key, 0, sizeof(key));
+    memset(&data, 0, sizeof(data));
+
+    /* Walk through the database and print out the key/data pairs. */
+    while ((ret = dbcp->c_get(dbcp, &key, &data, DB_NEXT)) == 0)
+	{
+		assert(data.size = sizeof(iid_t));
+		max_iid = *(iid_t *)key.data;
+	}
+	
+    if (ret != DB_NOTFOUND) 
+	{
+		dbp->err(dbp, ret, "DBcursor->get");
+		return 0;
+	}
+	//printf("Maximum iid found %d, last iid %d \n", max_iid, *(iid_t*)key.data);
+
+    /* Close the cursor. */
+    if ((ret = dbcp->c_close(dbcp)) != 0) {
+        dbp->err(dbp, ret, "DBcursor->close");
+    }
+    return (max_iid);
 }
