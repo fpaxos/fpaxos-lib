@@ -100,6 +100,4 @@
 */
 #define LEARNER_ARRAY_SIZE 2048
 
-#define VERBOSITY_LEVEL 0
-
 #endif
