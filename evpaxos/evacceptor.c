@@ -102,12 +102,10 @@ handle_req(struct bufferevent* bev, void* arg)
 	
 	in = bufferevent_get_input(bev);
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
-	if (msg.data_size > PAXOS_MAX_VALUE_SIZE)
-	{
+	if (msg.data_size > PAXOS_MAX_VALUE_SIZE) {
 		evbuffer_drain(in, msg.data_size);
-		LOG(VRB, ("Acceptor received req sz %d > %d maximum, discarding\n",
+		LOG(VRB, ("Acceptor received req sz %ld > %d maximum, discarding\n",
 			msg.data_size, PAXOS_MAX_VALUE_SIZE));
-		
 		return;
 	}
 	evbuffer_remove(in, buffer, msg.data_size);
@@ -158,14 +156,6 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 
     return a;
 }
-
-// struct acceptor*
-// acceptor_init_recover(int id, const char* config_file, struct event_base* b)
-// {
-//     //Set recovery mode then start normally
-//     storage_do_recovery();
-//     return acceptor_init(id, config, b);
-// }
 
 int
 evacceptor_exit(struct evacceptor* a)

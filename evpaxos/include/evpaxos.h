@@ -54,7 +54,6 @@ struct config
 */
 typedef void (* deliver_function)(char*, size_t, iid_t, ballot_t, int, void*);
 
-
 /*
     Starts a learner and returns when the initialization is complete.
     Return value is 0 if successful
@@ -78,7 +77,6 @@ struct evlearner*
 evlearner_init_conf(struct config* c, deliver_function f, void* arg, 
 	struct event_base* base);
 
-
 /*
 	Starts an acceptor and returns when the initialization is complete.
 	Return value is 0 if successful
@@ -86,14 +84,6 @@ evlearner_init_conf(struct config* c, deliver_function f, void* arg,
 */
 struct evacceptor*
 evacceptor_init(int id, const char* config, struct event_base* b);
-
-/*
-	Starts an acceptor that instead of creating a clean DB,
-	tries to recover from an existing one.
-	Return value is 0 if successful
-*/
-struct evacceptor*
-evacceptor_init_recover(int id, const char* config, struct event_base* b);
 
 /*
 	Shuts down the acceptor in the current process.
