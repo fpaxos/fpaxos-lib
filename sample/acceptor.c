@@ -59,7 +59,7 @@ main (int argc, char const *argv[])
 	event_base_dispatch(base);
 	
 	event_free(sig);
-	evacceptor_exit(acc);
+	evacceptor_free(acc);
 	event_base_free(base);
 	
 	return 1;

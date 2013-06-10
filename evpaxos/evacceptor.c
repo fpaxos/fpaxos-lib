@@ -158,7 +158,7 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 }
 
 int
-evacceptor_exit(struct evacceptor* a)
+evacceptor_free(struct evacceptor* a)
 {
 	acceptor_delete(a->state);
 	tcp_receiver_free(a->receiver);

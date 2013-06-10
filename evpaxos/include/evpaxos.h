@@ -88,7 +88,7 @@ evacceptor_init(int id, const char* config, struct event_base* b);
 	It may take a few seconds to complete since the DB needs to be closed.
 */
 int
-evacceptor_exit(struct evacceptor* a);
+evacceptor_free(struct evacceptor* a);
 
 /*
 	Starts a proposer with the given ID (which MUST be unique).
