@@ -19,6 +19,7 @@ add_subdirectory(evpaxos)
 add_subdirectory(sample)
 
 if (BUILD_UNIT)
+	find_package(GTEST REQUIRED)
 	enable_testing()
 	add_subdirectory(unit)
 endif()

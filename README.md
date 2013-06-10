@@ -23,7 +23,7 @@ You pass options to cmake as follows: ```cmake -DOPTION=VALUE```
 - ```BDB_ROOT=PATH```  - point it to your installation of Berkeley DB
 - ```LIBEVENT_ROOT=PATH``` -  point it to your installation of Libevent
 - ```USE_MEM_STORE=ON``` - enables in-memory storage, instead of Berkeley DB
-- ```BUILD_UNIT=ON``` -  enables unit tests
+- ```BUILD_UNIT=ON``` -  enables unit tests - see section below
 
 ## Running the examples
 
@@ -36,19 +36,13 @@ You pass options to cmake as follows: ```cmake -DOPTION=VALUE```
 	
 ##  Unit tests
 
-First enable unit tests
+Unit tests depend on the [Google Test](http://code.google.com/p/googletest/) library. First enable unit tests run
 
 	cmake -DBUILD_UNIT=ON ..
 	make
 
-And then execute the tests using
-	
-	make test
+Execute the tests using ```make test```, or, run ```./unit/gtest``` for detailed output.
 
-Or, if you want a more detailed output run
-
-	./unit/gtest_main
-	
 ## License
 
 Libpaxos is distributed under GPL version 3.
