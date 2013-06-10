@@ -74,6 +74,22 @@ proposer_new(int id)
 }
 
 void
+proposer_free(struct proposer* p)
+{
+	int i;
+	for (i = 0; i < carray_count(p->values); ++i)
+		free(carray_at(p->values, i));
+	carray_free(p->values);
+	for (i = 0; i < carray_count(p->prepare_instances); ++i)
+		instance_free(carray_at(p->prepare_instances, i));
+	carray_free(p->prepare_instances);
+	for (i = 0; i < carray_count(p->accept_instances); ++i)
+		instance_free(carray_at(p->accept_instances, i));
+	carray_free(p->accept_instances);
+	free(p);
+}
+
+void
 proposer_propose(struct proposer* p, char* value, size_t size)
 {
 	paxos_msg* msg;
@@ -161,7 +177,7 @@ proposer_accept(struct proposer* p)
 	// is there a prepared instance?
 	while ((inst = carray_front(p->prepare_instances)) != NULL) {
 		if (inst->closed)
-			free(carray_pop_front(p->prepare_instances));
+			instance_free(carray_pop_front(p->prepare_instances));
 		else if (!quorum_reached(&inst->prepare_quorum))
 			return NULL;
 		else break;

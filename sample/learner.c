@@ -63,5 +63,10 @@ main(int argc, char const *argv[])
 	evsignal_add(sig, NULL);
 	
 	event_base_dispatch(base);
+
+	event_free(sig);
+	evlearner_free(lea);
+	event_base_free(base);
+	
 	return 0;
 }

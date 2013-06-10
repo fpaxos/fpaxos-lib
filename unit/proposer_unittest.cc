@@ -41,7 +41,9 @@ protected:
 		p = proposer_new(id);
 	}
 	
-	virtual void TearDown() { }
+	virtual void TearDown() {
+		proposer_free(p);
+	}
 };
 
 prepare_ack* prepare_ack_with_value(prepare_ack pa, char* value, size_t size) {

@@ -57,7 +57,10 @@ main (int argc, char const *argv[])
 	evsignal_add(sig, NULL);
 	
 	event_base_dispatch(base);
+	
+	event_free(sig);
 	evacceptor_exit(acc);
+	event_base_free(base);
 	
 	return 1;
 }

@@ -24,5 +24,6 @@
 #include "evpaxos.h"
 
 struct config* read_config(const char* path);
+void free_config(struct config* c);
 
 #endif

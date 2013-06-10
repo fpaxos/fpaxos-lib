@@ -25,14 +25,30 @@
 
 static const int fields = 4;
 
-static void print_config(address* a, int count)
+static void
+print_config(address* a, int count)
 {
 	int i;
 	for (i = 0; i < count; i++)
 		printf("%s %d\n", a[i].address_string, a[i].port);
 }
 
-struct config* read_config(const char* path)
+static address*
+address_init(address* a, char* addr, int port)
+{
+	a->address_string = strdup(addr);
+	a->port = port;
+	return a;
+}
+
+static void
+address_free(address* a)
+{
+	free(a->address_string);
+}
+
+struct config*
+read_config(const char* path)
 {
 	int id;
 	char type;
@@ -56,15 +72,11 @@ struct config* read_config(const char* path)
 		switch(type) {
 			case 'p':
 				tmp = &c->proposers[c->proposers_count++];
-				tmp->port = a.port;
-				tmp->address_string = malloc(128);
-				memcpy(tmp->address_string, a.address_string, 128);
+				address_init(tmp, a.address_string, a.port);
 				break;
 			case 'a':
 				tmp = &c->acceptors[c->acceptors_count++];
-				tmp->port = a.port;
-				tmp->address_string = malloc(128);
-				memcpy(tmp->address_string, a.address_string, 128);
+				address_init(tmp, a.address_string, a.port);
 				break;
 		}
 	}
@@ -73,6 +85,20 @@ struct config* read_config(const char* path)
 	print_config(c->proposers, c->proposers_count);
 	printf("acceptors\n");
 	print_config(c->acceptors , c->acceptors_count);
-
+	
+	fclose(f);
+	free(a.address_string);
+	
 	return c;
+}
+
+void
+free_config(struct config* c)
+{
+	int i;
+	for (i = 0; i < c->proposers_count; ++i)
+		address_free(&c->proposers[i]);
+	for (i = 0; i < c->acceptors_count; ++i)
+		address_free(&c->acceptors[i]);
+	free(c);
 }

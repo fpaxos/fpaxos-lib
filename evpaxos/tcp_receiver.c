@@ -71,7 +71,9 @@ on_error(struct bufferevent *bev, short events, void *arg)
 {
 	struct tcp_receiver* r = arg;
 	if (events & (BEV_EVENT_EOF)) {
-		r->bevs = carray_reject(r->bevs, match_bufferevent, bev);
+		struct carray* tmp = carray_reject(r->bevs, match_bufferevent, bev);
+		carray_free(r->bevs);
+		r->bevs = tmp;
 		bufferevent_free(bev);
 	}
 }
@@ -127,6 +129,9 @@ tcp_receiver_new(struct event_base* b, address* a,
 void 
 tcp_receiver_free(struct tcp_receiver* r)
 {
+	int i;
+	for (i = 0; i < carray_count(r->bevs); ++i)
+		bufferevent_free(carray_at(r->bevs, i));
 	evconnlistener_free(r->listener);
 	carray_free(r->bevs);
 	free(r);

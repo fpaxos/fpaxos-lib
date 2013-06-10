@@ -41,8 +41,6 @@ struct evlearner
 	deliver_function delfun;
 	// Argument to deliver function
 	void* delarg;
-	// libevent handle
-	struct event_base * base;
 	// config reader handle
 	struct config* conf;
 	// hole check event
@@ -186,7 +184,6 @@ evlearner_init_conf(struct config* c, deliver_function f, void* arg,
 	
 	l = malloc(sizeof(struct evlearner));
 	l->conf = c;
-	l->base = b;
 	l->delfun = f;
 	l->delarg = arg;
 	l->state = learner_new(LEARNER_ARRAY_SIZE, 1);
@@ -213,4 +210,16 @@ evlearner_init(const char* config_file, deliver_function f, void* arg,
 	struct config* c = read_config(config_file);
 	if (c == NULL) return NULL;
 	return evlearner_init_conf(c, f, arg, b);
+}
+
+void
+evlearner_free(struct evlearner* l)
+{
+	int i;
+	for (i = 0; i < l->acceptors_count; ++i)
+		bufferevent_free(l->acceptor_ev[i]);
+	event_free(l->hole_timer);
+	free_config(l->conf);
+	learner_free(l->state);
+	free(l);
 }

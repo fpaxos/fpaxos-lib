@@ -32,7 +32,9 @@ protected:
 		l = learner_new(instances, recover);
 	}
 	
-	virtual void TearDown() { }
+	virtual void TearDown() {
+		learner_free(l);
+	}
 };
 
 TEST_F(LearnerTest, Learn) {
@@ -58,6 +60,8 @@ TEST_F(LearnerTest, Learn) {
 	ASSERT_EQ(delivered->value_ballot, 101);
 	ASSERT_EQ(delivered->is_final, 0);
 	ASSERT_EQ(delivered->value_size, 0);
+	
+	free(delivered);
 }
 
 TEST_F(LearnerTest, LearnInOrder) {
@@ -83,10 +87,12 @@ TEST_F(LearnerTest, LearnInOrder) {
 	delivered = learner_deliver_next(l);
 	ASSERT_NE(delivered, (accept_ack*)NULL);
 	ASSERT_EQ(delivered->iid, 1);
+	free(delivered);
 	
 	delivered = learner_deliver_next(l);
 	ASSERT_NE(delivered, (accept_ack*)NULL);
 	ASSERT_EQ(delivered->iid, 2);
+	free(delivered);
 }
 
 TEST_F(LearnerTest, IgnoreDuplicates) {
@@ -104,26 +110,28 @@ TEST_F(LearnerTest, IgnoreDuplicates) {
 	learner_receive_accept(l, &a);
 	delivered = learner_deliver_next(l);
 	ASSERT_EQ(delivered->iid, 1);
+	free(delivered);
 }
 
 TEST_F(LearnerTest, LearnMajority) {
 	accept_ack a;
 	accept_ack* delivered;
 
-	a =	(accept_ack) {1, 1, 101, 101, 0, 0};
+	a =	(accept_ack) {0, 1, 101, 101, 0, 0};
 	learner_receive_accept(l, &a);
-	a = (accept_ack) {2, 1, 100, 100, 0, 0};
+	a = (accept_ack) {1, 1, 100, 100, 0, 0};
 	learner_receive_accept(l, &a);
 	
 	delivered = learner_deliver_next(l);
 	ASSERT_EQ(delivered , (accept_ack*)NULL);
 	
-	a = (accept_ack) {3, 1, 101, 101, 0, 0};
+	a = (accept_ack) {2, 1, 101, 101, 0, 0};
 	learner_receive_accept(l, &a);
 	
 	delivered = learner_deliver_next(l);
 	ASSERT_EQ(delivered->iid, 1);
 	ASSERT_EQ(delivered->ballot, 101);
+	free(delivered);
 }
 
 TEST_F(LearnerTest, IgnoreOlderBallot) {
@@ -144,6 +152,7 @@ TEST_F(LearnerTest, IgnoreOlderBallot) {
 	delivered = learner_deliver_next(l);
 	ASSERT_EQ(delivered->iid, 1);
 	ASSERT_EQ(delivered->ballot, 201);
+	free(delivered);
 }
 
 TEST_F(LearnerTest, NoHoles) {
@@ -155,7 +164,8 @@ TEST_F(LearnerTest, NoHoles) {
 	learner_receive_accept(l, &a);
 	a =	(accept_ack) {2, 1, 101, 101, 0, 0};
 	learner_receive_accept(l, &a);
-	learner_deliver_next(l);
+	delivered = learner_deliver_next(l);
+	free(delivered);
 	
 	ASSERT_EQ(learner_has_holes(l, &from, &to), 0);
 }
@@ -169,7 +179,8 @@ TEST_F(LearnerTest, OneHole) {
 	learner_receive_accept(l, &a);
 	a =	(accept_ack) {2, 1, 101, 101, 0, 0};
 	learner_receive_accept(l, &a);
-	learner_deliver_next(l);
+	delivered = learner_deliver_next(l);
+	free(delivered);
 	
 	a =	(accept_ack) {1, 3, 101, 101, 0, 0};
 	learner_receive_accept(l, &a);

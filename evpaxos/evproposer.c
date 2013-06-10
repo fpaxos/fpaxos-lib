@@ -233,6 +233,19 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	p->state = proposer_new(p->id);
 	proposer_preexecute(p);
 	
+	free_config(conf);
+	
 	LOG(VRB, ("Proposer is ready\n"));
 	return p;
+}
+
+void
+evproposer_free(struct evproposer* p)
+{
+	int i;
+	for (i = 0; i < p->acceptors_count; ++i)
+		bufferevent_free(p->acceptor_ev[i]);
+	tcp_receiver_free(p->receiver);
+	proposer_free(p->state);
+	free(p);
 }

@@ -37,6 +37,7 @@ main (int argc, char const *argv[])
 	int id;
 	struct event* sig;
 	struct event_base* base;
+	struct evproposer* prop;
 
 	if (argc != 3) {
 		printf("Usage: %s id config\n", argv[0]);
@@ -46,7 +47,8 @@ main (int argc, char const *argv[])
 	base = event_base_new();    
 
 	id = atoi(argv[1]);
-	if (evproposer_init(id, argv[2], base) == NULL) {
+	prop = evproposer_init(id, argv[2], base);
+	if (prop == NULL) {
 		printf("Could not start the proposer!\n");
 		exit(1);
 	}
@@ -55,5 +57,10 @@ main (int argc, char const *argv[])
 	evsignal_add(sig, NULL);	
 	
 	event_base_dispatch(base);
+	
+	event_free(sig);
+	evproposer_free(prop);
+	event_base_free(base);
+	
 	return 0;
 }

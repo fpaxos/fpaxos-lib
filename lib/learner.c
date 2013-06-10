@@ -71,6 +71,13 @@ instance_new()
 	return inst;
 }
 
+static void
+instance_free(struct instance* inst)
+{
+	instance_deep_clear(inst);
+	free(inst);
+}
+
 /*
 Checks if a given instance is closed, that is if a quorum of acceptor
 accepted the same value ballot pair.
@@ -126,7 +133,7 @@ Assumes inst->acks[acceptor_id] was already freed.
 static void
 instance_add_accept(struct instance* inst, accept_ack* ack)
 {
-	accept_ack * new_ack;
+	accept_ack* new_ack;
 	new_ack = malloc(ACCEPT_ACK_SIZE(ack));
 	memcpy(new_ack, ack, ACCEPT_ACK_SIZE(ack));
 	inst->acks[ack->acceptor_id] = new_ack;
@@ -205,12 +212,8 @@ learner_deliver_next(struct learner* s)
 	inst = learner_get_current_instance(s);
 	if (instance_has_quorum(s, inst)) {
 		size_t size = ACCEPT_ACK_SIZE(inst->final_value);
-		
-		// make a copy of the accept_ack to deliver,
-		// before clearing the instance
 		ack = malloc(size);
 		memcpy(ack, inst->final_value, size);
-
 		instance_deep_clear(inst);
 		s->current_iid++;
 	}
@@ -287,4 +290,14 @@ learner_new(int instances, int recover)
 	s->highest_iid_closed = 1;
 	s->late_start = !recover;
 	return s;
+}
+
+void
+learner_free(struct learner* l)
+{
+	int i;
+	for (i = 0; i < carray_count(l->instances); i++)
+		instance_free(carray_at(l->instances, i));
+	carray_free(l->instances);
+	free(l);
 }

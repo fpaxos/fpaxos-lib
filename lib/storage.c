@@ -174,7 +174,6 @@ storage_open(int acceptor_id, int do_recovery)
 	struct stat sb;
 	//Check if the environment dir and db file exists
 	int dir_exists = (stat(db_env_path, &sb) == 0);
-	int db_exists = (stat(db_file_path, &sb) == 0);
 
     //Create the directory if it does not exist
 	if (!dir_exists && (mkdir(db_env_path, S_IRWXU) != 0)) {
@@ -283,10 +282,12 @@ storage_close(struct storage* s)
         
 		default: {
 			printf("Unknow durability mode %d!\n", DURABILITY_MODE);
-			return -1;
+			result = -1;
 		}
 	}    
  
+ 	free(s);
+	
 	LOG(VRB, ("DB close completed\n"));  
 	return result;
 	

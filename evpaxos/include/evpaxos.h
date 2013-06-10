@@ -73,9 +73,7 @@ struct evlearner*
 evlearner_init(const char* config_file, deliver_function f, void* arg,
 	struct event_base* base);
 
-struct evlearner* 
-evlearner_init_conf(struct config* c, deliver_function f, void* arg, 
-	struct event_base* base);
+void evlearner_free(struct evlearner* l);
 
 /*
 	Starts an acceptor and returns when the initialization is complete.
@@ -99,6 +97,10 @@ evacceptor_exit(struct evacceptor* a);
 */
 struct evproposer*
 evproposer_init(int id, const char* config, struct event_base* b);
+
+
+void evproposer_free(struct evproposer* p);
+
 
 /*
 	Function used for submitting values to a proposer.

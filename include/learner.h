@@ -31,6 +31,7 @@ extern "C" {
 struct learner;
 
 struct learner* learner_new(int instances, int recover);
+void learner_free(struct learner*);
 void learner_receive_accept(struct learner* s, accept_ack* ack);
 accept_ack* learner_deliver_next(struct learner* s);
 int learner_has_holes(struct learner* s, iid_t* from, iid_t* to);

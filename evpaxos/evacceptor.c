@@ -161,5 +161,8 @@ int
 evacceptor_exit(struct evacceptor* a)
 {
 	acceptor_delete(a->state);
+	tcp_receiver_free(a->receiver);
+	free_config(a->conf);
+	free(a);
 	return 0;
 }
