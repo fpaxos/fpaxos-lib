@@ -20,7 +20,6 @@
 
 #include "learner.h"
 #include "carray.h"
-#include "paxos_config.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -280,15 +279,15 @@ learner_has_holes(struct learner* l, iid_t* from, iid_t* to)
 }
 
 struct learner*
-learner_new(int instances, int recover)
+learner_new()
 {
 	struct learner* s;
 	s = malloc(sizeof(struct learner));
-	initialize_instances(s, instances);
+	initialize_instances(s, paxos_config.learner_instances);
 	s->current_iid = 1;
 	s->highest_iid_seen = 1;
 	s->highest_iid_closed = 1;
-	s->late_start = !recover;
+	s->late_start = !paxos_config.learner_recover;
 	return s;
 }
 

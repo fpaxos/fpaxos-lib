@@ -34,11 +34,33 @@
 */
 #define PAXOS_MAX_VALUE_SIZE (256*1000)
 
+
 /* 
     Alias for instance identifier and ballot number.
 */
 typedef uint32_t ballot_t;
 typedef uint32_t iid_t;
+
+
+struct paxos_config
+{ 
+	/* Learner */
+	int learner_instances;
+	int learner_recover;
+	
+	/* Proposer */
+	
+	/* Acceptor */
+	
+	/* BDB storage configuration */
+	int bdb_sync;
+	int bdb_cachesize;
+	char* bdb_env_path;
+	char* bdb_db_filename;
+	int bdb_delete_on_restart;
+};
+
+extern struct paxos_config paxos_config;
 
 /*** LOGGING MACROS ***/
 
@@ -59,5 +81,31 @@ typedef uint32_t iid_t;
   3 -> debug
 */
 #define VERBOSITY_LEVEL 0
+
+/*** SETTINGS TO BE REMOVED, EVENTUALLY... ***/
+
+/* 
+    The maximum number of proposers must be fixed beforehand
+    (this is because of unique ballot generation).
+    The proposers must be started with different IDs.
+    This number MUST be a power of 10.
+*/
+#define MAX_N_OF_PROPOSERS  10
+
+/* 
+    The number of acceptors must be fixed beforehand.
+    The acceptors must be started with different IDs.
+*/
+#define N_OF_ACCEPTORS  3
+
+/* 
+    Rule for calculating whether the number of accept_ack messages (phase 2b) 
+    is sufficient to declare the instance closed and deliver 
+    the corresponding value. i.e.:
+    Paxos     -> ((int)(N_OF_ACCEPTORS/2))+1;
+    FastPaxos -> 1 + (int)((double)(N_OF_ACCEPTORS*2)/3);
+*/
+
+#define QUORUM (((int)(N_OF_ACCEPTORS/2))+1)
 
 #endif /* _LIBPAXOS_H_ */

@@ -27,9 +27,7 @@ protected:
 	struct learner* l;
 	        
 	virtual void SetUp() {
-		int instances = 100;
-		int recover = 1;
-		l = learner_new(instances, recover);
+		l = learner_new();
 	}
 	
 	virtual void TearDown() {

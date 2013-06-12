@@ -20,7 +20,6 @@
 
 #include "acceptor.h"
 #include "storage.h"
-#include "paxos_config.h"
 #include <stdlib.h>
 
 struct acceptor {
@@ -42,11 +41,9 @@ acceptor_new(int id)
 		For now we just force do_recovery to be false (BDB creates a new
 		database from scratch each time the acceptor starts).
 	*/
-	int do_recovery = 0;
-	if (DURABILITY_MODE > 0) do_recovery = 1;
 	struct acceptor* s;
 	s = malloc(sizeof(struct acceptor));
-	s->store = storage_open(id, do_recovery); 
+	s->store = storage_open(id); 
 	if (s->store == NULL) {
 		free(s);
 		return NULL;	

@@ -19,8 +19,6 @@
 
 
 #include "storage.h"
-#include "paxos_config.h"
-
 #include <db.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,8 +26,6 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <assert.h>
-
-#define MEM_CACHE_SIZE (0), (32*1024*1024)
 
 struct storage
 {
@@ -41,7 +37,7 @@ struct storage
 };
 
 static int 
-bdb_init_tx_handle(struct storage* s, int tx_mode, char* db_env_path)
+bdb_init_tx_handle(struct storage* s, char* db_env_path)
 {
 	int result;
 	DB_ENV* dbenv; 
@@ -53,8 +49,10 @@ bdb_init_tx_handle(struct storage* s, int tx_mode, char* db_env_path)
 		return -1;
 	}
 	
-	//Durability mode, see paxos_config.h
-	result = dbenv->set_flags(dbenv, tx_mode, 1);
+	//Durability mode
+	if (!paxos_config.bdb_sync)
+		result = dbenv->set_flags(dbenv, DB_TXN_WRITE_NOSYNC, 1);
+	
 	if (result != 0) {
 		printf("DB_ENV set_flags failed: %s\n", db_strerror(result));
 		return -1;
@@ -64,7 +62,7 @@ bdb_init_tx_handle(struct storage* s, int tx_mode, char* db_env_path)
 	dbenv->set_errfile(dbenv, stdout);
     
 	//Set the size of the memory cache
-	result = dbenv->set_cachesize(dbenv, MEM_CACHE_SIZE, 1);
+	result = dbenv->set_cachesize(dbenv, 0, paxos_config.bdb_cachesize, 1);
 	if (result != 0) {
 		printf("DB_ENV set_cachesize failed: %s\n", db_strerror(result));
 		return -1;
@@ -86,7 +84,6 @@ bdb_init_tx_handle(struct storage* s, int tx_mode, char* db_env_path)
 		DB_INIT_LOCK    |  /* Initialize the locking subsystem */
 		DB_INIT_LOG     |  /* Initialize the logging subsystem */
 		DB_INIT_TXN     |  /* Initialize the transactional subsystem. */
-		//DB_PRIVATE      |  /* DB is for this process only */
 		DB_THREAD       |  /* Cause the environment to be free-threaded */  
 		DB_REGISTER 	|
 		DB_INIT_MPOOL;     /* Initialize the memory pool (in-memory cache) */
@@ -121,15 +118,6 @@ bdb_init_db(struct storage* s, char* db_path)
 	
 	dbp = s->db;
     
-	if (DURABILITY_MODE == 0 || DURABILITY_MODE == 20) {
-		//Set the size of the memory cache
-		result = dbp->set_cachesize(dbp, MEM_CACHE_SIZE, 1);
-		if (result != 0) {
-			printf("DBP set_cachesize failed: %s\n", db_strerror(result));
-			return -1;
-		}
-	}
-    
 	// DB flags
 	int flags = DB_CREATE;          /*Create if not existing */
 
@@ -137,12 +125,12 @@ bdb_init_db(struct storage* s, char* db_path)
 
 	//Open the DB file
 	result = dbp->open(dbp,
-		s->txn,                    /* Transaction pointer */
-		db_path,                /* On-disk file that holds the database. */
-		NULL,                   /* Optional logical database name */
-		ACCEPTOR_ACCESS_METHOD, /* Database access method */
-		flags,                  /* Open flags */
-		0);                     /* Default file permissions */
+		s->txn,          /* Transaction pointer */
+		db_path,         /* On-disk file that holds the database. */
+		NULL,            /* Optional logical database name */
+		DB_BTREE,        /* Database access method */
+		flags,           /* Open flags */
+		0);              /* Default file permissions */
 
 	storage_tx_commit(s);
 
@@ -154,97 +142,55 @@ bdb_init_db(struct storage* s, char* db_path)
 }
 
 struct storage*
-storage_open(int acceptor_id, int do_recovery)
+storage_open(int acceptor_id)
 {
-	char db_env_path[512];
-	char db_filename[512];
-	char db_file_path[512];
+	struct storage* s;
 	
-	struct storage* s = malloc(sizeof(struct storage));
+	s = malloc(sizeof(struct storage));
 	memset(s, 0, sizeof(struct storage));
 	
 	s->acceptor_id = acceptor_id;
-
+	
 	//Create path to db file in db dir
-	sprintf(db_env_path, ACCEPTOR_DB_PATH);    
-	sprintf(db_filename, ACCEPTOR_DB_FNAME);
-	sprintf(db_file_path, "%s/%s", db_env_path, db_filename);
-	LOG(VRB, ("Opening db file %s/%s\n", db_env_path, db_filename));    
-
+	char* db_env_path;
+	asprintf(&db_env_path, "%s_%d", paxos_config.bdb_env_path, acceptor_id);
+	char* db_filename = paxos_config.bdb_db_filename;
+	
 	struct stat sb;
 	//Check if the environment dir and db file exists
 	int dir_exists = (stat(db_env_path, &sb) == 0);
 
-    //Create the directory if it does not exist
+	//Create the directory if it does not exist
 	if (!dir_exists && (mkdir(db_env_path, S_IRWXU) != 0)) {
 		printf("Failed to create env dir %s: %s\n", 
 			db_env_path, strerror(errno));
 		return NULL;
 	} 
-    
 	//Delete and recreate an empty dir if not recovering
-	if (!do_recovery && dir_exists) {
+	if (paxos_config.bdb_delete_on_restart && dir_exists) {
 		char rm_command[600];
 		sprintf(rm_command, "rm -r %s", db_env_path);
-
+		
 		if ((system(rm_command) != 0) || 
 			(mkdir(db_env_path, S_IRWXU) != 0)) {
 			printf("Failed to recreate empty env dir %s: %s\n",
 			db_env_path, strerror(errno));
 		}
 	}
-
-	int ret = 0;
+	
 	char * db_file = db_filename;
-	switch (DURABILITY_MODE) {
-		//In memory cache
-		case 0: {
-			//Give full path if opening without handle
-			db_file = db_file_path;
-		}
-		break;
-
-        //Transactional storage
-		case 10: {
-			ret = bdb_init_tx_handle(s, DB_LOG_IN_MEMORY, db_env_path);
-		}
-		break;
-
-		case 11: {
-			ret = bdb_init_tx_handle(s, DB_TXN_NOSYNC, db_env_path);
-		}
-		break;
-
-		case 12: {
-			ret = bdb_init_tx_handle(s, DB_TXN_WRITE_NOSYNC, db_env_path);
-		}
-		break;
-
-		case 13: {
-			ret = bdb_init_tx_handle(s, 0, db_env_path);
-		}
-		break;
-
-		case 20: {
-			//Give full path if opening without handle
-			db_file = db_file_path;
-		}
-		break;
-
-		default: {
-			printf("Unknow durability mode %d!\n", DURABILITY_MODE);
-			return NULL;
-		}
-	}
-    
+	int ret = bdb_init_tx_handle(s, db_env_path);
+	
 	if (ret != 0) {
 		printf("Failed to open DB handle\n");
 	}
-    
+	
 	if (bdb_init_db(s, db_file) != 0) {
 		printf("Failed to open DB file\n");
 		return NULL;
 	}
+	
+	free(db_env_path);
 	
 	return s;
 }
@@ -261,45 +207,21 @@ storage_close(struct storage* s)
 		printf("DB_ENV close failed\n");
 		result = -1;
 	}
-
-	switch(DURABILITY_MODE) {
-		case 0:
-		case 20:
-		break;
-        
-		//Transactional storage
-		case 10:
-		case 11:
-		case 12:
-		case 13: {
-			//Close handle
-			if(dbenv->close(dbenv, 0) != 0) {
-				printf("DB close failed\n");
-				result = -1;
-			}
-		}
-		break;
-        
-		default: {
-			printf("Unknow durability mode %d!\n", DURABILITY_MODE);
-			result = -1;
-		}
-	}    
- 
- 	free(s);
+	
+	if (dbenv->close(dbenv, 0) != 0) {
+		printf("DB close failed\n");
+		result = -1;
+	}
+	 
+	free(s);
 	
 	LOG(VRB, ("DB close completed\n"));  
 	return result;
-	
 }
 
 void
 storage_tx_begin(struct storage* s)
 {
-	if (DURABILITY_MODE == 0 || DURABILITY_MODE == 20) {
-		return;
-	}
-
 	int result;
 	result = s->env->txn_begin(s->env, NULL, &s->txn, 0);
 	assert(result == 0);	
@@ -309,17 +231,6 @@ void
 storage_tx_commit(struct storage* s)
 {
 	int result;
-
-	if (DURABILITY_MODE == 0) {
-		return;
-	}
-
-	if (DURABILITY_MODE == 20) {
-		result = s->db->sync(s->db, 0);
-		assert(result == 0);
-		return;
-	}
-
 	// Since it's either read only or write only
 	// and there is no concurrency, should always commit!
 	result = s->txn->commit(s->txn, 0);
@@ -381,7 +292,6 @@ storage_save_accept(struct storage* s, accept_req * ar)
 	DB* dbp = s->db;
 	DB_TXN* txn = s->txn;
 	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
-
     
 	//Store as acceptor_record (== accept_ack)
 	record_buffer->acceptor_id = s->acceptor_id;
@@ -423,8 +333,7 @@ storage_save_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
 	DB* dbp = s->db;
 	DB_TXN* txn = s->txn;
 	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
-
-    
+	
 	//No previous record, create a new one
 	if (rec == NULL) {
 		//Record does not exist yet

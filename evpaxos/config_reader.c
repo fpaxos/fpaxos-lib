@@ -102,3 +102,53 @@ free_config(struct config* c)
 		address_free(&c->acceptors[i]);
 	free(c);
 }
+
+
+
+// enum option_type 
+// {
+// 	option_boolean,
+// 	option_integer,
+// 	option_string,
+// };
+// 
+// struct option
+// {
+// 	const char* name;
+// 	void* value;
+// 	enum option_type type;
+// };
+
+// struct paxos_config
+// { 
+// 	/* Learner */
+// 	int learner_instances;
+// 	
+// 	/* Proposer */
+// 	
+// 	/* Acceptor */
+// 	
+// 	/* BDB storage configuration */
+// 	int bdb_sync;
+// 	int bdb_transactional;
+// 	int bdb_cachesize;
+// 	char* bdb_env_path;
+// 	char* bdb_db_filename;
+// };
+// 
+// struct paxos_config config =
+// {
+// 	0,             /* bdb_sync */
+// 	0,             /* bdb_transactional */
+// 	32*1024*1023,  /* bdb_cachesize */
+// 	"/tmp",		   /* bdb_env_path */
+// 	"acc.bdb",     /* bdb_db_filename */
+// };
+
+// struct option options[] = {
+// 	{ "bdb-sync", &config.bdb_sync, option_boolean },
+// 	{ "bdb-transactional", &config.transactional, option_boolean },
+// 	{ "bdb-env-path", &config.bdb_env_path, option_string },
+// 	{ "bdb-db-name", &config.bdb_db_name, option_string }
+// }
+

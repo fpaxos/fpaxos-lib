@@ -31,7 +31,6 @@
 #include "learner.h"
 #include "tcp_sendbuf.h"
 #include "config_reader.h"
-#include "paxos_config.h"
 
 struct evlearner
 {
@@ -186,7 +185,7 @@ evlearner_init_conf(struct config* c, deliver_function f, void* arg,
 	l->conf = c;
 	l->delfun = f;
 	l->delarg = arg;
-	l->state = learner_new(LEARNER_ARRAY_SIZE, 1);
+	l->state = learner_new();
 	l->acceptors_count = c->acceptors_count;
 	
 	// setup connections to acceptors
