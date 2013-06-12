@@ -167,7 +167,7 @@ storage_open(int acceptor_id)
 		return NULL;
 	} 
 	//Delete and recreate an empty dir if not recovering
-	if (paxos_config.bdb_delete_on_restart && dir_exists) {
+	if (paxos_config.bdb_trash_files && dir_exists) {
 		char rm_command[600];
 		sprintf(rm_command, "rm -r %s", db_env_path);
 		

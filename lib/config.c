@@ -24,6 +24,7 @@ struct paxos_config paxos_config =
 {
 	2048,              /* learner_instances */
 	1,                 /* learner_recover */
+	128,               /* proposer_preexec_window */
 	0,                 /* bdb_sync */
 	32*1024*1024,      /* bdb_cachesize */
 	"/tmp/acceptor",   /* bdb_env_path */

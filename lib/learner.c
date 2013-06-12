@@ -287,7 +287,7 @@ learner_new()
 	s->current_iid = 1;
 	s->highest_iid_seen = 1;
 	s->highest_iid_closed = 1;
-	s->late_start = !paxos_config.learner_recover;
+	s->late_start = !paxos_config.learner_catch_up;
 	return s;
 }
 

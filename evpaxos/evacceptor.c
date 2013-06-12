@@ -151,7 +151,6 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 	a->receiver = tcp_receiver_new(a->base, &a->conf->acceptors[id],
 		handle_req, a);
 	a->state = acceptor_new(id);
-    printf("Acceptor %d is ready\n", id);
 
     return a;
 }

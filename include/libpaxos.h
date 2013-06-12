@@ -46,9 +46,10 @@ struct paxos_config
 { 
 	/* Learner */
 	int learner_instances;
-	int learner_recover;
+	int learner_catch_up;
 	
 	/* Proposer */
+	int proposer_preexec_window;
 	
 	/* Acceptor */
 	
@@ -57,7 +58,7 @@ struct paxos_config
 	int bdb_cachesize;
 	char* bdb_env_path;
 	char* bdb_db_filename;
-	int bdb_delete_on_restart;
+	int bdb_trash_files;
 };
 
 extern struct paxos_config paxos_config;

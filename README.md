@@ -28,10 +28,10 @@ You pass options to cmake as follows: ```cmake -DOPTION=VALUE```
 ## Running the examples
 
 	cd libpaxos/build
-	./sample/acceptor 0 ../config.cfg > /dev/null &
-	./sample/acceptor 1 ../config.cfg > /dev/null &
-	./sample/proposer 0 ../config.cfg > /dev/null &
-	./sample/learner ../config.cfg > learner.txt &
+	./sample/acceptor 0 ../paxos.conf > /dev/null &
+	./sample/acceptor 1 ../paxos.conf > /dev/null &
+	./sample/proposer 0 ../paxos.conf > /dev/null &
+	./sample/learner ../paxos.conf > learner.txt &
 	./sample/client 127.0.0.1:5550 1
 	
 ##  Unit tests

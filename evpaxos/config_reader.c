@@ -20,25 +20,43 @@
 
 #include "config_reader.h"
 #include <stdio.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
-static const int fields = 4;
+
+enum option_type
+{
+	option_boolean,
+	option_integer,
+	option_string
+};
+
+struct option
+{
+	const char* name;
+	void* value;
+	enum option_type type;
+};
+
+struct option options[] =
+{
+	{ "learner-catch-up", &paxos_config.learner_catch_up, option_boolean },
+	{ "proposer_preexec_window", &paxos_config.proposer_preexec_window, option_integer },
+	{ "bdb-sync", &paxos_config.bdb_sync, option_boolean },
+	{ "bdb-cachesize", &paxos_config.bdb_cachesize, option_integer },
+	{ "bdb-env-path", &paxos_config.bdb_env_path, option_string },
+	{ "bdb-db-filename", &paxos_config.bdb_db_filename, option_string },
+	{ "bdb-trash-files", &paxos_config.bdb_trash_files, option_boolean },
+	{ 0 }
+};
+
 
 static void
-print_config(address* a, int count)
-{
-	int i;
-	for (i = 0; i < count; i++)
-		printf("%s %d\n", a[i].address_string, a[i].port);
-}
-
-static address*
 address_init(address* a, char* addr, int port)
 {
 	a->address_string = strdup(addr);
 	a->port = port;
-	return a;
 }
 
 static void
@@ -47,48 +65,155 @@ address_free(address* a)
 	free(a->address_string);
 }
 
+static char*
+strtrim(char* string)
+{
+	char *s, *t;
+	for (s = string; isspace(*s); s++)
+		;
+	if (*s == 0)
+		return s;
+	t = s + strlen(s) - 1;
+	while (t > s && isspace(*t))
+		t--;
+	*++t = '\0';
+	return s;
+}
+
+static int
+parse_boolean(char* str, int* boolean)
+{
+	if (str == NULL) return 0;
+    if (strcasecmp(str, "yes") == 0) {
+    	*boolean = 1;
+		return 1;
+	}
+	if (strcasecmp(str, "no") == 0) {
+		*boolean = 0;
+		return 1;
+	}	
+	return 0;
+}
+
+static int
+parse_integer(char* str, int* integer)
+{
+	int n;
+	char* end;
+	if (str == NULL) return 0;
+	n = strtol(str, &end, 10);
+	if (end == str) return 0;
+	*integer = n;
+	return 1;
+}
+
+static int
+parse_string(char* str, char** string)
+{
+	if (str == NULL || str[0] == '\0' || str[0] == '\n')
+		return 0;
+	*string = strdup(str);
+	return 1;
+}
+
+static int
+parse_address(char* str, address* addr)
+{
+	int id;
+	int port;
+	char address[128];
+	int rv = sscanf(str, "%d %s %d", &id, address, &port);
+	if (rv == 3) {
+		address_init(addr, address, port);
+		return 1;
+	}
+	return 0;
+}
+
+static struct option*
+lookup_option(char* opt)
+{
+	int i = 0;
+	while (options[i].name != NULL) {
+		if (strcasecmp(options[i].name, opt) == 0)
+			return &options[i];
+		i++;
+	}
+	return NULL;
+}
+
+static int 
+parse_line(char* line, struct config* c)
+{
+	int rv;
+	char* tok;
+	char* sep = " ";
+	struct option* opt;
+	
+	line = strtrim(line);
+	tok = strsep(&line, sep);
+	
+	if (strcasecmp(tok, "a") == 0) {
+		address* addr = &c->acceptors[c->acceptors_count++];
+		return parse_address(line, addr);
+	}
+	
+	if (strcasecmp(tok, "p") == 0) {
+		address* addr = &c->proposers[c->proposers_count++];
+		return parse_address(line, addr);
+	}
+	
+	line = strtrim(line);
+	opt = lookup_option(tok);
+	if (opt == NULL)
+		return 0;
+
+	switch (opt->type) {
+		case option_boolean:
+			rv = parse_boolean(line, opt->value);
+			if (rv == 0) printf("Expected 'yes' or 'no'\n");
+			break;
+		case option_integer:
+			rv = parse_integer(line, opt->value);
+			if (rv == 0) printf("Expected number\n");
+			break;
+		case option_string:
+			rv = parse_string(line, opt->value);
+			if (rv == 0) printf("Expected string\n");
+			break;
+	}
+		
+	return rv;
+}
+
 struct config*
 read_config(const char* path)
 {
-	int id;
-	char type;
-	address a;
-	address* tmp;
-	struct config* c;
 	FILE* f;
+	char line[512];
+	int linenumber = 0;
+	struct config* c;
 
-	f = fopen(path, "r");
-	if (f == NULL) {
-		perror("fopen"); return NULL;
+	if ((f = fopen(path, "r")) == NULL) {
+		printf("Error: can't open config file %s\n", path);
+		exit(1);
 	}
 	
 	c = malloc(sizeof(struct config));
 	memset(c, 0, sizeof(struct config));
-	a.address_string = malloc(128);
 	
-	while(fscanf(f, "%c %d %s %d\n", &type, &id,
-		a.address_string, &a.port) == fields) {
-			
-		switch(type) {
-			case 'p':
-				tmp = &c->proposers[c->proposers_count++];
-				address_init(tmp, a.address_string, a.port);
-				break;
-			case 'a':
-				tmp = &c->acceptors[c->acceptors_count++];
-				address_init(tmp, a.address_string, a.port);
-				break;
+	while (fgets(line, sizeof(line), f) != NULL) {
+		if (line[0] != '#' && line[0] != '\n') {
+			if (parse_line(line, c) == 0) {
+				printf("Error parsing config file %s\n", path);
+				printf("Please, check line %d\n", linenumber);
+				exit(1);
+			}
 		}
+		linenumber++;
 	}
 	
-	printf("proposers\n");
-	print_config(c->proposers, c->proposers_count);
-	printf("acceptors\n");
-	print_config(c->acceptors , c->acceptors_count);
-	
 	fclose(f);
-	free(a.address_string);
-	
 	return c;
 }
 
@@ -102,53 +227,3 @@ free_config(struct config* c)
 		address_free(&c->acceptors[i]);
 	free(c);
 }
-
-
-
-// enum option_type 
-// {
-// 	option_boolean,
-// 	option_integer,
-// 	option_string,
-// };
-// 
-// struct option
-// {
-// 	const char* name;
-// 	void* value;
-// 	enum option_type type;
-// };
-
-// struct paxos_config
-// { 
-// 	/* Learner */
-// 	int learner_instances;
-// 	
-// 	/* Proposer */
-// 	
-// 	/* Acceptor */
-// 	
-// 	/* BDB storage configuration */
-// 	int bdb_sync;
-// 	int bdb_transactional;
-// 	int bdb_cachesize;
-// 	char* bdb_env_path;
-// 	char* bdb_db_filename;
-// };
-// 
-// struct paxos_config config =
-// {
-// 	0,             /* bdb_sync */
-// 	0,             /* bdb_transactional */
-// 	32*1024*1023,  /* bdb_cachesize */
-// 	"/tmp",		   /* bdb_env_path */
-// 	"acc.bdb",     /* bdb_db_filename */
-// };
-
-// struct option options[] = {
-// 	{ "bdb-sync", &config.bdb_sync, option_boolean },
-// 	{ "bdb-transactional", &config.transactional, option_boolean },
-// 	{ "bdb-env-path", &config.bdb_env_path, option_string },
-// 	{ "bdb-db-name", &config.bdb_db_name, option_string }
-// }
-

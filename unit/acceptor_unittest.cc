@@ -26,13 +26,13 @@ protected:
 
 	int id;
 	struct acceptor* a;
-        
+	
 	virtual void SetUp() {
 		id = 2;
-		system("rm -rf /tmp/acceptor_2");
+		paxos_config.bdb_trash_files = 1;
 		a = acceptor_new(id);
 	}
-        
+	
 	virtual void TearDown() {
 		acceptor_delete(a);
 	}
