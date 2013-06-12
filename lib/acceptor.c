@@ -36,11 +36,6 @@ apply_accept(struct storage* s, accept_req* ar, acceptor_record* rec);
 struct acceptor*
 acceptor_new(int id)
 {
-	/*
-		TODO Acceptors should be able to "recover" from the existing BDB file. 
-		For now we just force do_recovery to be false (BDB creates a new
-		database from scratch each time the acceptor starts).
-	*/
 	struct acceptor* s;
 	s = malloc(sizeof(struct acceptor));
 	s->store = storage_open(id); 
