@@ -6,7 +6,7 @@ SET(LOCAL_SOURCES acceptor.c learner.c proposer.c carray.c quorum.c config.c)
 if (USE_MEM_STORE)
 	LIST(APPEND LOCAL_SOURCES storage_mem.c)
 else()
-	LIST(APPEND LOCAL_SOURCES storage.c)
+	LIST(APPEND LOCAL_SOURCES storage_bdb.c)
 endif()
 
 add_library(paxos SHARED ${LOCAL_SOURCES})
