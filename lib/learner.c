@@ -140,18 +140,18 @@ instance_add_accept(struct instance* inst, accept_ack* ack)
 }
 
 static struct instance*
-learner_get_instance(struct learner* s, iid_t iid)
+learner_get_instance(struct learner* l, iid_t iid)
 {
 	struct instance* inst;
-	inst = carray_at(s->instances, iid);
+	inst = carray_at(l->instances, iid);
 	assert(inst->iid == iid || inst->iid == 0);
 	return inst;
 }
 
 static struct instance*
-learner_get_current_instance(struct learner* s)
+learner_get_current_instance(struct learner* l)
 {
-	return learner_get_instance(s, s->current_iid);
+	return learner_get_instance(l, l->current_iid);
 }
 
 /*
@@ -204,34 +204,34 @@ learner_update_instance(struct learner* l, accept_ack* ack)
 }
 
 accept_ack*
-learner_deliver_next(struct learner* s)
+learner_deliver_next(struct learner* l)
 {
 	struct instance* inst;
 	accept_ack* ack = NULL;
-	inst = learner_get_current_instance(s);
-	if (instance_has_quorum(s, inst)) {
+	inst = learner_get_current_instance(l);
+	if (instance_has_quorum(l, inst)) {
 		size_t size = ACCEPT_ACK_SIZE(inst->final_value);
 		ack = malloc(size);
 		memcpy(ack, inst->final_value, size);
 		instance_deep_clear(inst);
-		s->current_iid++;
+		l->current_iid++;
 	}
 	return ack;
 }
 
 void
-learner_receive_accept(struct learner* s, accept_ack* ack)
+learner_receive_accept(struct learner* l, accept_ack* ack)
 {
-	if (s->late_start) {
-		s->late_start = 0;
-		s->current_iid = ack->iid;
+	if (l->late_start) {
+		l->late_start = 0;
+		l->current_iid = ack->iid;
 	}
 		
-	if (ack->iid > s->highest_iid_seen)
-		s->highest_iid_seen = ack->iid;
+	if (ack->iid > l->highest_iid_seen)
+		l->highest_iid_seen = ack->iid;
 	
 	// Already closed and delivered, ignore message
-	if (ack->iid < s->current_iid) {
+	if (ack->iid < l->current_iid) {
 		LOG(DBG, ("Dropping accept_ack for already delivered iid: %u\n",
 		ack->iid));
 		return;
@@ -239,27 +239,27 @@ learner_receive_accept(struct learner* s, accept_ack* ack)
 	
 	// We are late w.r.t the current iid, ignore message
 	// (The instance received is too ahead and will overwrite something)
-	if (ack->iid >= s->current_iid + carray_size(s->instances)) {
+	if (ack->iid >= l->current_iid + carray_size(l->instances)) {
 		LOG(DBG, ("Dropping accept_ack for iid: %u, too far in future\n",
 			ack->iid));
 		return;
 	}
 	
-	learner_update_instance(s, ack);
+	learner_update_instance(l, ack);
 	
-	struct instance* inst = learner_get_instance(s, ack->iid);
-	if (instance_has_quorum(s, inst) && (inst->iid > s->highest_iid_closed))
-		s->highest_iid_closed = inst->iid;
+	struct instance* inst = learner_get_instance(l, ack->iid);
+	if (instance_has_quorum(l, inst) && (inst->iid > l->highest_iid_closed))
+		l->highest_iid_closed = inst->iid;
 }
 
 static void
-initialize_instances(struct learner* s, int count)
+initialize_instances(struct learner* l, int count)
 {
 	int i;
-	s->instances = carray_new(count);
-	assert(s->instances != NULL);	
-	for (i = 0; i < carray_size(s->instances); i++)
-		carray_push_back(s->instances, instance_new());
+	l->instances = carray_new(count);
+	assert(l->instances != NULL);	
+	for (i = 0; i < carray_size(l->instances); i++)
+		carray_push_back(l->instances, instance_new());
 }
 
 int

@@ -55,8 +55,8 @@ static struct instance* instance_find(struct carray* c, iid_t iid);
 static int instance_match(void* arg, void* item);
 static struct carray* instance_remove(struct carray* c, struct instance* inst);
 static paxos_msg* wrap_value(char* value, size_t size);
-static prepare_req* prepare_preempt(struct proposer *p, struct instance* inst);
-static ballot_t proposer_next_ballot(struct proposer* s, ballot_t b);
+static prepare_req* prepare_preempt(struct proposer* p, struct instance* inst);
+static ballot_t proposer_next_ballot(struct proposer* p, ballot_t b);
 
 
 struct proposer*
@@ -327,10 +327,10 @@ prepare_preempt(struct proposer* p, struct instance* inst)
 }
 
 static ballot_t 
-proposer_next_ballot(struct proposer* s, ballot_t b)
+proposer_next_ballot(struct proposer* p, ballot_t b)
 {
 	if (b > 0)
 		return MAX_N_OF_PROPOSERS + b;
 	else
-		return MAX_N_OF_PROPOSERS + s->id;
+		return MAX_N_OF_PROPOSERS + p->id;
 }

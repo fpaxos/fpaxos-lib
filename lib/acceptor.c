@@ -47,33 +47,33 @@ acceptor_new(int id)
 }
 
 int
-acceptor_free(struct acceptor* s) 
+acceptor_free(struct acceptor* a) 
 {
 	int rv;
-	rv = storage_close(s->store);
-	free(s);
+	rv = storage_close(a->store);
+	free(a);
 	return rv;
 }
 
 acceptor_record*
-acceptor_receive_prepare(struct acceptor* s, prepare_req* req)
+acceptor_receive_prepare(struct acceptor* a, prepare_req* req)
 {
 	acceptor_record* rec;
-	storage_tx_begin(s->store);
-	rec = storage_get_record(s->store, req->iid);
-	rec = apply_prepare(s->store, req, rec);
-	storage_tx_commit(s->store);
+	storage_tx_begin(a->store);
+	rec = storage_get_record(a->store, req->iid);
+	rec = apply_prepare(a->store, req, rec);
+	storage_tx_commit(a->store);
 	return rec;
 }
 
 acceptor_record*
-acceptor_receive_accept(struct acceptor* s, accept_req* req)
+acceptor_receive_accept(struct acceptor* a, accept_req* req)
 {
 	acceptor_record* rec;
-	storage_tx_begin(s->store);
-	rec = storage_get_record(s->store, req->iid);
-	rec = apply_accept(s->store, req, rec);
-	storage_tx_commit(s->store);
+	storage_tx_begin(a->store);
+	rec = storage_get_record(a->store, req->iid);
+	rec = apply_accept(a->store, req, rec);
+	storage_tx_commit(a->store);
 	return rec;
 }
 

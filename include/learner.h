@@ -31,10 +31,10 @@ extern "C" {
 struct learner;
 
 struct learner* learner_new(void);
-void learner_free(struct learner*);
-void learner_receive_accept(struct learner* s, accept_ack* ack);
-accept_ack* learner_deliver_next(struct learner* s);
-int learner_has_holes(struct learner* s, iid_t* from, iid_t* to);
+void learner_free(struct learner* l);
+void learner_receive_accept(struct learner* l, accept_ack* ack);
+accept_ack* learner_deliver_next(struct learner* l);
+int learner_has_holes(struct learner* l, iid_t* from, iid_t* to);
 
 #ifdef __cplusplus
 }
