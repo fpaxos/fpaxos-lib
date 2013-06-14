@@ -31,7 +31,7 @@ extern "C" {
 struct acceptor;
 
 struct acceptor* acceptor_new(int id);
-int acceptor_delete(struct acceptor* s);
+int acceptor_free(struct acceptor* s);
 acceptor_record* acceptor_receive_prepare(struct acceptor* s, prepare_req* req);
 acceptor_record* acceptor_receive_accept(struct acceptor* s, accept_req* req);
 acceptor_record* acceptor_receive_repeat(struct acceptor* a, iid_t iid);

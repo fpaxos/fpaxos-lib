@@ -34,7 +34,7 @@ protected:
 	}
 	
 	virtual void TearDown() {
-		acceptor_delete(a);
+		acceptor_free(a);
 	}
 };
 

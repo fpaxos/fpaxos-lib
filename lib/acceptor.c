@@ -47,7 +47,7 @@ acceptor_new(int id)
 }
 
 int
-acceptor_delete(struct acceptor* s) 
+acceptor_free(struct acceptor* s) 
 {
 	int rv;
 	rv = storage_close(s->store);
