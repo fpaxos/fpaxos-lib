@@ -34,7 +34,7 @@ struct storage
 };
 
 struct storage*
-storage_open(int acceptor_id, int do_recovery)
+storage_open(int acceptor_id)
 {
 	struct storage* s = malloc(sizeof(struct storage));
 	assert(s != NULL);
