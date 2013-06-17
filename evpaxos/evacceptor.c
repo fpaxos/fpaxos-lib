@@ -24,10 +24,11 @@
 #include <event2/buffer.h>
 
 #include "evpaxos.h"
-#include "tcp_sendbuf.h"
 #include "config_reader.h"
 #include "tcp_receiver.h"
 #include "acceptor.h"
+#include "libpaxos_messages.h"
+#include "tcp_sendbuf.h"
 
 #include <stdio.h>
 #include <stdlib.h>

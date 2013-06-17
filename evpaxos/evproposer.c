@@ -20,6 +20,7 @@
 
 #include "evpaxos.h"
 #include "config_reader.h"
+#include "libpaxos_messages.h"
 #include "tcp_sendbuf.h"
 #include "tcp_receiver.h"
 #include "proposer.h"

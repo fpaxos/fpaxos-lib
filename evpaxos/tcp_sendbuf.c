@@ -18,6 +18,7 @@
 */
 
 
+#include "libpaxos_messages.h"
 #include "tcp_sendbuf.h"
 #include <event2/bufferevent.h>
 
