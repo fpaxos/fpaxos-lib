@@ -1,12 +1,21 @@
 # LibPaxos
 
-This is a fork of [libpaxos](http://libpaxos.sourceforge.net/), an implementation of the Paxos protocol. This version of libpaxos is different from the original one in that it implements a network agnostic paxos (see ```libpaxos/lib/```). That is, libpaxos does not depend on any particular networking library and can be easily adapted to work with any networking library. 
+This is LibPaxos3! A complete rewrite of [LibPaxos2](http://libpaxos.sourceforge.net/). LibPaxos3 has been improved in the following aspects:
 
-As an example, we include a networked implementation of paxos (see ```libpaxos/evpaxos/```) that implements paxos on top of libpaxos and [libevent](http://www.libevent.org).
+- Doesn't make use of multicast
+- Has a cleaner design
+- Has a better build system based on CMake
+- Comes with unit tests
+
+LibPaxos3 is divided in two libraries: libpaxos and libevpaxos. 
+
+Libpaxos (see ```libpaxos/lib```) implements the core of the Paxos consensus protocol, and is not cluttered with network specific code. That is, libpaxos does not depend on any particular networking library.
+
+Libevpaxos (see ```libpaxos/evpaxos```) is the actual Paxos implementation on top of libpaxos and [libevent](http://www.libevent.org).
 
 ## Building
 
-These are the basic steps required to compile libpaxos
+These are the basic steps required to get and compile libpaxos
 
 	git clone git@bitbucket.org:sciascid/libpaxos.git
 	mkdir libpaxos/build
@@ -14,7 +23,9 @@ These are the basic steps required to compile libpaxos
 	cmake ..
 	make
 
-Libpaxos depends on Berkeley [Berkeley DB](http://www.oracle.com/technetwork/products/berkeleydb/overview/index.html) and [libevent](http://www.libevent.org). Berkeley DB can be disabled in favor of an in-memory storage (see build options below).
+LibPaxos3 depends on Berkeley [Berkeley DB](http://www.oracle.com/technetwork/products/berkeleydb/overview/index.html) and [libevent](http://www.libevent.org). Berkeley DB can be disabled in favor of an in-memory storage (see build options below).
+
+LibPaxos3 has been tested on Linux and OS X.
 
 ### Useful build options
 
@@ -33,7 +44,11 @@ You pass options to cmake as follows: ```cmake -DOPTION=VALUE```
 	./sample/proposer 0 ../paxos.conf > /dev/null &
 	./sample/learner ../paxos.conf > learner.txt &
 	./sample/client 127.0.0.1:5550 1
-	
+
+## Configuration
+
+See ```paxos.conf``` for a sample configuration file.
+
 ##  Unit tests
 
 Unit tests depend on the [Google Test](http://code.google.com/p/googletest/) library. First enable unit tests run
@@ -43,6 +58,16 @@ Unit tests depend on the [Google Test](http://code.google.com/p/googletest/) lib
 
 Execute the tests using ```make test```, or, run ```./unit/gtest``` for detailed output.
 
+## Feedback
+
+[LibPaxos project page](http://libpaxos.sourceforge.net)
+
+[LibPaxos3 repository](https://bitbucket.org/sciascid/libpaxos)
+
+[Mailing list](https://lists.sourceforge.net/lists/listinfo/libpaxos-general)
+
 ## License
 
 Libpaxos is distributed under GPL version 3.
+
+LibPaxos3 has been developed at the [University of Lugano](http://inf.usi.ch), by [Daniele Sciascia](http://atelier.inf.usi.ch/~sciascid).
