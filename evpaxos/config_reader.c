@@ -53,14 +53,14 @@ struct option options[] =
 
 
 static void
-address_init(address* a, char* addr, int port)
+address_init(struct address* a, char* addr, int port)
 {
 	a->address_string = strdup(addr);
 	a->port = port;
 }
 
 static void
-address_free(address* a)
+address_free(struct address* a)
 {
 	free(a->address_string);
 }
@@ -117,7 +117,7 @@ parse_string(char* str, char** string)
 }
 
 static int
-parse_address(char* str, address* addr)
+parse_address(char* str, struct address* addr)
 {
 	int id;
 	int port;
@@ -154,12 +154,12 @@ parse_line(char* line, struct config* c)
 	tok = strsep(&line, sep);
 	
 	if (strcasecmp(tok, "a") == 0) {
-		address* addr = &c->acceptors[c->acceptors_count++];
+		struct address* addr = &c->acceptors[c->acceptors_count++];
 		return parse_address(line, addr);
 	}
 	
 	if (strcasecmp(tok, "p") == 0) {
-		address* addr = &c->proposers[c->proposers_count++];
+		struct address* addr = &c->proposers[c->proposers_count++];
 		return parse_address(line, addr);
 	}
 	

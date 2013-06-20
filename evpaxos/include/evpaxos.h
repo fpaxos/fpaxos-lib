@@ -28,20 +28,6 @@
 #include <event2/event.h>
 #include <event2/bufferevent.h>
 
-#define MAX_ADDR 10
-
-typedef struct address_t {
-	char* address_string;
-	int port;
-} address;
-
-struct config
-{
-	int proposers_count;
-	int acceptors_count;
-	address proposers[MAX_ADDR];
-	address acceptors[MAX_ADDR];
-};
 
 /* When starting a learner you must pass a callback to be invoked whenever
  * a value has been learned.*/

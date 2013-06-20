@@ -30,7 +30,7 @@
 
 
 static void 
-set_sockaddr_in(struct sockaddr_in* sin, address* a)
+set_sockaddr_in(struct sockaddr_in* sin, struct address* a)
 {
 	memset(sin, 0, sizeof(sin));
 	sin->sin_family = AF_INET;
@@ -104,7 +104,7 @@ on_listener_error(struct evconnlistener* l, void* arg)
 }
 
 struct tcp_receiver*
-tcp_receiver_new(struct event_base* b, address* a,
+tcp_receiver_new(struct event_base* b, struct address* a,
  	bufferevent_data_cb cb, void* arg)
 {
 	struct tcp_receiver* r;

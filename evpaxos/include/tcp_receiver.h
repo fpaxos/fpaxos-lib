@@ -23,6 +23,7 @@
 
 #include "evpaxos.h"
 #include "carray.h"
+#include "config_reader.h"
 #include <event2/event.h>
 #include <event2/bufferevent.h>
 
@@ -35,7 +36,7 @@ struct tcp_receiver
 };
 
 struct tcp_receiver*
-tcp_receiver_new(struct event_base* b, address* a, bufferevent_data_cb callback, void* arg);
+tcp_receiver_new(struct event_base* b, struct address* a, bufferevent_data_cb callback, void* arg);
 
 void 
 tcp_receiver_free(struct tcp_receiver* r);

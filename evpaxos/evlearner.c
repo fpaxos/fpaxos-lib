@@ -152,7 +152,7 @@ on_event(struct bufferevent *bev, short events, void *ptr)
 }
 
 static struct bufferevent* 
-do_connect(struct evlearner* l, struct event_base* b, address* a)
+do_connect(struct evlearner* l, struct event_base* b, struct address* a)
 {
 	struct sockaddr_in sin;
 	struct bufferevent* bev;

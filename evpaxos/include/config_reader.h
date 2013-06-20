@@ -23,6 +23,21 @@
 
 #include "evpaxos.h"
 
+#define MAX_ADDR 10
+
+struct address {
+	char* address_string;
+	int port;
+};
+
+struct config
+{
+	int proposers_count;
+	int acceptors_count;
+	struct address proposers[MAX_ADDR];
+	struct address acceptors[MAX_ADDR];
+};
+
 struct config* read_config(const char* path);
 void free_config(struct config* c);
 

@@ -81,7 +81,7 @@ extern struct paxos_config paxos_config;
   1 -> verbose 
   3 -> debug
 */
-#define VERBOSITY_LEVEL 0
+#define VERBOSITY_LEVEL 3
 
 /*** SETTINGS TO BE REMOVED, EVENTUALLY... ***/
 
