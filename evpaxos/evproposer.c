@@ -19,6 +19,7 @@
 
 
 #include "evpaxos.h"
+#include "peers.h"
 #include "config_reader.h"
 #include "libpaxos_messages.h"
 #include "tcp_sendbuf.h"
@@ -37,11 +38,10 @@ struct evproposer
 {
 	int id;
 	int preexec_window;
-	int acceptors_count;
-	struct bufferevent* acceptor_ev[N_OF_ACCEPTORS];
 	struct tcp_receiver* receiver;
 	struct event_base* base;
 	struct proposer* state;
+	struct peers* acceptors;
 };
 
 
@@ -49,8 +49,10 @@ static void
 do_prepare(struct evproposer* p, prepare_req* pr)
 {
 	int i;
-	for (i = 0; i < p->acceptors_count; i++)
-		sendbuf_add_prepare_req(p->acceptor_ev[i], pr);
+	for (i = 0; i < peers_count(p->acceptors); i++) {
+		struct bufferevent* bev = peers_get_buffer(p->acceptors, i);
+		sendbuf_add_prepare_req(bev, pr);
+	}
 }
 
 static void
@@ -73,8 +75,10 @@ try_accept(struct evproposer* p)
 	int i;
 	accept_req* ar;
 	while ((ar = proposer_accept(p->state)) != NULL) {
-		for (i = 0; i < p->acceptors_count; i++)
-	    	sendbuf_add_accept_req(p->acceptor_ev[i], ar);
+		for (i = 0; i < peers_count(p->acceptors); i++) {
+			struct bufferevent* bev = peers_get_buffer(p->acceptors, i);
+	    	sendbuf_add_accept_req(bev, ar);
+		}
 		free(ar);
 	}
 	proposer_preexecute(p);
@@ -147,11 +151,8 @@ handle_request(struct bufferevent* bev, void* arg)
 {
 	size_t len;
 	paxos_msg msg;
-	struct evbuffer* in;
-	struct evproposer* p;
-	
-	p = arg;
-	in = bufferevent_get_input(bev);
+	struct evproposer* p = arg;
+	struct evbuffer* in = bufferevent_get_input(bev);
 	
 	while ((len = evbuffer_get_length(in)) > sizeof(paxos_msg)) {
 		evbuffer_copyout(in, &msg, sizeof(paxos_msg));
@@ -161,39 +162,6 @@ handle_request(struct bufferevent* bev, void* arg)
 		}
 		proposer_handle_msg(p, bev);
 	}
-}
-
-static void
-on_event(struct bufferevent *bev, short events, void *ptr)
-{
-	if (events & BEV_EVENT_CONNECTED) {
-	LOG(VRB, ("Proposer connected...\n"));
-	} else if (events & BEV_EVENT_ERROR) {
-		LOG(VRB, ("Proposer connection error...\n"));
-		bufferevent_disable(bev, EV_READ|EV_WRITE);
-	}
-}
-
-static struct bufferevent* 
-do_connect(struct evproposer* p, struct event_base* b, struct address* a) 
-{
-	struct sockaddr_in sin;
-	struct bufferevent* bev;
-	
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = inet_addr(a->address_string);
-	sin.sin_port = htons(a->port);
-	
-	bev = bufferevent_socket_new(b, -1, BEV_OPT_CLOSE_ON_FREE);
-	bufferevent_setcb(bev, handle_request, NULL, on_event, p);
-	bufferevent_enable(bev, EV_READ|EV_WRITE);
-	struct sockaddr* addr = (struct sockaddr*)&sin;
-	if (bufferevent_socket_connect(bev, addr, sizeof(sin)) < 0) {
-		bufferevent_free(bev);
-		return NULL;
-	}
-	return bev;
 }
 
 struct evproposer*
@@ -217,18 +185,14 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	p->id = id;
 	p->base = b;
 	p->preexec_window = paxos_config.proposer_preexec_window;
-	p->acceptors_count = conf->acceptors_count;
-	
-    LOG(VRB, ("Proposer %d starting...\n", id));
 		
 	// Setup client listener
 	p->receiver = tcp_receiver_new(b, &conf->proposers[id], handle_request, p);
 	
 	// Setup connections to acceptors
-	for (i = 0; i < conf->acceptors_count; i++) {
-		p->acceptor_ev[i] = do_connect(p, b, &conf->acceptors[i]);
-		assert(p->acceptor_ev[i] != NULL);
-	}
+	p->acceptors = peers_new(b, conf->acceptors_count);
+	for (i = 0; i < conf->acceptors_count; i++)
+		peers_connect(p->acceptors, &conf->acceptors[i], handle_request, p);
 	
 	p->state = proposer_new(p->id);
 	proposer_preexecute(p);
@@ -242,9 +206,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 void
 evproposer_free(struct evproposer* p)
 {
-	int i;
-	for (i = 0; i < p->acceptors_count; ++i)
-		bufferevent_free(p->acceptor_ev[i]);
+	peers_free(p->acceptors);
 	tcp_receiver_free(p->receiver);
 	proposer_free(p->state);
 	free(p);

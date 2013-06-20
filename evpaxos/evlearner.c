@@ -29,25 +29,18 @@
 
 #include "evpaxos.h"
 #include "learner.h"
+#include "peers.h"
 #include "tcp_sendbuf.h"
 #include "config_reader.h"
 
 struct evlearner
 {
-	struct learner* state;
-	// Function to invoke when the current_iid is closed, 
-	// the final value and some other informations is passed as argument
-	deliver_function delfun;
-	// Argument to deliver function
-	void* delarg;
-	// config reader handle
-	struct config* conf;
-	// hole check event
-	struct event* hole_timer;
-	struct timeval tv;
-	// bufferevent sockets to send data to acceptors
-	int acceptors_count;
-	struct bufferevent* acceptor_ev[N_OF_ACCEPTORS];
+	struct learner* state;      /* The actual learner */
+	deliver_function delfun;    /* Delivery callback*/
+	void* delarg;               /* The argument to the delivery callback */
+	struct event* hole_timer;   /* Timer to check for holes */
+	struct timeval tv;          /* Check for holes every tv units of time */
+	struct peers* acceptors;    /* Connections to acceptors */
 };
 
 
@@ -60,9 +53,12 @@ learner_check_holes(evutil_socket_t fd, short event, void *arg)
 	if (learner_has_holes(l->state, &from, &to)) {
 		if ((to - from) > chunks)
 			to = from + chunks;
-		for (iid = from; iid < to; iid++)
-			for (i = 0; i < l->acceptors_count; i++)
-				sendbuf_add_repeat_req(l->acceptor_ev[i], iid);
+		for (iid = from; iid < to; iid++) {
+			for (i = 0; i < peers_count(l->acceptors); i++) {
+				struct bufferevent* bev = peers_get_buffer(l->acceptors, i);
+				sendbuf_add_repeat_req(bev, iid);
+			}
+		}
 	}
 	event_add(l->hole_timer, &l->tv);
 }
@@ -118,17 +114,13 @@ learner_handle_msg(struct evlearner* l, struct bufferevent* bev)
     }
 }
 
-// TODO the following functions are basically duplicated in proposer.
 static void
 on_acceptor_msg(struct bufferevent* bev, void* arg)
 {
 	size_t len;
 	paxos_msg msg;
-	struct evbuffer* in;
-	struct evlearner* l;
-	
-	l = arg;
-	in = bufferevent_get_input(bev);
+	struct evlearner* l = arg;
+	struct evbuffer* in = bufferevent_get_input(bev);
 	
 	while ((len = evbuffer_get_length(in)) > sizeof(paxos_msg)) {
 		evbuffer_copyout(in, &msg, sizeof(paxos_msg));
@@ -140,40 +132,6 @@ on_acceptor_msg(struct bufferevent* bev, void* arg)
 	}
 }
 
-static void
-on_event(struct bufferevent *bev, short events, void *ptr)
-{
-	if (events & BEV_EVENT_CONNECTED) {
-    	LOG(VRB, ("Learner connected...\n"));
-	} else if (events & BEV_EVENT_ERROR) {
-		LOG(VRB, ("Learner connection error...\n"));
-		bufferevent_disable(bev, EV_READ|EV_WRITE);
-	}
-}
-
-static struct bufferevent* 
-do_connect(struct evlearner* l, struct event_base* b, struct address* a)
-{
-	struct sockaddr_in sin;
-	struct bufferevent* bev;
-
-	// TODO reuse set_sockaddr_in
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = inet_addr(a->address_string);
-	sin.sin_port = htons(a->port);
-	
-	bev = bufferevent_socket_new(b, -1, BEV_OPT_CLOSE_ON_FREE);
-	bufferevent_setcb(bev, on_acceptor_msg, NULL, on_event, l);
-	bufferevent_enable(bev, EV_READ|EV_WRITE);
-	struct sockaddr* addr = (struct sockaddr*)&sin;
-	if (bufferevent_socket_connect(bev, addr, sizeof(sin)) < 0) {
-		bufferevent_free(bev);
-		return NULL;
-	}
-	return bev;
-}
-
 struct evlearner*
 evlearner_init_conf(struct config* c, deliver_function f, void* arg, 
 	struct event_base* b)
@@ -182,21 +140,22 @@ evlearner_init_conf(struct config* c, deliver_function f, void* arg,
 	struct evlearner* l;
 	
 	l = malloc(sizeof(struct evlearner));
-	l->conf = c;
 	l->delfun = f;
 	l->delarg = arg;
 	l->state = learner_new();
-	l->acceptors_count = c->acceptors_count;
 	
 	// setup connections to acceptors
-	for (i = 0; i < l->acceptors_count; i++)
-		l->acceptor_ev[i] = do_connect(l, b, &l->conf->acceptors[i]);
+	l->acceptors = peers_new(b, c->acceptors_count);
+	for (i = 0; i < c->acceptors_count; i++)
+		peers_connect(l->acceptors, &c->acceptors[i], on_acceptor_msg, l);
 	
 	// setup hole checking timer
 	l->tv.tv_sec = 0;
 	l->tv.tv_usec = 100000;
 	l->hole_timer = evtimer_new(b, learner_check_holes, l);
 	event_add(l->hole_timer, &l->tv);
+	
+	free_config(c);
 	
 	LOG(VRB, ("Learner is ready\n"));
 	return l;
@@ -214,11 +173,8 @@ evlearner_init(const char* config_file, deliver_function f, void* arg,
 void
 evlearner_free(struct evlearner* l)
 {
-	int i;
-	for (i = 0; i < l->acceptors_count; ++i)
-		bufferevent_free(l->acceptor_ev[i]);
+	peers_free(l->acceptors);
 	event_free(l->hole_timer);
-	free_config(l->conf);
 	learner_free(l->state);
 	free(l);
 }
