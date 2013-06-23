@@ -102,26 +102,25 @@ on_socket_event(struct bufferevent* bev, short ev, void *arg)
 	struct peer* p = (struct peer*)arg;
 	
 	if (ev & BEV_EVENT_CONNECTED) {
-		printf("peer connected %s:%d\n", p->addr.address_string, p->addr.port);
+		LOG(VRB,("Connected to %s:%d\n", p->addr.address_string, p->addr.port));
 	} else if (ev & BEV_EVENT_ERROR || ev & BEV_EVENT_EOF) {
 		struct event_base* base;
 		int err = EVUTIL_SOCKET_ERROR();
-		fprintf(stderr, "peer connection error %d (%s)\n", 
-			err, evutil_socket_error_to_string(err));
+		LOG(VRB, ("Connection error %d (%s)\n",
+			err, evutil_socket_error_to_string(err)));
 		base = bufferevent_get_base(p->bev);
 		bufferevent_free(p->bev);
 		p->bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);
 		bufferevent_setcb(p->bev, on_read, NULL, on_socket_event, p);
 		event_add(p->reconnect_ev, &reconnect_timeout);
 	} else {
-		printf("event: %d\n", ev);
+		LOG(VRB, ("Event %d not handled\n", ev));
 	}
 }
 
 static void
 on_connection_timeout(int fd, short ev, void* arg)
 {
-	printf("trying again\n");
 	connect_peer((struct peer*)arg);
 }
 
@@ -135,6 +134,7 @@ connect_peer(struct peer* p)
 	sin.sin_port = htons(p->addr.port);
 	bufferevent_enable(p->bev, EV_READ|EV_WRITE);
 	bufferevent_socket_connect(p->bev, (struct sockaddr*)&sin, sizeof(sin));
+	LOG(VRB,("Connect to %s:%d\n", p->addr.address_string, p->addr.port));
 }
 
 static struct peer*
