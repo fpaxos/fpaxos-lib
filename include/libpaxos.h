@@ -49,6 +49,7 @@ struct paxos_config
 	int learner_catch_up;
 	
 	/* Proposer */
+	int proposer_instance_timeout;
 	int proposer_preexec_window;
 	
 	/* Acceptor */

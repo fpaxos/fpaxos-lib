@@ -23,6 +23,7 @@
 
 #include "evpaxos.h"
 
+// TODO remove MAX_ADDR
 #define MAX_ADDR 10
 
 struct address {

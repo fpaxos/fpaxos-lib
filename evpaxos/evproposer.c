@@ -33,7 +33,6 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 
-
 struct evproposer
 {
 	int id;
@@ -42,11 +41,13 @@ struct evproposer
 	struct event_base* base;
 	struct proposer* state;
 	struct peers* acceptors;
+	struct timeval tv;
+	struct event* timeout_ev;
 };
 
 
 static void
-do_prepare(struct evproposer* p, prepare_req* pr)
+send_prepares(struct evproposer* p, prepare_req* pr)
 {
 	int i;
 	for (i = 0; i < peers_count(p->acceptors); i++) {
@@ -63,8 +64,8 @@ proposer_preexecute(struct evproposer* p)
 	int count = p->preexec_window - proposer_prepared_count(p->state);
 	if (count <= 0) return;
 	for (i = 0; i < count; i++) {
-		pr = proposer_prepare(p->state);
-		do_prepare(p, &pr);
+		proposer_prepare(p->state, &pr);
+		send_prepares(p, &pr);
 	}
 	LOG(DBG, ("Opened %d new instances\n", count));
 }
@@ -84,33 +85,28 @@ try_accept(struct evproposer* p)
 	proposer_preexecute(p);
 }
 
-static void 
+static void
 proposer_handle_prepare_ack(struct evproposer* p, prepare_ack* ack)
 {
-	prepare_req* pr = proposer_receive_prepare_ack(p->state, ack);
-	if (pr != NULL) {
-		do_prepare(p, pr);
-		free(pr);
-	}
-	try_accept(p);
+	prepare_req pr;
+	int preempted = proposer_receive_prepare_ack(p->state, ack, &pr);
+	if (preempted)
+		send_prepares(p, &pr);
 }
 
 static void
 proposer_handle_accept_ack(struct evproposer* p, accept_ack* ack)
 {
-	prepare_req* pr = proposer_receive_accept_ack(p->state, ack);
-	if (pr != NULL) {
-		do_prepare(p, pr);
-		free(pr);
-	}
-	try_accept(p);
+	prepare_req pr;
+	int preempted = proposer_receive_accept_ack(p->state, ack, &pr);
+	if (preempted)
+		send_prepares(p, &pr);
 }
 
 static void
 proposer_handle_client_msg(struct evproposer* p, char* value, int size)
 {
 	proposer_propose(p->state, value, size);
-	try_accept(p);
 }
 
 static void
@@ -143,7 +139,10 @@ proposer_handle_msg(struct evproposer* p, struct bufferevent* bev)
 		default:
 			LOG(VRB, ("Unknown msg type %d received from acceptors\n",
 				msg.type));
+			return;
 	}
+	
+	try_accept(p);
 }
 
 static void
@@ -162,6 +161,19 @@ handle_request(struct bufferevent* bev, void* arg)
 		}
 		proposer_handle_msg(p, bev);
 	}
+}
+
+static void
+proposer_check_timeouts(evutil_socket_t fd, short event, void *arg)
+{
+	prepare_req pr;
+	struct evproposer* p = arg;
+	struct timeout_iterator* iter;
+	iter = proposer_timeout_iterator(p->state);
+	while (timeout_iterator_next(iter, &pr))
+		send_prepares(p, &pr);
+	timeout_iterator_free(iter);
+	event_add(p->timeout_ev, &p->tv);
 }
 
 struct evproposer*
@@ -193,6 +205,13 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	p->acceptors = peers_new(b, conf->acceptors_count);
 	for (i = 0; i < conf->acceptors_count; i++)
 		peers_connect(p->acceptors, &conf->acceptors[i], handle_request, p);
+	
+	// Setup timeout
+	p->tv.tv_sec = 0;
+	p->tv.tv_usec = paxos_config.proposer_instance_timeout;
+	printf("%d\n", paxos_config.proposer_instance_timeout);
+	p->timeout_ev = evtimer_new(b, proposer_check_timeouts, p);
+	event_add(p->timeout_ev, &p->tv);
 	
 	p->state = proposer_new(p->id);
 	proposer_preexecute(p);

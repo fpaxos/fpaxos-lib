@@ -24,6 +24,7 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/time.h>
 
 struct instance
 {
@@ -32,31 +33,37 @@ struct instance
 	ballot_t value_ballot;
 	paxos_msg* value;
 	int closed;
-	struct quorum prepare_quorum;
-	struct quorum accept_quorum;
+	struct quorum quorum;
+	struct timeval created_at;
 };
 
 struct proposer 
 {
 	int id;
 	struct carray* values;
-	// instances waiting for prepare acks
 	iid_t next_prepare_iid;
-	struct carray* prepare_instances;
-	// instances waiting for accept acks
+	struct carray* prepare_instances; /* Instances waiting for prepare acks */
 	// TODO accept_instances should be a hash table
-	struct carray* accept_instances;
+	struct carray* accept_instances; /* Instance waiting for accept acks */
 };
 
+struct timeout_iterator
+{
+	int pi, ai;
+	struct timeval timeout;
+	struct proposer* proposer;
+};
 
 static struct instance* instance_new(iid_t iid, ballot_t ballot);
 static void instance_free(struct instance* inst);
 static struct instance* instance_find(struct carray* c, iid_t iid);
 static int instance_match(void* arg, void* item);
 static struct carray* instance_remove(struct carray* c, struct instance* inst);
+static int instance_has_timedout(struct instance* inst, struct timeval* now);
 static paxos_msg* wrap_value(char* value, size_t size);
-static prepare_req* prepare_preempt(struct proposer* p, struct instance* inst);
+static void prepare_preempt(struct proposer* p, struct instance* inst, prepare_req* out);
 static ballot_t proposer_next_ballot(struct proposer* p, ballot_t b);
+static int timeval_diff(struct timeval* t1, struct timeval* t2);
 
 
 struct proposer*
@@ -89,6 +96,17 @@ proposer_free(struct proposer* p)
 	free(p);
 }
 
+struct timeout_iterator*
+proposer_timeout_iterator(struct proposer* p)
+{
+	struct timeout_iterator* iter;
+	iter = malloc(sizeof(struct timeout_iterator));
+	iter->pi = iter->ai = 0;
+	iter->proposer = p;
+	gettimeofday(&iter->timeout, NULL);
+	return iter;
+}
+
 void
 proposer_propose(struct proposer* p, char* value, size_t size)
 {
@@ -103,18 +121,18 @@ proposer_prepared_count(struct proposer* p)
 	return carray_count(p->prepare_instances);
 }
 
-prepare_req
-proposer_prepare(struct proposer* p)
+void
+proposer_prepare(struct proposer* p, prepare_req* out)
 {
 	struct instance* inst;
 	iid_t iid = ++(p->next_prepare_iid);
 	inst = instance_new(iid, proposer_next_ballot(p, 0));
 	carray_push_back(p->prepare_instances, inst);
-	return (prepare_req) {inst->iid, inst->ballot};
+	*out = (prepare_req) {inst->iid, inst->ballot};
 }
 
-prepare_req*
-proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack)
+int proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack,
+	prepare_req* out)
 {
 	struct instance* inst;
 	
@@ -122,20 +140,20 @@ proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack)
 	
 	if (inst == NULL) {
 		LOG(DBG, ("Promise dropped, instance %u not pending\n", ack->iid));
-		return NULL;
+		return 0;
 	}
 	
 	if (ack->ballot < inst->ballot) {
 		LOG(DBG, ("Promise dropped, too old\n"));
-		return NULL;
+		return 0;
 	}
 	
 	if (ack->ballot == inst->ballot) {	// preempted?
 		
-		if (!quorum_add(&inst->prepare_quorum, ack->acceptor_id)) {
+		if (!quorum_add(&inst->quorum, ack->acceptor_id)) {
 			LOG(DBG, ("Promise dropped %d, instance %u has a quorum\n",
 				ack->acceptor_id, inst->iid));
-			return NULL;
+			return 0;
 		}
 		
 		LOG(DBG, ("Received valid promise from: %d, iid: %u\n",
@@ -160,12 +178,13 @@ proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack)
 			}
 		}
 		
-		return NULL;
+		return 0;
 		
 	} else {
 		LOG(DBG, ("Instance %u preempted: ballot %d ack ballot %d\n",
 			inst->iid, inst->ballot, ack->ballot));
-		return prepare_preempt(p, inst);
+		prepare_preempt(p, inst, out);
+		return 1;
 	}
 }
 
@@ -178,7 +197,7 @@ proposer_accept(struct proposer* p)
 	while ((inst = carray_front(p->prepare_instances)) != NULL) {
 		if (inst->closed)
 			instance_free(carray_pop_front(p->prepare_instances));
-		else if (!quorum_reached(&inst->prepare_quorum))
+		else if (!quorum_reached(&inst->quorum))
 			return NULL;
 		else break;
 	}
@@ -202,6 +221,7 @@ proposer_accept(struct proposer* p)
 	
 	// we have both a prepared instance and a value
 	inst = carray_pop_front(p->prepare_instances);
+	quorum_init(&inst->quorum, QUORUM);
 	carray_push_back(p->accept_instances, inst);
 	
 	accept_req* req = malloc(sizeof(accept_req) + inst->value->data_size);
@@ -213,8 +233,8 @@ proposer_accept(struct proposer* p)
 	return req;
 }
 
-prepare_req*
-proposer_receive_accept_ack(struct proposer* p, accept_ack* ack)
+int
+proposer_receive_accept_ack(struct proposer* p, accept_ack* ack, prepare_req* out)
 {
 	struct instance* inst;
 	
@@ -222,24 +242,24 @@ proposer_receive_accept_ack(struct proposer* p, accept_ack* ack)
 	
 	if (inst == NULL) {
 		LOG(DBG, ("Accept ack dropped, iid:%u not pending\n", ack->iid));
-		return NULL;
+		return 0;
 	}
 	
 	if (ack->ballot == inst->ballot) {
 		assert(ack->value_ballot == inst->ballot);
-		if (!quorum_add(&inst->accept_quorum, ack->acceptor_id)) {
+		if (!quorum_add(&inst->quorum, ack->acceptor_id)) {
 			LOG(DBG, ("Dropping duplicate accept from: %d, iid: %u\n", 
 				ack->acceptor_id, inst->iid));
-			return NULL;
+			return 0;
 		}
 		
-		if (quorum_reached(&inst->accept_quorum)) {
+		if (quorum_reached(&inst->quorum)) {
 			LOG(DBG, ("Quorum reached for instance %u\n", inst->iid));
 			p->accept_instances = instance_remove(p->accept_instances, inst);
 			instance_free(inst);
 		}
 		
-		return NULL;
+		return 0;
 		
 	} else {
 		LOG(DBG, ("Instance %u preempted: ballot %d ack ballot %d\n",
@@ -247,9 +267,56 @@ proposer_receive_accept_ack(struct proposer* p, accept_ack* ack)
 		
 		p->accept_instances = instance_remove(p->accept_instances, inst);
 		carray_push_front(p->prepare_instances, inst);
-		
-		return prepare_preempt(p, inst);
+		prepare_preempt(p, inst, out);
+		return  1; 
 	}
+}
+
+static struct instance*
+next_timedout(struct carray* c, int* i, struct timeval* t)
+{
+	struct instance* inst;
+	while (*i < carray_count(c)) {
+		inst = carray_at(c, *i);
+		(*i)++;
+		// printf("quorum? %d timeout? %d\n", quorum_reached(&inst->quorum),
+			// instance_has_timedout(inst, t));
+		if (quorum_reached(&inst->quorum))
+			continue;
+		if (instance_has_timedout(inst, t))
+			return inst;
+	}
+	return NULL;
+}
+
+int
+timeout_iterator_next(struct timeout_iterator* iter, prepare_req* req)
+{
+	struct instance* inst;
+	struct proposer* p = iter->proposer;
+
+	inst = next_timedout(p->prepare_instances, &iter->pi, &iter->timeout);
+	if (inst != NULL) {
+		gettimeofday(&inst->created_at, NULL);
+		*req = (prepare_req){inst->iid, inst->ballot};
+		return 1;
+	}
+	
+	inst = next_timedout(p->accept_instances, &iter->ai, &iter->timeout);
+	if (inst != NULL) {
+		prepare_preempt(p, inst, req);		
+		p->accept_instances = instance_remove(p->accept_instances, inst);
+		carray_push_front(p->prepare_instances, inst);
+		return 1;
+	}
+	
+	return 0;
+}
+
+void
+timeout_iterator_free(struct timeout_iterator* iter)
+{
+	free(iter);
 }
 
 static struct instance*
@@ -262,8 +329,8 @@ instance_new(iid_t iid, ballot_t ballot)
 	inst->value_ballot = 0;
 	inst->value = NULL;
 	inst->closed = 0;
-	quorum_init(&inst->prepare_quorum, QUORUM);
-	quorum_init(&inst->accept_quorum, QUORUM);
+	gettimeofday(&inst->created_at, NULL);
+	quorum_init(&inst->quorum, QUORUM);
 	return inst;
 }
 
@@ -273,6 +340,13 @@ instance_free(struct instance* inst)
 	if (inst->value != NULL)
 		free(inst->value);
 	free(inst);
+}
+
+static int
+instance_has_timedout(struct instance* inst, struct timeval* now)
+{
+	int diff = timeval_diff(&inst->created_at, now);
+	return diff >= paxos_config.proposer_instance_timeout;
 }
 
 static struct instance*
@@ -314,23 +388,31 @@ wrap_value(char* value, size_t size)
 	return msg;
 }
 
-static prepare_req*
-prepare_preempt(struct proposer* p, struct instance* inst)
+void
+prepare_preempt(struct proposer* p, struct instance* inst, prepare_req* out)
 {
-	prepare_req* req;
 	inst->ballot = proposer_next_ballot(p, inst->ballot);
-	quorum_init(&inst->prepare_quorum, QUORUM);
-	quorum_init(&inst->accept_quorum, QUORUM);
-	req = malloc(sizeof(prepare_req));
-	*req = (prepare_req) {inst->iid, inst->ballot};
-	return req;
+	quorum_init(&inst->quorum, QUORUM);
+	*out = (prepare_req) {inst->iid, inst->ballot};
+	gettimeofday(&inst->created_at, NULL);
 }
 
-static ballot_t 
+static ballot_t
 proposer_next_ballot(struct proposer* p, ballot_t b)
 {
 	if (b > 0)
 		return MAX_N_OF_PROPOSERS + b;
 	else
 		return MAX_N_OF_PROPOSERS + p->id;
+}
+
+/* Returns t2 - t1 in microseconds. */
+static int
+timeval_diff(struct timeval* t1, struct timeval* t2)
+{
+    int us;
+    us = (t2->tv_sec - t1->tv_sec) * 1e6;
+    if (us < 0) return 0;
+    us += (t2->tv_usec - t1->tv_usec);
+    return us;
 }

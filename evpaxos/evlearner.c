@@ -36,7 +36,7 @@
 struct evlearner
 {
 	struct learner* state;      /* The actual learner */
-	deliver_function delfun;    /* Delivery callback*/
+	deliver_function delfun;    /* Delivery callback */
 	void* delarg;               /* The argument to the delivery callback */
 	struct event* hole_timer;   /* Timer to check for holes */
 	struct timeval tv;          /* Check for holes every tv units of time */
@@ -132,7 +132,7 @@ on_acceptor_msg(struct bufferevent* bev, void* arg)
 	}
 }
 
-struct evlearner*
+static struct evlearner*
 evlearner_init_conf(struct config* c, deliver_function f, void* arg, 
 	struct event_base* b)
 {
