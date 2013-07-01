@@ -14,7 +14,7 @@ if (NOT APPLE)
 	set(LIBPAXOS_LINKER_LIBS ${LIBPAXOS_LINKER_LIBS} m rt)
 endif()
 
-add_subdirectory(lib)
+add_subdirectory(paxos)
 add_subdirectory(evpaxos)
 add_subdirectory(sample)
 

@@ -1,4 +1,4 @@
-include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/paxos/include)
 include_directories(${BDB_INCLUDE_DIRS})
 
 SET(LOCAL_SOURCES acceptor.c learner.c proposer.c carray.c quorum.c config.c)
@@ -21,5 +21,5 @@ set_target_properties(paxos PROPERTIES
 	INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 
 INSTALL(TARGETS paxos DESTINATION lib)
-INSTALL(FILES ${CMAKE_SOURCE_DIR}/include/libpaxos.h DESTINATION include)
-INSTALL(DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include/libpaxos)
+INSTALL(FILES include/libpaxos.h DESTINATION include)
+INSTALL(DIRECTORY include/ DESTINATION include/libpaxos)

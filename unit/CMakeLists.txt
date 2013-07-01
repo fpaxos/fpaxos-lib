@@ -1,4 +1,4 @@
-include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/paxos/include)
 include_directories(${GTEST_INCLUDE_DIRS})
 
 add_executable(gtest gtest.cc acceptor_unittest.cc learner_unittest.cc 
