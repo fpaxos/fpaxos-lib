@@ -9,9 +9,9 @@ This is LibPaxos3! A complete rewrite of [LibPaxos2](http://libpaxos.sourceforge
 
 LibPaxos3 is divided in two libraries: libpaxos and libevpaxos. 
 
-Libpaxos (see ```libpaxos/lib```) implements the core of the Paxos consensus protocol, and is not cluttered with network specific code. That is, libpaxos does not depend on any particular networking library.
+Libpaxos (see ```libpaxos/paxos```) implements the core of the Paxos consensus protocol, and is not cluttered with network specific code. That is, libpaxos does not depend on any particular networking library.
 
-Libevpaxos (see ```libpaxos/evpaxos```) is the actual Paxos implementation on top of libpaxos and [libevent](http://www.libevent.org).
+Libevpaxos (see ```libpaxos/evpaxos```) is the actual networked Paxos implementation. This library is built on top of the libpaxos and [libevent](http://www.libevent.org).
 
 ## Building
 
