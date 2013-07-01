@@ -18,7 +18,7 @@
 */
 
 
-#include "evpaxos.h"
+#include <evpaxos.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
