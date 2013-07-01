@@ -279,8 +279,6 @@ next_timedout(struct carray* c, int* i, struct timeval* t)
 	while (*i < carray_count(c)) {
 		inst = carray_at(c, *i);
 		(*i)++;
-		// printf("quorum? %d timeout? %d\n", quorum_reached(&inst->quorum),
-			// instance_has_timedout(inst, t));
 		if (quorum_reached(&inst->quorum))
 			continue;
 		if (instance_has_timedout(inst, t))
@@ -346,7 +344,7 @@ static int
 instance_has_timedout(struct instance* inst, struct timeval* now)
 {
 	int diff = timeval_diff(&inst->created_at, now);
-	return diff >= paxos_config.proposer_instance_timeout;
+	return diff >= paxos_config.proposer_timeout;
 }
 
 static struct instance*

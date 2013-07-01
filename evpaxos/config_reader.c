@@ -42,7 +42,8 @@ struct option
 struct option options[] =
 {
 	{ "learner-catch-up", &paxos_config.learner_catch_up, option_boolean },
-	{ "proposer_preexec_window", &paxos_config.proposer_preexec_window, option_integer },
+	{ "proposer-timeout", &paxos_config.proposer_timeout, option_integer },
+	{ "proposer-preexec-window", &paxos_config.proposer_preexec_window, option_integer },
 	{ "bdb-sync", &paxos_config.bdb_sync, option_boolean },
 	{ "bdb-cachesize", &paxos_config.bdb_cachesize, option_integer },
 	{ "bdb-env-path", &paxos_config.bdb_env_path, option_string },

@@ -207,9 +207,9 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 		peers_connect(p->acceptors, &conf->acceptors[i], handle_request, p);
 	
 	// Setup timeout
-	p->tv.tv_sec = 0;
-	p->tv.tv_usec = paxos_config.proposer_instance_timeout;
-	printf("%d\n", paxos_config.proposer_instance_timeout);
+	p->tv.tv_sec = paxos_config.proposer_timeout;
+	p->tv.tv_usec = 0;
+
 	p->timeout_ev = evtimer_new(b, proposer_check_timeouts, p);
 	event_add(p->timeout_ev, &p->tv);
 	

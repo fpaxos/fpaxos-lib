@@ -23,8 +23,8 @@
 struct paxos_config paxos_config =
 {
 	2048,              /* learner_instances */
-	1,                 /* learner_recover */
-	1000000,           /* proposer_instance_timeout */
+	1,                 /* learner_catchup */
+	1,                 /* proposer_timeout */
 	128,               /* proposer_preexec_window */
 	0,                 /* bdb_sync */
 	32*1024*1024,      /* bdb_cachesize */

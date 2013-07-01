@@ -38,7 +38,7 @@ protected:
 
 	virtual void SetUp() {
 		id = 2;
-		paxos_config.proposer_instance_timeout = 100;
+		paxos_config.proposer_timeout = 100;
 		p = proposer_new(id);
 	}
 	
@@ -237,7 +237,7 @@ TEST_F(ProposerTest, PendingPrepareShouldTimeout) {
 	struct timeout_iterator* iter;
 	
 	proposer_prepare(p, &pr);
-	usleep(paxos_config.proposer_instance_timeout);
+	usleep(paxos_config.proposer_timeout);
 	
 	iter = proposer_timeout_iterator(p);
 	int has_timedout = timeout_iterator_next(iter, &to);
@@ -264,7 +264,7 @@ TEST_F(ProposerTest, PreparedShouldNotTimeout) {
 		ASSERT_EQ(0, proposer_receive_prepare_ack(p, &pa, &preempted));
 	}
 
-	usleep(paxos_config.proposer_instance_timeout);
+	usleep(paxos_config.proposer_timeout);
 	
 	iter = proposer_timeout_iterator(p);
 	int has_timedout = timeout_iterator_next(iter, &to);
@@ -292,7 +292,7 @@ TEST_F(ProposerTest, PendingAcceptShouldTimeout) {
 	accept_req* ar = proposer_accept(p);
 	free(ar);
 	
-	usleep(paxos_config.proposer_instance_timeout);
+	usleep(paxos_config.proposer_timeout);
 	
 	struct timeout_iterator* iter = proposer_timeout_iterator(p);
 	int has_timedout = timeout_iterator_next(iter, &to);
@@ -328,7 +328,7 @@ TEST_F(ProposerTest, AcceptedShouldNotTimeout) {
 	// this one should timeout
 	proposer_prepare(p, &pr);
 	
-	usleep(paxos_config.proposer_instance_timeout);
+	usleep(paxos_config.proposer_timeout);
 	
 	struct timeout_iterator* iter = proposer_timeout_iterator(p);
 	int has_timedout = timeout_iterator_next(iter, &to);
@@ -346,7 +346,7 @@ TEST_F(ProposerTest, ShouldNotTimeoutTwice) {
 	struct timeout_iterator* iter;
 	
 	proposer_prepare(p, &pr);
-	usleep(paxos_config.proposer_instance_timeout);
+	usleep(paxos_config.proposer_timeout);
 	
 	iter = proposer_timeout_iterator(p);
 	has_timedout = timeout_iterator_next(iter, &to);
