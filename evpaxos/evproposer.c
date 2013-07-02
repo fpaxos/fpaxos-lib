@@ -67,7 +67,7 @@ proposer_preexecute(struct evproposer* p)
 		proposer_prepare(p->state, &pr);
 		send_prepares(p, &pr);
 	}
-	LOG(DBG, ("Opened %d new instances\n", count));
+	paxos_log_debug("Opened %d new instances", count);
 }
 
 static void
@@ -120,8 +120,8 @@ proposer_handle_msg(struct evproposer* p, struct bufferevent* bev)
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
 	if (msg.data_size > PAXOS_MAX_VALUE_SIZE) {
 		evbuffer_drain(in, msg.data_size);
-		LOG(VRB, ("Proposer received req sz %ld > %d maximum, discarding\n",
-			msg.data_size, PAXOS_MAX_VALUE_SIZE));
+		paxos_log_error("Discarding message of size %ld. Maximum is %d",
+			msg.data_size, PAXOS_MAX_VALUE_SIZE);
 		return;
 	}
 	evbuffer_remove(in, buffer, msg.data_size);
@@ -137,8 +137,7 @@ proposer_handle_msg(struct evproposer* p, struct bufferevent* bev)
 			proposer_handle_client_msg(p, buffer, msg.data_size);
 			break;
 		default:
-			LOG(VRB, ("Unknown msg type %d received from acceptors\n",
-				msg.type));
+			paxos_log_error("Unknow msg type %d not handled", msg.type);
 			return;
 	}
 	
@@ -155,10 +154,8 @@ handle_request(struct bufferevent* bev, void* arg)
 	
 	while ((len = evbuffer_get_length(in)) > sizeof(paxos_msg)) {
 		evbuffer_copyout(in, &msg, sizeof(paxos_msg));
-		if (len < PAXOS_MSG_SIZE((&msg))) {
-			LOG(DBG, ("not enough data\n"));
+		if (len < PAXOS_MSG_SIZE((&msg)))
 			return;
-		}
 		proposer_handle_msg(p, bev);
 	}
 }
@@ -188,7 +185,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	
 	// Check id validity of proposer_id
 	if (id < 0 || id >= MAX_N_OF_PROPOSERS) {
-		printf("Invalid proposer id:%d\n", id);
+		paxos_log_error("Invalid proposer id:%d", id);
 		return NULL;
 	}
 
@@ -217,8 +214,6 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	proposer_preexecute(p);
 	
 	free_config(conf);
-	
-	LOG(VRB, ("Proposer is ready\n"));
 	return p;
 }
 

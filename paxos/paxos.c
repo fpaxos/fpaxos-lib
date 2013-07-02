@@ -19,9 +19,14 @@
 
 
 #include "libpaxos.h"
+#include <stdio.h>
+#include <time.h>
+#include <sys/time.h>
+
 
 struct paxos_config paxos_config =
 {
+	PAXOS_LOG_INFO,    /* verbosity */
 	2048,              /* learner_instances */
 	1,                 /* learner_catchup */
 	1,                 /* proposer_timeout */
@@ -32,3 +37,47 @@ struct paxos_config paxos_config =
 	"acc.bdb",         /* bdb_db_filename */
 	0,                 /* bdb_delete_on_restart */
 };
+
+
+void
+paxos_log(int level, const char* format, va_list ap)
+{
+	int off;
+	char msg[1024];
+	struct timeval tv;
+	
+	if (level > paxos_config.verbosity)
+		return;
+	
+	gettimeofday(&tv,NULL);
+	off = strftime(msg, sizeof(msg), "%d %b %H:%M:%S. ", localtime(&tv.tv_sec));
+	vsnprintf(msg+off, sizeof(msg)-off, format, ap);
+	fprintf(stdout,"%s\n", msg);
+}
+
+void
+paxos_log_error(const char* format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	paxos_log(PAXOS_LOG_ERROR, format, ap);
+	va_end(ap);
+}
+
+void
+paxos_log_info(const char* format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	paxos_log(PAXOS_LOG_INFO, format, ap);
+	va_end(ap);
+}
+
+void
+paxos_log_debug(const char* format, ...)
+{
+	va_list ap;
+	va_start(ap, format);
+	paxos_log(PAXOS_LOG_DEBUG, format, ap);
+	va_end(ap);
+}

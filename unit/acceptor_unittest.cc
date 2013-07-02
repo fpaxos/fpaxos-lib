@@ -30,6 +30,7 @@ protected:
 	virtual void SetUp() {
 		id = 2;
 		paxos_config.bdb_trash_files = 1;
+		paxos_config.verbosity = PAXOS_LOG_ERROR;
 		a = acceptor_new(id);
 	}
 	

@@ -99,8 +99,8 @@ learner_handle_msg(struct evlearner* l, struct bufferevent* bev)
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
 	if (msg.data_size > PAXOS_MAX_VALUE_SIZE) {
 		evbuffer_drain(in, msg.data_size);
-		LOG(VRB, ("Learner received req sz %ld > %d maximum, discarding\n",
-			msg.data_size, PAXOS_MAX_VALUE_SIZE));
+		paxos_log_error("Discarding message of size %ld. Maximum is %d",
+			msg.data_size, PAXOS_MAX_VALUE_SIZE);
 		return;
 	}
 	evbuffer_remove(in, buffer, msg.data_size);
@@ -110,7 +110,7 @@ learner_handle_msg(struct evlearner* l, struct bufferevent* bev)
 			learner_handle_accept_ack(l, (accept_ack*)buffer);
 			break;
 		default:
-			printf("Unknow msg type %d received from acceptors\n", msg.type);
+			paxos_log_error("Unknow msg type %d not handled", msg.type);
     }
 }
 
@@ -124,10 +124,8 @@ on_acceptor_msg(struct bufferevent* bev, void* arg)
 	
 	while ((len = evbuffer_get_length(in)) > sizeof(paxos_msg)) {
 		evbuffer_copyout(in, &msg, sizeof(paxos_msg));
-		if (len < PAXOS_MSG_SIZE((&msg))) {
-			LOG(DBG, ("not enough data\n"));
+		if (len < PAXOS_MSG_SIZE((&msg)))
 			return;
-		}
 		learner_handle_msg(l, bev);
 	}
 }
@@ -156,8 +154,6 @@ evlearner_init_conf(struct config* c, deliver_function f, void* arg,
 	event_add(l->hole_timer, &l->tv);
 	
 	free_config(c);
-	
-	LOG(VRB, ("Learner is ready\n"));
 	return l;
 }
 

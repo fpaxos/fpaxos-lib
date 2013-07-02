@@ -22,7 +22,8 @@
 #include "storage.h"
 #include <stdlib.h>
 
-struct acceptor {
+struct acceptor
+{
 	struct storage* store;
 };
 
@@ -92,22 +93,20 @@ apply_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
 {
 	// We already have a more recent ballot
 	if (rec != NULL && rec->ballot >= pr->ballot) {
-		LOG(DBG, ("Prepare iid:%u dropped (ballots curr:%u recv:%u)\n", 
-			pr->iid, rec->ballot, pr->ballot));
+		paxos_log_debug("Prepare iid: %u dropped (ballots curr:%u recv:%u)",
+			pr->iid, rec->ballot, pr->ballot);
 		return rec;
 	}
 	
 	// Stored value is final, the instance is closed already
 	if (rec != NULL && rec->is_final) {
-		LOG(DBG, ("Prepare request for iid:%u dropped \
-			(stored value is final)\n", pr->iid));
+		paxos_log_debug("Prepare request for iid: %u dropped \
+			(stored value is final)", pr->iid);
 		return rec;
 	}
 	
-	// Record not found or smaller ballot
-	// in both cases overwrite and store
-	LOG(DBG, ("Prepare request is valid for iid:%u (ballot:%u)\n", 
-		pr->iid, pr->ballot));
+	// Record not found or smaller ballot, in both cases overwrite and store
+	paxos_log_debug("Preparing iid: %u, ballot: %u", pr->iid, pr->ballot);
 	
 	// Store the updated record
 	return storage_save_prepare(s, pr, rec);
@@ -118,15 +117,13 @@ apply_accept(struct storage* s, accept_req* ar, acceptor_record* rec)
 {
 	// We already have a more recent ballot
 	if (rec != NULL && rec->ballot > ar->ballot) {
-		LOG(DBG, ("Accept for iid:%u dropped (ballots curr:%u recv:%u)\n", 
-			ar->iid, rec->ballot, ar->ballot));
+		paxos_log_debug("Accept for iid:%u dropped (ballots curr:%u recv:%u)",
+			ar->iid, rec->ballot, ar->ballot);
 		return rec;
 	}
 	
-	// Record not found or smaller ballot
-	// in both cases overwrite and store
-	LOG(DBG, ("Accepting for iid:%u (ballot:%u)\n", 
-		ar->iid, ar->ballot));
+	// Record not found or smaller ballot, in both cases overwrite and store
+	paxos_log_debug("Accepting iid: %u, ballot: %u", ar->iid, ar->ballot);
 	
 	// Store the updated record
 	return storage_save_accept(s, ar);

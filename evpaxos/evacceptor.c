@@ -52,8 +52,8 @@ static void
 handle_prepare_req(struct evacceptor* a, 
 	struct bufferevent* bev, prepare_req* pr)
 {
-	LOG(DBG, ("Handling prepare for instance %d ballot %d\n", 
-		pr->iid, pr->ballot));
+	paxos_log_debug("Handling prepare for instance %d ballot %d",
+		pr->iid, pr->ballot);
 	
 	acceptor_record * rec;
 	rec = acceptor_receive_prepare(a->state, pr);
@@ -67,8 +67,8 @@ static void
 handle_accept_req(struct evacceptor* a,
 	struct bufferevent* bev, accept_req* ar)
 {
-	LOG(DBG, ("Handling accept for instance %d ballot %d\n",
-		ar->iid, ar->ballot));
+	paxos_log_debug("Handling accept for instance %d ballot %d", 
+		ar->iid, ar->ballot);
 
 	int i;
 	struct carray* bevs = tcp_receiver_get_events(a->receiver);
@@ -83,7 +83,7 @@ handle_accept_req(struct evacceptor* a,
 static void
 handle_repeat_req(struct evacceptor* a, struct bufferevent* bev, iid_t iid)
 {
-	LOG(DBG, ("Handling repeat for instance %d\n", iid));
+	paxos_log_debug("Handling repeat for instance %d", iid);
 	acceptor_record* rec = acceptor_receive_repeat(a->state, iid);
 	if (rec != NULL)
 		sendbuf_add_accept_ack(bev, rec);
@@ -104,8 +104,8 @@ handle_req(struct bufferevent* bev, void* arg)
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
 	if (msg.data_size > PAXOS_MAX_VALUE_SIZE) {
 		evbuffer_drain(in, msg.data_size);
-		LOG(VRB, ("Acceptor received req sz %ld > %d maximum, discarding\n",
-			msg.data_size, PAXOS_MAX_VALUE_SIZE));
+		paxos_log_error("Discarding message of size %ld. Maximum is %d",
+			msg.data_size, PAXOS_MAX_VALUE_SIZE);
 		return;
 	}
 	evbuffer_remove(in, buffer, msg.data_size);
@@ -121,7 +121,7 @@ handle_req(struct bufferevent* bev, void* arg)
 			handle_repeat_req(a, bev, *((iid_t*)buffer));
 			break;
 		default:
-		printf("Unknow msg type %d received by acceptor\n", msg.type);
+			paxos_log_error("Unknow msg type %d not handled", msg.type);
 	}
 }
 
@@ -129,13 +129,11 @@ struct evacceptor*
 evacceptor_init(int id, const char* config_file, struct event_base* b)
 {
 	struct evacceptor* a;
-
-	LOG(VRB, ("Acceptor %d starting...\n", id));
-		
+	
 	// Check id validity of acceptor_id
 	if (id < 0 || id >= N_OF_ACCEPTORS) {
-		printf("Invalid acceptor id:%d\n", id);
-		printf("Should be between 0 and %d\n", N_OF_ACCEPTORS);
+		paxos_log_error("Invalid acceptor id: %d", id);
+		paxos_log_error("Should be between 0 and %d", N_OF_ACCEPTORS);
 		return NULL;
 	}
 

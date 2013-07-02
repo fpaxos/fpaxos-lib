@@ -21,29 +21,32 @@
 #ifndef _LIBPAXOS_H_
 #define _LIBPAXOS_H_
 
-#include <sys/types.h>
+#include <stdarg.h>
 #include <stdint.h>
-#include <stdio.h>
+#include <sys/types.h>
 
-/* 
-    The maximum size that can be submitted by a client.
-    Set MAX_UDP_MSG_SIZE in config file to reflect your network MTU.
-    Max packet size minus largest header possible
-    (should be accept_ack_batch+accept_ack, around 30 bytes)
-    FIXME This should be removed, eventually...
-*/
+/* Logging and verbosity levels */
+#define PAXOS_LOG_ERROR 1
+#define PAXOS_LOG_INFO 2
+#define PAXOS_LOG_DEBUG 3
+
+void paxos_log(int level, const char* format, va_list ap);
+void paxos_log_error(const char* format, ...);
+void paxos_log_info(const char* format, ...);
+void paxos_log_debug(const char* format, ...);
+
+/* The maximum messages size that paxos will accept */
 #define PAXOS_MAX_VALUE_SIZE (256*1000)
 
-
-/* 
-    Alias for instance identifier and ballot number.
-*/
-typedef uint32_t ballot_t;
+/* Paxos instance ids and ballots */
 typedef uint32_t iid_t;
+typedef uint32_t ballot_t;
 
-
+/* Configuration */
 struct paxos_config
 { 
+	int verbosity;
+	
 	/* Learner */
 	int learner_instances;
 	int learner_catch_up;
@@ -64,25 +67,6 @@ struct paxos_config
 
 extern struct paxos_config paxos_config;
 
-/*** LOGGING MACROS ***/
-
-#define VRB 1
-#define DBG 3
-
-#define LOG(L, S) if(VERBOSITY_LEVEL >= L) {\
-	printf("[%s] ", __func__) ;\
-	printf S ;\
-}
-
-/*** DEBUGGING SETTINGS ***/
-
-/*
-  Verbosity of the library
-  0 -> off (prints only errors)
-  1 -> verbose 
-  3 -> debug
-*/
-#define VERBOSITY_LEVEL 0
 
 /*** SETTINGS TO BE REMOVED, EVENTUALLY... ***/
 
@@ -110,4 +94,4 @@ extern struct paxos_config paxos_config;
 
 #define QUORUM (((int)(N_OF_ACCEPTORS/2))+1)
 
-#endif /* _LIBPAXOS_H_ */
+#endif

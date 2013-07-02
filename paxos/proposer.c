@@ -131,7 +131,8 @@ proposer_prepare(struct proposer* p, prepare_req* out)
 	*out = (prepare_req) {inst->iid, inst->ballot};
 }
 
-int proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack,
+int
+proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack,
 	prepare_req* out)
 {
 	struct instance* inst;
@@ -139,28 +140,28 @@ int proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack,
 	inst = instance_find(p->prepare_instances, ack->iid);
 	
 	if (inst == NULL) {
-		LOG(DBG, ("Promise dropped, instance %u not pending\n", ack->iid));
+		paxos_log_debug("Promise dropped, instance %u not pending", ack->iid);
 		return 0;
 	}
 	
 	if (ack->ballot < inst->ballot) {
-		LOG(DBG, ("Promise dropped, too old\n"));
+		paxos_log_debug("Promise dropped, too old");
 		return 0;
 	}
 	
 	if (ack->ballot == inst->ballot) {	// preempted?
 		
 		if (!quorum_add(&inst->quorum, ack->acceptor_id)) {
-			LOG(DBG, ("Promise dropped %d, instance %u has a quorum\n",
-				ack->acceptor_id, inst->iid));
+			paxos_log_debug("Promise dropped %d, instance %u has a quorum",
+				ack->acceptor_id, inst->iid);
 			return 0;
 		}
 		
-		LOG(DBG, ("Received valid promise from: %d, iid: %u\n",
-			ack->acceptor_id, inst->iid));	
+		paxos_log_debug("Received valid promise from: %d, iid: %u",
+			ack->acceptor_id, inst->iid);
 		
 		if (ack->value_size > 0) {
-			LOG(DBG, ("Promise has value\n"));
+			paxos_log_debug("Promise has value");
 			if (inst->value == NULL) {
 				inst->value_ballot = ack->value_ballot;
 				inst->value = wrap_value(ack->value, ack->value_size);
@@ -168,21 +169,21 @@ int proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack,
 				carray_push_back(p->values, inst->value);
 				inst->value_ballot = ack->value_ballot;
 				inst->value = wrap_value(ack->value, ack->value_size);
-				LOG(DBG, ("Value in promise saved, removed older value\n"));
+				paxos_log_debug("Value in promise saved, removed older value");
 			} else if (ack->value_ballot == inst->value_ballot) {
 				// TODO this assumes that the QUORUM is 2!
-				LOG(DBG, ("Instance %d closed\n", inst->iid));
-				inst->closed = 1;	
+				paxos_log_debug("Instance %d closed", inst->iid);
+				inst->closed = 1;
 			} else {
-				LOG(DBG, ("Value in promise ignored\n"));
+				paxos_log_debug("Value in promise ignored");
 			}
 		}
 		
 		return 0;
 		
 	} else {
-		LOG(DBG, ("Instance %u preempted: ballot %d ack ballot %d\n",
-			inst->iid, inst->ballot, ack->ballot));
+		paxos_log_debug("Instance %u preempted: ballot %d ack ballot %d",
+			inst->iid, inst->ballot, ack->ballot);
 		prepare_preempt(p, inst, out);
 		return 1;
 	}
@@ -205,18 +206,18 @@ proposer_accept(struct proposer* p)
 	if (inst == NULL)
 		return NULL;
 	
-	LOG(DBG, ("Trying to accept iid %u\n", inst->iid));
+	paxos_log_debug("Trying to accept iid %u", inst->iid);
 	
 	// is there a value?
 	if (inst->value == NULL) {
 		inst->value = carray_pop_front(p->values);
 		if (inst->value == NULL) {
-			LOG(DBG, ("No value to accept\n"));
+			paxos_log_debug("No value to accept");
 			return NULL;	
 		}
-		LOG(DBG,("Popped next value\n"));
+		paxos_log_debug("Popped next value");
 	} else {
-		LOG(DBG, ("Instance has value\n"));
+		paxos_log_debug("Instance has value");
 	}
 	
 	// we have both a prepared instance and a value
@@ -241,20 +242,20 @@ proposer_receive_accept_ack(struct proposer* p, accept_ack* ack, prepare_req* ou
 	inst = instance_find(p->accept_instances, ack->iid);
 	
 	if (inst == NULL) {
-		LOG(DBG, ("Accept ack dropped, iid:%u not pending\n", ack->iid));
+		paxos_log_debug("Accept ack dropped, iid:%u not pending", ack->iid);
 		return 0;
 	}
 	
 	if (ack->ballot == inst->ballot) {
 		assert(ack->value_ballot == inst->ballot);
 		if (!quorum_add(&inst->quorum, ack->acceptor_id)) {
-			LOG(DBG, ("Dropping duplicate accept from: %d, iid: %u\n", 
-				ack->acceptor_id, inst->iid));
+			paxos_log_debug("Dropping duplicate accept from: %d, iid: %u", 
+				ack->acceptor_id, inst->iid);
 			return 0;
 		}
 		
 		if (quorum_reached(&inst->quorum)) {
-			LOG(DBG, ("Quorum reached for instance %u\n", inst->iid));
+			paxos_log_debug("Quorum reached for instance %u", inst->iid);
 			p->accept_instances = instance_remove(p->accept_instances, inst);
 			instance_free(inst);
 		}
@@ -262,8 +263,8 @@ proposer_receive_accept_ack(struct proposer* p, accept_ack* ack, prepare_req* ou
 		return 0;
 		
 	} else {
-		LOG(DBG, ("Instance %u preempted: ballot %d ack ballot %d\n",
-			inst->iid, inst->ballot, ack->ballot));
+		paxos_log_debug("Instance %u preempted: ballot %d ack ballot %d",
+			inst->iid, inst->ballot, ack->ballot);
 		
 		p->accept_instances = instance_remove(p->accept_instances, inst);
 		carray_push_front(p->prepare_instances, inst);

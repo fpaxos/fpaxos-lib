@@ -45,7 +45,7 @@ bdb_init_tx_handle(struct storage* s, char* db_env_path)
 	//Create environment handle
 	result = db_env_create(&dbenv, 0);
 	if (result != 0) {
-		printf("DB_ENV creation failed: %s\n", db_strerror(result));
+		paxos_log_error("DB_ENV creation failed: %s", db_strerror(result));
 		return -1;
 	}
 	
@@ -54,17 +54,18 @@ bdb_init_tx_handle(struct storage* s, char* db_env_path)
 		result = dbenv->set_flags(dbenv, DB_TXN_WRITE_NOSYNC, 1);
 	
 	if (result != 0) {
-		printf("DB_ENV set_flags failed: %s\n", db_strerror(result));
+		paxos_log_error("DB_ENV set_flags failed: %s", db_strerror(result));
 		return -1;
 	}
 	
 	//Redirect errors to sdout
 	dbenv->set_errfile(dbenv, stdout);
-    
+
 	//Set the size of the memory cache
 	result = dbenv->set_cachesize(dbenv, 0, paxos_config.bdb_cachesize, 1);
 	if (result != 0) {
-		printf("DB_ENV set_cachesize failed: %s\n", db_strerror(result));
+		paxos_log_error("DB_ENV set_cachesize failed: %s",
+			db_strerror(result));
 		return -1;
 	}
 	
@@ -95,10 +96,12 @@ bdb_init_tx_handle(struct storage* s, char* db_env_path)
 		0);                     /* Default file permissions */
 
 	if (result != 0) {
-		printf("DB_ENV open failed: %s\n", db_strerror(result));
+		paxos_log_error("DB_ENV open failed: %s", db_strerror(result));
 		return -1;
 	}
 
+	paxos_log_info("Berkeley DB storage opened successfully");
+	
 	s->env = dbenv;
 	return 0;
 }
@@ -112,7 +115,8 @@ bdb_init_db(struct storage* s, char* db_path)
 	//Create the DB file
 	result = db_create(&(s->db), s->env, 0);
 	if (result != 0) {
-		printf("db_create failed: %s\n", db_strerror(result));
+		paxos_log_error("Berkeley DB storage call to db_create failed: %s", 
+			db_strerror(result));
 		return -1;
 	}
 	
@@ -135,9 +139,11 @@ bdb_init_db(struct storage* s, char* db_path)
 	storage_tx_commit(s);
 
 	if (result != 0) {
-		printf("DB open failed: %s\n", db_strerror(result));
+		paxos_log_error("Berkeley DB storage open failed: %s",
+			db_strerror(result));
 		return -1;
 	}
+	
 	return 0;
 }
 
@@ -162,7 +168,7 @@ storage_open(int acceptor_id)
 
 	//Create the directory if it does not exist
 	if (!dir_exists && (mkdir(db_env_path, S_IRWXU) != 0)) {
-		printf("Failed to create env dir %s: %s\n", 
+		paxos_log_error("Failed to create env dir %s: %s",
 			db_env_path, strerror(errno));
 		return NULL;
 	} 
@@ -173,8 +179,8 @@ storage_open(int acceptor_id)
 		
 		if ((system(rm_command) != 0) || 
 			(mkdir(db_env_path, S_IRWXU) != 0)) {
-			printf("Failed to recreate empty env dir %s: %s\n",
-			db_env_path, strerror(errno));
+			paxos_log_error("Failed to recreate empty env dir %s: %s",
+				db_env_path, strerror(errno));
 		}
 	}
 	
@@ -182,11 +188,11 @@ storage_open(int acceptor_id)
 	int ret = bdb_init_tx_handle(s, db_env_path);
 	
 	if (ret != 0) {
-		printf("Failed to open DB handle\n");
+		paxos_log_error("Failed to open DB handle");
 	}
 	
 	if (bdb_init_db(s, db_file) != 0) {
-		printf("Failed to open DB file\n");
+		paxos_log_error("Failed to open DB file");
 		return NULL;
 	}
 	
@@ -202,20 +208,18 @@ storage_close(struct storage* s)
 	DB* dbp = s->db;
 	DB_ENV* dbenv = s->env;
 	
-	//Close db file
 	if(dbp->close(dbp, 0) != 0) {
-		printf("DB_ENV close failed\n");
+		paxos_log_error("DB_ENV close failed");
 		result = -1;
 	}
 	
 	if (dbenv->close(dbenv, 0) != 0) {
-		printf("DB close failed\n");
+		paxos_log_error("DB close failed");
 		result = -1;
 	}
 	 
 	free(s);
-	
-	LOG(VRB, ("DB close completed\n"));  
+	paxos_log_info("Berkeley DB storage closed successfully");
 	return result;
 }
 
@@ -246,7 +250,6 @@ storage_get_record(struct storage* s, iid_t iid)
 	DB_TXN* txn = s->txn;
 	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
 
-
 	memset(&dbkey, 0, sizeof(DBT));
 	memset(&dbdata, 0, sizeof(DBT));
 
@@ -269,13 +272,11 @@ storage_get_record(struct storage* s, iid_t iid)
 		flags);
     
 	if (result == DB_NOTFOUND || result == DB_KEYEMPTY) {
-		//Record does not exist
-		LOG(DBG, ("The record for iid:%u does not exist\n", iid));
+		paxos_log_debug("The record for iid: %d does not exist", iid);
 		return NULL;
 	} else if (result != 0) {
-		//Read error!
-		printf("Error while reading record for iid:%u : %s\n",
-		iid, db_strerror(result));
+		paxos_log_error("Error while reading record with iid%u : %s",
+			iid, db_strerror(result));
 		return NULL;
 	}
     

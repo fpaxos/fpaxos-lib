@@ -29,7 +29,8 @@ enum option_type
 {
 	option_boolean,
 	option_integer,
-	option_string
+	option_string,
+	option_verbosity
 };
 
 struct option
@@ -41,6 +42,7 @@ struct option
 
 struct option options[] =
 {
+	{ "verbosity", &paxos_config.verbosity, option_verbosity },
 	{ "learner-catch-up", &paxos_config.learner_catch_up, option_boolean },
 	{ "proposer-timeout", &paxos_config.proposer_timeout, option_integer },
 	{ "proposer-preexec-window", &paxos_config.proposer_preexec_window, option_integer },
@@ -131,6 +133,16 @@ parse_address(char* str, struct address* addr)
 	return 0;
 }
 
+static int
+parse_verbosity(char* str, int* verbosity)
+{
+    if (strcasecmp(str, "error") == 0) *verbosity = PAXOS_LOG_ERROR;
+    else if (strcasecmp(str, "info") == 0) *verbosity = PAXOS_LOG_INFO;
+    else if (strcasecmp(str, "debug") == 0) *verbosity = PAXOS_LOG_DEBUG;
+    else return 0;
+	return 1;
+}
+
 static struct option*
 lookup_option(char* opt)
 {
@@ -182,6 +194,10 @@ parse_line(char* line, struct config* c)
 			rv = parse_string(line, opt->value);
 			if (rv == 0) printf("Expected string\n");
 			break;
+		case option_verbosity:
+			rv = parse_verbosity(line, opt->value);
+			if (rv == 0) printf("Expected error, info or debug\n");
+			break;
 	}
 		
 	return rv;
@@ -206,8 +222,8 @@ read_config(const char* path)
 	while (fgets(line, sizeof(line), f) != NULL) {
 		if (line[0] != '#' && line[0] != '\n') {
 			if (parse_line(line, c) == 0) {
-				printf("Error parsing config file %s\n", path);
 				printf("Please, check line %d\n", linenumber);
+				printf("Error parsing config file %s\n", path);
 				exit(1);
 			}
 		}

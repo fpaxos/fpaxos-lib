@@ -1,7 +1,7 @@
 include_directories(${CMAKE_SOURCE_DIR}/paxos/include)
 include_directories(${BDB_INCLUDE_DIRS})
 
-SET(LOCAL_SOURCES acceptor.c learner.c proposer.c carray.c quorum.c config.c)
+SET(LOCAL_SOURCES paxos.c acceptor.c learner.c proposer.c carray.c quorum.c)
 
 if (USE_MEM_STORE)
 	LIST(APPEND LOCAL_SOURCES storage_mem.c)

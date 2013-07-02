@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <arpa/inet.h>
 #include <event2/listener.h>
 #include <event2/buffer.h>
 
@@ -52,10 +53,8 @@ on_read(struct bufferevent* bev, void* arg)
 	
 	while ((len = evbuffer_get_length(in)) > sizeof(paxos_msg)) {
 		evbuffer_copyout(in, &msg, sizeof(paxos_msg));
-		if (len < PAXOS_MSG_SIZE((&msg))) {
-			LOG(DBG, ("not enough data\n"));
+		if (len < PAXOS_MSG_SIZE((&msg)))
 			return;
-		}
 		r->callback(bev, r->arg);
 	}
 }
@@ -80,7 +79,7 @@ on_error(struct bufferevent *bev, short events, void *arg)
 
 static void
 on_accept(struct evconnlistener *l, evutil_socket_t fd,
-	struct sockaddr *addr, int socklen, void *arg)
+	struct sockaddr* addr, int socklen, void *arg)
 {
 	struct tcp_receiver* r = arg;
 	struct event_base* b = evconnlistener_get_base(l);
@@ -89,17 +88,18 @@ on_accept(struct evconnlistener *l, evutil_socket_t fd,
 	bufferevent_setcb(bev, on_read, NULL, on_error, arg);
 	bufferevent_enable(bev, EV_READ|EV_WRITE);
 	carray_push_back(r->bevs, bev);
-	LOG(VRB, ("accepted connection from...\n"));
+	paxos_log_info("Accepted connection from %s:%d",
+		inet_ntoa(((struct sockaddr_in*)&addr)->sin_addr),
+		((struct sockaddr_in*)&addr)->sin_port);
 }
 
 static void
 on_listener_error(struct evconnlistener* l, void* arg)
 {
-	struct event_base *base = evconnlistener_get_base(l);
 	int err = EVUTIL_SOCKET_ERROR();
-	fprintf(stderr, "Got an error %d (%s) on the listener. "
-		"Shutting down.\n", err, evutil_socket_error_to_string(err));
-
+	struct event_base *base = evconnlistener_get_base(l);
+	paxos_log_error("Listener error %d: %s. Shutting down event loop.", err,
+		evutil_socket_error_to_string(err));
 	event_base_loopexit(base, NULL);
 }
 

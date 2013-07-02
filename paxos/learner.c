@@ -24,7 +24,6 @@
 #include <string.h>
 #include <assert.h>
 
-
 struct instance
 {
 	iid_t           iid;
@@ -32,7 +31,6 @@ struct instance
 	accept_ack*     acks[N_OF_ACCEPTORS];
 	accept_ack*     final_value;
 };
-
 
 struct learner
 {
@@ -116,7 +114,7 @@ instance_has_quorum(struct learner* l, struct instance* inst)
     
 	//Reached a quorum/majority!
 	if (count >= QUORUM) {
-		LOG(DBG, ("Reached quorum, iid: %u is closed!\n", inst->iid));
+		paxos_log_debug("Reached quorum, iid: %u is closed!", inst->iid);
 		inst->final_value = inst->acks[a_valid_index];
 		return 1;
 	}
@@ -165,40 +163,40 @@ learner_update_instance(struct learner* l, accept_ack* ack)
 	
 	// First message for this iid
 	if (inst->iid == 0) {
-		LOG(DBG, ("Received first message for instance: %u\n", ack->iid));
+		paxos_log_debug("Received first message for instance: %u", ack->iid);
 		inst->iid = ack->iid;
 		inst->last_update_ballot = ack->ballot;
 	}
 	assert(inst->iid == ack->iid);
-    
+	
 	// Instance closed already, drop
 	if (instance_has_quorum(l, inst)) {
-		LOG(DBG, ("Dropping accept_ack for iid %u, already closed\n",
-			 ack->iid));
+		paxos_log_debug("Dropping accept_ack for iid %u, already closed",
+			 ack->iid);
 		return;
 	}
-    
+	
 	// No previous message to overwrite for this acceptor
 	if (inst->acks[ack->acceptor_id] == NULL) {
-		LOG(DBG, ("Got first ack for: %u, acceptor: %d\n", 
-		inst->iid, ack->acceptor_id));
+		paxos_log_debug("Got first ack for: %u, acceptor: %d", 
+			inst->iid, ack->acceptor_id);
 		//Save this accept_ack
 		instance_add_accept(inst, ack);
 		return;
 	}
-    
+	
 	// There is already a message from the same acceptor
 	prev_ack = inst->acks[ack->acceptor_id];
-    
+	
 	// Already more recent info in the record, accept_ack is old
 	if (prev_ack->ballot >= ack->ballot) {
-		LOG(DBG, ("Dropping accept_ack for iid: %u\n", ack->iid));
-		LOG(DBG, ("stored ballot is newer or equal\n"));
+		paxos_log_debug("Dropping accept_ack for iid: %u,"
+			"stored ballot is newer of equal ", ack->iid);
 		return;
 	}
-    
+	
 	// Replace the previous ack since the received ballot is newer
-	LOG(DBG, ("Overwriting previous accept_ack for iid: %u\n", ack->iid));
+	paxos_log_debug("Overwriting previous accept_ack for iid: %u", ack->iid);
 	free(prev_ack);
 	instance_add_accept(inst, ack);
 }
@@ -232,16 +230,16 @@ learner_receive_accept(struct learner* l, accept_ack* ack)
 	
 	// Already closed and delivered, ignore message
 	if (ack->iid < l->current_iid) {
-		LOG(DBG, ("Dropping accept_ack for already delivered iid: %u\n",
-		ack->iid));
+		paxos_log_debug("Dropping accept_ack for already delivered iid: %u",
+		ack->iid);
 		return;
 	}
 	
 	// We are late w.r.t the current iid, ignore message
 	// (The instance received is too ahead and will overwrite something)
 	if (ack->iid >= l->current_iid + carray_size(l->instances)) {
-		LOG(DBG, ("Dropping accept_ack for iid: %u, too far in future\n",
-			ack->iid));
+		paxos_log_debug("Dropping accept_ack for iid: %u, too far in future",
+			ack->iid);
 		return;
 	}
 	

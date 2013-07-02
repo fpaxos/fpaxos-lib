@@ -39,6 +39,7 @@ protected:
 	virtual void SetUp() {
 		id = 2;
 		paxos_config.proposer_timeout = 100;
+		paxos_config.verbosity = PAXOS_LOG_ERROR;
 		p = proposer_new(id);
 	}
 	

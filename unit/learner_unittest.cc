@@ -27,6 +27,7 @@ protected:
 	struct learner* l;
 	        
 	virtual void SetUp() {
+		paxos_config.verbosity = PAXOS_LOG_ERROR;
 		l = learner_new();
 	}
 	
