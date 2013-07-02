@@ -21,7 +21,7 @@
 #ifndef _STORAGE_H_
 #define _STORAGE_H_
 
-#include "libpaxos.h"
+#include "paxos.h"
 #include "libpaxos_messages.h"
 
 struct storage;

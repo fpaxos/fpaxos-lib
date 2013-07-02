@@ -21,7 +21,7 @@
 #ifndef _EVPAXOS_H_
 #define _EVPAXOS_H_
 
-#include "libpaxos.h"
+#include "paxos.h"
 
 #include <sys/types.h>
 #include <stdint.h>

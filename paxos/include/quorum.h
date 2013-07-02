@@ -21,7 +21,7 @@
 #ifndef _QUORUM_H_
 #define _QUORUM_H_
 
-#include "libpaxos.h"
+#include "paxos.h"
 
 struct quorum
 {

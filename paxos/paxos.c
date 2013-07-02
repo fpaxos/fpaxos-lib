@@ -18,7 +18,7 @@
 */
 
 
-#include "libpaxos.h"
+#include "paxos.h"
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>

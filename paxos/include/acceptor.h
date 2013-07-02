@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-#include "libpaxos.h"
+#include "paxos.h"
 #include "libpaxos_messages.h"
 
 struct acceptor;

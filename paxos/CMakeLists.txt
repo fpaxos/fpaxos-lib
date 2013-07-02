@@ -21,5 +21,5 @@ set_target_properties(paxos PROPERTIES
 	INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 
 INSTALL(TARGETS paxos DESTINATION lib)
-INSTALL(FILES include/libpaxos.h DESTINATION include)
+INSTALL(FILES include/paxos.h DESTINATION include)
 INSTALL(DIRECTORY include/ DESTINATION include/libpaxos)
