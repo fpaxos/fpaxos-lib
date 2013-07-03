@@ -17,21 +17,16 @@
 	along with LibPaxos.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <assert.h>
-#include <memory.h>
-
-#include <event2/event.h>
-#include <event2/buffer.h>
-#include <event2/bufferevent.h>
-
 #include "evpaxos.h"
 #include "learner.h"
 #include "peers.h"
 #include "tcp_sendbuf.h"
 #include "config_reader.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <event2/event.h>
+#include <event2/buffer.h>
+#include <event2/bufferevent.h>
 
 struct evlearner
 {

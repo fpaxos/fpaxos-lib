@@ -25,7 +25,6 @@
 #include "tcp_sendbuf.h"
 #include "tcp_receiver.h"
 #include "proposer.h"
-#include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
