@@ -69,20 +69,13 @@ void paxos_log_error(const char* format, ...);
 void paxos_log_info(const char* format, ...);
 void paxos_log_debug(const char* format, ...);
 
-/*** SETTINGS TO BE REMOVED, EVENTUALLY... ***/
-
-/* 
-    The maximum number of proposers must be fixed beforehand
-    (this is because of unique ballot generation).
-    The proposers must be started with different IDs.
-    This number MUST be a power of 10.
+/*
+	TODO MAX_N_OF_PROPOSERS should be removed.
+	The maximum number of proposers must be fixed beforehand
+	(this is because of unique ballot generation).
+	The proposers must be started with different IDs.
+	This number MUST be a power of 10.
 */
 #define MAX_N_OF_PROPOSERS  10
-
-/* 
-    The number of acceptors must be fixed beforehand.
-    The acceptors must be started with different IDs.
-*/
-#define N_OF_ACCEPTORS  3
 
 #endif

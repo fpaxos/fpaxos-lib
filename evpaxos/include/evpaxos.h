@@ -45,8 +45,7 @@ void
 evlearner_free(struct evlearner* l);
 
 /* Initializes a acceptor with a given id (which MUST be unique),
- * a config file and a libevent event_base.
- * id -> Must be in the range [0...(MAX_N_OF_ACCEPTORS-1)] */
+ * a config file and a libevent event_base. */
 struct evacceptor*
 evacceptor_init(int id, const char* config, struct event_base* b);
 

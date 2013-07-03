@@ -130,13 +130,6 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 {
 	struct evacceptor* a;
 	
-	// Check id validity of acceptor_id
-	if (id < 0 || id >= N_OF_ACCEPTORS) {
-		paxos_log_error("Invalid acceptor id: %d", id);
-		paxos_log_error("Should be between 0 and %d", N_OF_ACCEPTORS);
-		return NULL;
-	}
-
 	a = malloc(sizeof(struct evacceptor));
 
 	a->conf = read_config(config_file);
@@ -144,7 +137,13 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 		free(a);
 		return NULL;
 	}
-
+	
+	if (id < 0 || id >= a->conf->acceptors_count) {
+		paxos_log_error("Invalid acceptor id: %d.", id);
+		paxos_log_error("Should be between 0 and %d", a->conf->acceptors_count);
+		return NULL;
+	}
+	
     a->acceptor_id = id;
 	a->base = b;
 	a->receiver = tcp_receiver_new(a->base, &a->conf->acceptors[id],

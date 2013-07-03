@@ -26,53 +26,57 @@
 
 struct instance
 {
-	iid_t           iid;
-	ballot_t        last_update_ballot;
-	accept_ack*     acks[N_OF_ACCEPTORS];
-	accept_ack*     final_value;
+	iid_t iid;
+	ballot_t last_update_ballot;
+	accept_ack** acks;
+	accept_ack* final_value;
 };
 
 struct learner
 {
 	int quorum;
+	int acceptors;
 	int late_start;
 	iid_t current_iid;
 	iid_t highest_iid_seen;
 	iid_t highest_iid_closed;
-	struct carray* instances;
+	struct carray* instances; 	/* TODO instances should be hashtable */
 };
 
 
 static void
-instance_clear(struct instance* inst)
+instance_clear(struct instance* inst, int acceptors)
 {
-	assert(inst != NULL);
-	memset(inst, 0, sizeof(struct instance));
-}
-
-static void
-instance_deep_clear(struct instance* inst)
-{	
 	int i;
-	for (i = 0; i < N_OF_ACCEPTORS; i++)
-		if (inst->acks[i] != NULL)
+	inst->iid = 0;
+	inst->last_update_ballot = 0;
+	for (i = 0; i < acceptors; i++) {
+		if (inst->acks[i] != NULL) {
 			free(inst->acks[i]);
-	instance_clear(inst);
+			inst->acks[i] = NULL;
+		}
+	}
+	inst->final_value = NULL;
 }
 
 static struct instance*
-instance_new()
+instance_new(int acceptors)
 {
+	int i;
 	struct instance* inst;
 	inst = malloc(sizeof(struct instance));
-	instance_clear(inst);
+	memset(inst, 0, sizeof(struct instance));
+	inst->acks = malloc(sizeof(accept_ack*) * acceptors);
+	for (i = 0; i < acceptors; ++i)
+		inst->acks[i] = NULL;
 	return inst;
 }
 
 static void
-instance_free(struct instance* inst)
+instance_free(struct instance* inst, int acceptors)
 {
-	instance_deep_clear(inst);
+	instance_clear(inst, acceptors);
+	free(inst->acks);
 	free(inst);
 }
 
@@ -91,7 +95,7 @@ instance_has_quorum(struct learner* l, struct instance* inst)
 		return 1;
 
 	//Iterates over stored acks
-	for (i = 0; i < N_OF_ACCEPTORS; i++) {
+	for (i = 0; i < l->acceptors; i++) {
 		curr_ack = inst->acks[i];
 
 		// skip over missing acceptor acks
@@ -107,7 +111,7 @@ instance_has_quorum(struct learner* l, struct instance* inst)
 			// this value is -final-, it can be delivered immediately.
 			if (curr_ack->is_final) {
 				//For sure >= than quorum...
-				count += N_OF_ACCEPTORS;
+				count += l->acceptors;
 				break;
 			}
 		}
@@ -212,7 +216,7 @@ learner_deliver_next(struct learner* l)
 		size_t size = ACCEPT_ACK_SIZE(inst->final_value);
 		ack = malloc(size);
 		memcpy(ack, inst->final_value, size);
-		instance_deep_clear(inst);
+		instance_clear(inst, l->acceptors);
 		l->current_iid++;
 	}
 	return ack;
@@ -258,7 +262,7 @@ initialize_instances(struct learner* l, int count)
 	l->instances = carray_new(count);
 	assert(l->instances != NULL);	
 	for (i = 0; i < carray_size(l->instances); i++)
-		carray_push_back(l->instances, instance_new());
+		carray_push_back(l->instances, instance_new(l->acceptors));
 }
 
 int
@@ -282,12 +286,13 @@ learner_new(int acceptors)
 {
 	struct learner* l;
 	l = malloc(sizeof(struct learner));
-	initialize_instances(l, paxos_config.learner_instances);
 	l->quorum = paxos_quorum(acceptors);
+	l->acceptors = acceptors;
 	l->current_iid = 1;
 	l->highest_iid_seen = 1;
 	l->highest_iid_closed = 1;
 	l->late_start = !paxos_config.learner_catch_up;
+	initialize_instances(l, paxos_config.learner_instances);
 	return l;
 }
 
@@ -296,7 +301,7 @@ learner_free(struct learner* l)
 {
 	int i;
 	for (i = 0; i < carray_count(l->instances); i++)
-		instance_free(carray_at(l->instances, i));
+		instance_free(carray_at(l->instances, i), l->acceptors);
 	carray_free(l->instances);
 	free(l);
 }
