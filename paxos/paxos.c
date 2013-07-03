@@ -81,3 +81,9 @@ paxos_log_debug(const char* format, ...)
 	paxos_log(PAXOS_LOG_DEBUG, format, ap);
 	va_end(ap);
 }
+
+int
+paxos_quorum(int acceptors)
+{
+	return (acceptors/2)+1;
+}

@@ -31,7 +31,7 @@ extern "C" {
 struct proposer;
 struct timeout_iterator;
 
-struct proposer* proposer_new(int id);
+struct proposer* proposer_new(int id, int acceptors);
 void proposer_free(struct proposer* p);
 void proposer_propose(struct proposer* p, char* value, size_t size);
 int proposer_prepared_count(struct proposer* p);

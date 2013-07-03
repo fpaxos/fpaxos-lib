@@ -30,7 +30,7 @@ struct quorum
 	int acceptor_ids[N_OF_ACCEPTORS];
 };
 
-void quorum_init(struct quorum *q, int quorum);
+void quorum_init(struct quorum *q, int acceptors);
 int quorum_add(struct quorum* q, int id);
 int quorum_reached(struct quorum* q);
 

@@ -34,6 +34,7 @@ struct instance
 
 struct learner
 {
+	int quorum;
 	int late_start;
 	iid_t current_iid;
 	iid_t highest_iid_seen;
@@ -113,7 +114,7 @@ instance_has_quorum(struct learner* l, struct instance* inst)
 	}
     
 	//Reached a quorum/majority!
-	if (count >= QUORUM) {
+	if (count >= l->quorum) {
 		paxos_log_debug("Reached quorum, iid: %u is closed!", inst->iid);
 		inst->final_value = inst->acks[a_valid_index];
 		return 1;
@@ -277,16 +278,17 @@ learner_has_holes(struct learner* l, iid_t* from, iid_t* to)
 }
 
 struct learner*
-learner_new()
+learner_new(int acceptors)
 {
-	struct learner* s;
-	s = malloc(sizeof(struct learner));
-	initialize_instances(s, paxos_config.learner_instances);
-	s->current_iid = 1;
-	s->highest_iid_seen = 1;
-	s->highest_iid_closed = 1;
-	s->late_start = !paxos_config.learner_catch_up;
-	return s;
+	struct learner* l;
+	l = malloc(sizeof(struct learner));
+	initialize_instances(l, paxos_config.learner_instances);
+	l->quorum = paxos_quorum(acceptors);
+	l->current_iid = 1;
+	l->highest_iid_seen = 1;
+	l->highest_iid_closed = 1;
+	l->late_start = !paxos_config.learner_catch_up;
+	return l;
 }
 
 void

@@ -25,10 +25,11 @@ class LearnerTest : public testing::Test {
 protected:
 
 	struct learner* l;
+	static const int acceptors = 3;
 	        
 	virtual void SetUp() {
 		paxos_config.verbosity = PAXOS_LOG_ERROR;
-		l = learner_new();
+		l = learner_new(acceptors);
 	}
 	
 	virtual void TearDown() {

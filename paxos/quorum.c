@@ -22,11 +22,11 @@
 #include <string.h>
 
 void
-quorum_init(struct quorum* q, int quorum)
+quorum_init(struct quorum* q, int acceptors)
 {
 	int i;
 	q->count = 0;
-	q->quorum = quorum;
+	q->quorum = paxos_quorum(acceptors);
 	for (i = 0; i < N_OF_ACCEPTORS; ++i)
 		q->acceptor_ids[i] = 0;
 }

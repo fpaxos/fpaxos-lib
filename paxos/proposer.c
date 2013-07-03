@@ -40,6 +40,7 @@ struct instance
 struct proposer 
 {
 	int id;
+	int acceptors;
 	struct carray* values;
 	iid_t next_prepare_iid;
 	struct carray* prepare_instances; /* Instances waiting for prepare acks */
@@ -54,7 +55,7 @@ struct timeout_iterator
 	struct proposer* proposer;
 };
 
-static struct instance* instance_new(iid_t iid, ballot_t ballot);
+static struct instance* instance_new(iid_t iid, ballot_t ballot, int acceptors);
 static void instance_free(struct instance* inst);
 static struct instance* instance_find(struct carray* c, iid_t iid);
 static int instance_match(void* arg, void* item);
@@ -67,12 +68,13 @@ static int timeval_diff(struct timeval* t1, struct timeval* t2);
 
 
 struct proposer*
-proposer_new(int id)
+proposer_new(int id, int acceptors)
 {
 	struct proposer *p;
 	int instances = 128;
 	p = malloc(sizeof(struct proposer));
 	p->id = id;
+	p->acceptors = acceptors;
 	p->values = carray_new(instances);
 	p->next_prepare_iid = 0;
 	p->prepare_instances = carray_new(instances);
@@ -126,7 +128,7 @@ proposer_prepare(struct proposer* p, prepare_req* out)
 {
 	struct instance* inst;
 	iid_t iid = ++(p->next_prepare_iid);
-	inst = instance_new(iid, proposer_next_ballot(p, 0));
+	inst = instance_new(iid, proposer_next_ballot(p, 0), p->acceptors);
 	carray_push_back(p->prepare_instances, inst);
 	*out = (prepare_req) {inst->iid, inst->ballot};
 }
@@ -222,7 +224,7 @@ proposer_accept(struct proposer* p)
 	
 	// we have both a prepared instance and a value
 	inst = carray_pop_front(p->prepare_instances);
-	quorum_init(&inst->quorum, QUORUM);
+	quorum_init(&inst->quorum, p->acceptors);
 	carray_push_back(p->accept_instances, inst);
 	
 	accept_req* req = malloc(sizeof(accept_req) + inst->value->data_size);
@@ -319,7 +321,7 @@ timeout_iterator_free(struct timeout_iterator* iter)
 }
 
 static struct instance*
-instance_new(iid_t iid, ballot_t ballot)
+instance_new(iid_t iid, ballot_t ballot, int acceptors)
 {
 	struct instance* inst;
 	inst = malloc(sizeof(struct instance));
@@ -329,7 +331,7 @@ instance_new(iid_t iid, ballot_t ballot)
 	inst->value = NULL;
 	inst->closed = 0;
 	gettimeofday(&inst->created_at, NULL);
-	quorum_init(&inst->quorum, QUORUM);
+	quorum_init(&inst->quorum, acceptors);
 	return inst;
 }
 
@@ -391,7 +393,7 @@ void
 prepare_preempt(struct proposer* p, struct instance* inst, prepare_req* out)
 {
 	inst->ballot = proposer_next_ballot(p, inst->ballot);
-	quorum_init(&inst->quorum, QUORUM);
+	quorum_init(&inst->quorum, p->acceptors);
 	*out = (prepare_req) {inst->iid, inst->ballot};
 	gettimeofday(&inst->created_at, NULL);
 }

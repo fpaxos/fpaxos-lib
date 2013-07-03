@@ -30,11 +30,6 @@
 #define PAXOS_LOG_INFO 2
 #define PAXOS_LOG_DEBUG 3
 
-void paxos_log(int level, const char* format, va_list ap);
-void paxos_log_error(const char* format, ...);
-void paxos_log_info(const char* format, ...);
-void paxos_log_debug(const char* format, ...);
-
 /* The maximum messages size that paxos will accept */
 #define PAXOS_MAX_VALUE_SIZE (256*1000)
 
@@ -67,6 +62,12 @@ struct paxos_config
 
 extern struct paxos_config paxos_config;
 
+/* Core functions */
+int paxos_quorum(int acceptors);
+void paxos_log(int level, const char* format, va_list ap);
+void paxos_log_error(const char* format, ...);
+void paxos_log_info(const char* format, ...);
+void paxos_log_debug(const char* format, ...);
 
 /*** SETTINGS TO BE REMOVED, EVENTUALLY... ***/
 
@@ -83,15 +84,5 @@ extern struct paxos_config paxos_config;
     The acceptors must be started with different IDs.
 */
 #define N_OF_ACCEPTORS  3
-
-/* 
-    Rule for calculating whether the number of accept_ack messages (phase 2b) 
-    is sufficient to declare the instance closed and deliver 
-    the corresponding value. i.e.:
-    Paxos     -> ((int)(N_OF_ACCEPTORS/2))+1;
-    FastPaxos -> 1 + (int)((double)(N_OF_ACCEPTORS*2)/3);
-*/
-
-#define QUORUM (((int)(N_OF_ACCEPTORS/2))+1)
 
 #endif

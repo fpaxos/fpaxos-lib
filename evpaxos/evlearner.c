@@ -140,7 +140,7 @@ evlearner_init_conf(struct config* c, deliver_function f, void* arg,
 	l = malloc(sizeof(struct evlearner));
 	l->delfun = f;
 	l->delarg = arg;
-	l->state = learner_new();
+	l->state = learner_new(c->acceptors_count);
 	
 	// setup connections to acceptors
 	l->acceptors = peers_new(b, c->acceptors_count);

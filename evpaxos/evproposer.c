@@ -210,7 +210,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	p->timeout_ev = evtimer_new(b, proposer_check_timeouts, p);
 	event_add(p->timeout_ev, &p->tv);
 	
-	p->state = proposer_new(p->id);
+	p->state = proposer_new(p->id, conf->acceptors_count);
 	proposer_preexecute(p);
 	
 	free_config(conf);
