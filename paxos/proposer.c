@@ -224,7 +224,7 @@ proposer_accept(struct proposer* p)
 	
 	// we have both a prepared instance and a value
 	inst = carray_pop_front(p->prepare_instances);
-	quorum_init(&inst->quorum, p->acceptors);
+	quorum_clear(&inst->quorum);
 	carray_push_back(p->accept_instances, inst);
 	
 	accept_req* req = malloc(sizeof(accept_req) + inst->value->data_size);
@@ -338,6 +338,7 @@ instance_new(iid_t iid, ballot_t ballot, int acceptors)
 static void
 instance_free(struct instance* inst)
 {
+	quorum_destroy(&inst->quorum);
 	if (inst->value != NULL)
 		free(inst->value);
 	free(inst);
@@ -393,7 +394,7 @@ void
 prepare_preempt(struct proposer* p, struct instance* inst, prepare_req* out)
 {
 	inst->ballot = proposer_next_ballot(p, inst->ballot);
-	quorum_init(&inst->quorum, p->acceptors);
+	quorum_clear(&inst->quorum);
 	*out = (prepare_req) {inst->iid, inst->ballot};
 	gettimeofday(&inst->created_at, NULL);
 }

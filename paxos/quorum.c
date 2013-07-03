@@ -18,17 +18,33 @@
 */
 
 
+#include "paxos.h"
 #include "quorum.h"
-#include <string.h>
+#include <stdlib.h>
+
 
 void
 quorum_init(struct quorum* q, int acceptors)
 {
+	q->acceptors = acceptors;
+	q->quorum = paxos_quorum(acceptors);
+	q->acceptor_ids = malloc(sizeof(int) * q->acceptors);
+	quorum_clear(q);
+}
+
+void
+quorum_clear(struct quorum* q)
+{
 	int i;
 	q->count = 0;
-	q->quorum = paxos_quorum(acceptors);
-	for (i = 0; i < N_OF_ACCEPTORS; ++i)
+	for (i = 0; i < q->quorum; ++i)
 		q->acceptor_ids[i] = 0;
+}
+
+void
+quorum_destroy(struct quorum* q)
+{
+	free(q->acceptor_ids);
 }
 
 int
