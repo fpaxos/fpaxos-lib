@@ -136,10 +136,11 @@ parse_address(char* str, struct address* addr)
 static int
 parse_verbosity(char* str, int* verbosity)
 {
-    if (strcasecmp(str, "error") == 0) *verbosity = PAXOS_LOG_ERROR;
-    else if (strcasecmp(str, "info") == 0) *verbosity = PAXOS_LOG_INFO;
-    else if (strcasecmp(str, "debug") == 0) *verbosity = PAXOS_LOG_DEBUG;
-    else return 0;
+	if (strcasecmp(str, "quiet") == 0) *verbosity = PAXOS_LOG_QUIET;
+	else if (strcasecmp(str, "error") == 0) *verbosity = PAXOS_LOG_ERROR;
+	else if (strcasecmp(str, "info") == 0) *verbosity = PAXOS_LOG_INFO;
+	else if (strcasecmp(str, "debug") == 0) *verbosity = PAXOS_LOG_DEBUG;
+	else return 0;
 	return 1;
 }
 

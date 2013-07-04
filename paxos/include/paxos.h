@@ -26,6 +26,7 @@
 #include <sys/types.h>
 
 /* Logging and verbosity levels */
+#define PAXOS_LOG_QUIET 0
 #define PAXOS_LOG_ERROR 1
 #define PAXOS_LOG_INFO 2
 #define PAXOS_LOG_DEBUG 3
