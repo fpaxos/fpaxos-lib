@@ -197,7 +197,7 @@ parse_line(char* line, struct config* c)
 			break;
 		case option_verbosity:
 			rv = parse_verbosity(line, opt->value);
-			if (rv == 0) printf("Expected error, info or debug\n");
+			if (rv == 0) printf("Expected quiet, error, info, or debug\n");
 			break;
 	}
 		

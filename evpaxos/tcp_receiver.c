@@ -88,7 +88,7 @@ on_accept(struct evconnlistener *l, evutil_socket_t fd,
 	bufferevent_setcb(bev, on_read, NULL, on_error, arg);
 	bufferevent_enable(bev, EV_READ|EV_WRITE);
 	carray_push_back(r->bevs, bev);
-	paxos_log_info("Accepted connection from %s:%d\n",
+	paxos_log_info("Accepted connection from %s:%d",
 		inet_ntoa(((struct sockaddr_in*)addr)->sin_addr),
 		ntohs(((struct sockaddr_in*)addr)->sin_port));
 }
