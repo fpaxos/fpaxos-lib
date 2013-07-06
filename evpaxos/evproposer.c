@@ -56,6 +56,16 @@ send_prepares(struct evproposer* p, prepare_req* pr)
 }
 
 static void
+send_accepts(struct evproposer* p, accept_req* ar)
+{
+	int i;
+	for (i = 0; i < peers_count(p->acceptors); i++) {
+		struct bufferevent* bev = peers_get_buffer(p->acceptors, i);
+    	sendbuf_add_accept_req(bev, ar);
+	}
+}
+
+static void
 proposer_preexecute(struct evproposer* p)
 {
 	int i;
@@ -72,13 +82,9 @@ proposer_preexecute(struct evproposer* p)
 static void
 try_accept(struct evproposer* p)
 {
-	int i;
 	accept_req* ar;
 	while ((ar = proposer_accept(p->state)) != NULL) {
-		for (i = 0; i < peers_count(p->acceptors); i++) {
-			struct bufferevent* bev = peers_get_buffer(p->acceptors, i);
-	    	sendbuf_add_accept_req(bev, ar);
-		}
+		send_accepts(p, ar);
 		free(ar);
 	}
 	proposer_preexecute(p);
@@ -162,12 +168,23 @@ handle_request(struct bufferevent* bev, void* arg)
 static void
 proposer_check_timeouts(evutil_socket_t fd, short event, void *arg)
 {
-	prepare_req pr;
 	struct evproposer* p = arg;
-	struct timeout_iterator* iter;
-	iter = proposer_timeout_iterator(p->state);
-	while (timeout_iterator_next(iter, &pr))
-		send_prepares(p, &pr);
+	struct timeout_iterator* iter = proposer_timeout_iterator(p->state);
+	
+	prepare_req* pr;
+	while ((pr = timeout_iterator_prepare(iter)) != NULL) {
+		paxos_log_info("Instance %d timed out.", pr->iid);
+		send_prepares(p, pr);
+		free(pr);
+	}
+	
+	accept_req* ar;
+	while ((ar = timeout_iterator_accept(iter)) != NULL) {
+		paxos_log_info("Instance %d timed out.", ar->iid);
+		send_accepts(p, ar);
+		free(ar);
+	}
+	
 	timeout_iterator_free(iter);
 	event_add(p->timeout_ev, &p->tv);
 }
@@ -184,7 +201,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	
 	// Check id validity of proposer_id
 	if (id < 0 || id >= MAX_N_OF_PROPOSERS) {
-		paxos_log_error("Invalid proposer id:%d", id);
+		paxos_log_error("Invalid proposer id: %d", id);
 		return NULL;
 	}
 
@@ -205,12 +222,10 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	// Setup timeout
 	p->tv.tv_sec = paxos_config.proposer_timeout;
 	p->tv.tv_usec = 0;
-
 	p->timeout_ev = evtimer_new(b, proposer_check_timeouts, p);
 	event_add(p->timeout_ev, &p->tv);
 	
 	p->state = proposer_new(p->id, conf->acceptors_count);
-	proposer_preexecute(p);
 	
 	free_config(conf);
 	return p;

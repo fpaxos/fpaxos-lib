@@ -41,8 +41,8 @@ protected:
 	virtual void SetUp() {
 		quorum = paxos_quorum(acceptors);
 		paxos_config.proposer_timeout = 100;
-		paxos_config.verbosity = PAXOS_LOG_ERROR;
 		p = proposer_new(id, acceptors);
+		paxos_config.verbosity = PAXOS_LOG_DEBUG;
 	}
 	
 	virtual void TearDown() {
@@ -236,28 +236,29 @@ TEST_F(ProposerTest, PreparedCount) {
 }
 
 TEST_F(ProposerTest, PendingPrepareShouldTimeout) {
-	prepare_req pr, to;
+	prepare_req pr;
+	prepare_req* to;
 	struct timeout_iterator* iter;
 	
 	proposer_prepare(p, &pr);
 	usleep(paxos_config.proposer_timeout);
 	
 	iter = proposer_timeout_iterator(p);
-	int has_timedout = timeout_iterator_next(iter, &to);
+	to = timeout_iterator_prepare(iter);
 	
-	ASSERT_EQ(1, has_timedout);
-	ASSERT_EQ(pr.iid, to.iid);
-	ASSERT_EQ(pr.ballot, to.ballot);
+	ASSERT_NE((prepare_req*)NULL, to);
+	ASSERT_EQ(pr.iid, to->iid);
+	ASSERT_EQ(pr.ballot, to->ballot);
+	free(to);
 	
-	has_timedout = timeout_iterator_next(iter, &to);
-	ASSERT_EQ(0, has_timedout);
-	
+	ASSERT_EQ(NULL, timeout_iterator_prepare(iter));
 	timeout_iterator_free(iter);
 }
 
 TEST_F(ProposerTest, PreparedShouldNotTimeout) {
 	struct timeout_iterator* iter;
-	prepare_req pr1, pr2, to, preempted;
+	prepare_req pr1, pr2, preempted;
+	prepare_req* to;
 	
 	proposer_prepare(p, &pr1);
 	proposer_prepare(p, &pr2);
@@ -270,20 +271,22 @@ TEST_F(ProposerTest, PreparedShouldNotTimeout) {
 	usleep(paxos_config.proposer_timeout);
 	
 	iter = proposer_timeout_iterator(p);
-	int has_timedout = timeout_iterator_next(iter, &to);
-	ASSERT_EQ(1, has_timedout);
-	ASSERT_EQ(pr2.iid, to.iid);
-	ASSERT_EQ(pr2.ballot, to.ballot);
+	to = timeout_iterator_prepare(iter);
+	ASSERT_NE((prepare_req*)NULL, to);
+	ASSERT_EQ(pr2.iid, to->iid);
+	ASSERT_EQ(pr2.ballot, to->ballot);
+	free(to);
 	
-	ASSERT_EQ(0, timeout_iterator_next(iter, &to));
+	ASSERT_EQ(NULL, timeout_iterator_prepare(iter));
 	timeout_iterator_free(iter);
 }
 
 TEST_F(ProposerTest, PendingAcceptShouldTimeout) {
-	prepare_req pr, to, preempted;
+	prepare_req pr, preempted;
 	char value[] = "a value";
 	int value_size = strlen(value) + 1;
-
+	accept_req* to;
+	
 	proposer_prepare(p, &pr);
 	proposer_propose(p, value, value_size);
 
@@ -298,17 +301,18 @@ TEST_F(ProposerTest, PendingAcceptShouldTimeout) {
 	usleep(paxos_config.proposer_timeout);
 	
 	struct timeout_iterator* iter = proposer_timeout_iterator(p);
-	int has_timedout = timeout_iterator_next(iter, &to);
-	ASSERT_EQ(1, has_timedout);
-	ASSERT_EQ(pr.iid, to.iid);
-	ASSERT_LT(pr.ballot, to.ballot);
+	to = timeout_iterator_accept(iter);
+	ASSERT_NE((accept_req*)NULL, to);
+	ASSERT_EQ(pr.iid, to->iid);
+	ASSERT_EQ(pr.ballot, to->ballot);
+	free(to);
 	
-	ASSERT_EQ(0, timeout_iterator_next(iter, &to));
+	ASSERT_EQ(NULL, timeout_iterator_accept(iter));
 	timeout_iterator_free(iter);
 }
 
 TEST_F(ProposerTest, AcceptedShouldNotTimeout) {
-	prepare_req pr, to, preempted;
+	prepare_req pr, preempted;
 	char value[] = "a value";
 	int value_size = strlen(value) + 1;
 
@@ -334,30 +338,32 @@ TEST_F(ProposerTest, AcceptedShouldNotTimeout) {
 	usleep(paxos_config.proposer_timeout);
 	
 	struct timeout_iterator* iter = proposer_timeout_iterator(p);
-	int has_timedout = timeout_iterator_next(iter, &to);
-	ASSERT_EQ(1, has_timedout);
-	ASSERT_EQ(pr.iid, to.iid);
-	ASSERT_EQ(pr.ballot, to.ballot);
+	prepare_req* to = timeout_iterator_prepare(iter);
+	ASSERT_NE((prepare_req*)NULL, to);
+	ASSERT_EQ(pr.iid, to->iid);
+	ASSERT_EQ(pr.ballot, to->ballot);
+	free(to);
 	
-	ASSERT_EQ(0, timeout_iterator_next(iter, &to));
+	ASSERT_EQ(NULL, timeout_iterator_prepare(iter));
+	ASSERT_EQ(NULL, timeout_iterator_accept(iter));
+
 	timeout_iterator_free(iter);
 }
 
 TEST_F(ProposerTest, ShouldNotTimeoutTwice) {
-	int has_timedout;
-	prepare_req pr, to;
+	prepare_req pr;
 	struct timeout_iterator* iter;
 	
 	proposer_prepare(p, &pr);
 	usleep(paxos_config.proposer_timeout);
 	
 	iter = proposer_timeout_iterator(p);
-	has_timedout = timeout_iterator_next(iter, &to);
-	ASSERT_EQ(1, has_timedout);
+	prepare_req* to = timeout_iterator_prepare(iter);
+	ASSERT_NE((prepare_req*)NULL, to);
+	free(to);
 	timeout_iterator_free(iter);
 	
 	iter = proposer_timeout_iterator(p);
-	has_timedout = timeout_iterator_next(iter, &to);
-	ASSERT_EQ(0, has_timedout);
+	ASSERT_EQ(NULL, timeout_iterator_prepare(iter));
 	timeout_iterator_free(iter);
 }

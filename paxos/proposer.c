@@ -154,7 +154,7 @@ proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack,
 	if (ack->ballot == inst->ballot) {	// preempted?
 		
 		if (!quorum_add(&inst->quorum, ack->acceptor_id)) {
-			paxos_log_debug("Promise dropped %d, instance %u has a quorum",
+			paxos_log_debug("Promise dropped from %d, instance %u has a quorum",
 				ack->acceptor_id, inst->iid);
 			return 0;
 		}
@@ -244,7 +244,7 @@ proposer_receive_accept_ack(struct proposer* p, accept_ack* ack, prepare_req* ou
 	inst = instance_find(p->accept_instances, ack->iid);
 	
 	if (inst == NULL) {
-		paxos_log_debug("Accept ack dropped, iid:%u not pending", ack->iid);
+		paxos_log_debug("Accept ack dropped, iid: %u not pending", ack->iid);
 		return 0;
 	}
 	
@@ -290,28 +290,37 @@ next_timedout(struct carray* c, int* i, struct timeval* t)
 	return NULL;
 }
 
-int
-timeout_iterator_next(struct timeout_iterator* iter, prepare_req* req)
+prepare_req*
+timeout_iterator_prepare(struct timeout_iterator* iter)
 {
 	struct instance* inst;
 	struct proposer* p = iter->proposer;
-
 	inst = next_timedout(p->prepare_instances, &iter->pi, &iter->timeout);
 	if (inst != NULL) {
-		gettimeofday(&inst->created_at, NULL);
+		prepare_req* req = malloc(sizeof(prepare_req));
 		*req = (prepare_req){inst->iid, inst->ballot};
-		return 1;
+		inst->created_at = iter->timeout;
+		return req;
 	}
-	
+	return NULL;
+}
+
+accept_req*
+timeout_iterator_accept(struct timeout_iterator* iter)
+{
+	struct instance* inst;
+	struct proposer* p = iter->proposer;
 	inst = next_timedout(p->accept_instances, &iter->ai, &iter->timeout);
 	if (inst != NULL) {
-		prepare_preempt(p, inst, req);		
-		p->accept_instances = instance_remove(p->accept_instances, inst);
-		carray_push_front(p->prepare_instances, inst);
-		return 1;
+		accept_req* req = malloc(sizeof(accept_req) + inst->value->data_size);
+		req->iid = inst->iid;
+		req->ballot = inst->ballot;
+		req->value_size = inst->value->data_size;
+		memcpy(req->value, inst->value->data, req->value_size);
+		inst->created_at = iter->timeout;
+		return req;
 	}
-	
-	return 0;
+	return NULL;
 }
 
 void

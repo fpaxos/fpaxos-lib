@@ -34,7 +34,6 @@ handle_sigint(int sig, short ev, void* arg)
 int
 main (int argc, char const *argv[])
 {
-	int id;
 	struct event* sig;
 	struct event_base* base;
 	struct evproposer* prop;
@@ -44,17 +43,15 @@ main (int argc, char const *argv[])
 		exit(1);
 	}
 
-	base = event_base_new();    
-
-	id = atoi(argv[1]);
-	prop = evproposer_init(id, argv[2], base);
+	base = event_base_new();
+	sig = evsignal_new(base, SIGINT, handle_sigint, base);
+	evsignal_add(sig, NULL);
+	
+	prop = evproposer_init(atoi(argv[1]), argv[2], base);
 	if (prop == NULL) {
 		printf("Could not start the proposer!\n");
 		exit(1);
 	}
-	
-	sig = evsignal_new(base, SIGINT, handle_sigint, base);
-	evsignal_add(sig, NULL);	
 	
 	event_base_dispatch(base);
 	

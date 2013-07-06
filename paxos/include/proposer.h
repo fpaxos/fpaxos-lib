@@ -46,9 +46,9 @@ int proposer_receive_accept_ack(struct proposer* p, accept_ack* ack, prepare_req
 
 // timeouts
 struct timeout_iterator* proposer_timeout_iterator(struct proposer* p);
-int timeout_iterator_next(struct timeout_iterator* iter, prepare_req* out);
+prepare_req* timeout_iterator_prepare(struct timeout_iterator* iter);
+accept_req* timeout_iterator_accept(struct timeout_iterator* iter);
 void timeout_iterator_free(struct timeout_iterator* iter);
-
 
 #ifdef __cplusplus
 }
