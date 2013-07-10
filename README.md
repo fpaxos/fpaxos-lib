@@ -17,7 +17,7 @@ Libevpaxos (see ```libpaxos/evpaxos```) is the actual networked Paxos implementa
 
 These are the basic steps required to get and compile libpaxos
 
-	git clone git@bitbucket.org:sciascid/libpaxos.git
+	git clone https://bitbucket.org/sciascid/libpaxos.git
 	mkdir libpaxos/build
 	cd libpaxos/build
 	cmake ..
