@@ -64,7 +64,6 @@ static int instance_has_timedout(struct instance* inst, struct timeval* now);
 static paxos_msg* wrap_value(char* value, size_t size);
 static void prepare_preempt(struct proposer* p, struct instance* inst, prepare_req* out);
 static ballot_t proposer_next_ballot(struct proposer* p, ballot_t b);
-static int timeval_diff(struct timeval* t1, struct timeval* t2);
 
 
 struct proposer*
@@ -356,7 +355,7 @@ instance_free(struct instance* inst)
 static int
 instance_has_timedout(struct instance* inst, struct timeval* now)
 {
-	int diff = timeval_diff(&inst->created_at, now);
+	int diff = now->tv_sec - inst->created_at.tv_sec;
 	return diff >= paxos_config.proposer_timeout;
 }
 
@@ -415,15 +414,4 @@ proposer_next_ballot(struct proposer* p, ballot_t b)
 		return MAX_N_OF_PROPOSERS + b;
 	else
 		return MAX_N_OF_PROPOSERS + p->id;
-}
-
-/* Returns t2 - t1 in microseconds. */
-static int
-timeval_diff(struct timeval* t1, struct timeval* t2)
-{
-    int us;
-    us = (t2->tv_sec - t1->tv_sec) * 1e6;
-    if (us < 0) return 0;
-    us += (t2->tv_usec - t1->tv_usec);
-    return us;
 }

@@ -20,7 +20,6 @@
 
 #include "proposer.h"
 #include <gtest/gtest.h>
-#include <sys/time.h>
 
 #define CHECK_ACCEPT_REQ(r, i, b, v, s) { \
 	ASSERT_NE(r, (void*)NULL);            \
@@ -40,7 +39,7 @@ protected:
 	
 	virtual void SetUp() {
 		quorum = paxos_quorum(acceptors);
-		paxos_config.proposer_timeout = 100;
+		paxos_config.proposer_timeout = 1;
 		p = proposer_new(id, acceptors);
 		paxos_config.verbosity = PAXOS_LOG_QUIET;
 	}
@@ -241,7 +240,7 @@ TEST_F(ProposerTest, PendingPrepareShouldTimeout) {
 	struct timeout_iterator* iter;
 	
 	proposer_prepare(p, &pr);
-	usleep(paxos_config.proposer_timeout);
+	sleep(paxos_config.proposer_timeout);
 	
 	iter = proposer_timeout_iterator(p);
 	to = timeout_iterator_prepare(iter);
@@ -268,7 +267,7 @@ TEST_F(ProposerTest, PreparedShouldNotTimeout) {
 		ASSERT_EQ(0, proposer_receive_prepare_ack(p, &pa, &preempted));
 	}
 
-	usleep(paxos_config.proposer_timeout);
+	sleep(paxos_config.proposer_timeout);
 	
 	iter = proposer_timeout_iterator(p);
 	to = timeout_iterator_prepare(iter);
@@ -298,7 +297,7 @@ TEST_F(ProposerTest, PendingAcceptShouldTimeout) {
 	accept_req* ar = proposer_accept(p);
 	free(ar);
 	
-	usleep(paxos_config.proposer_timeout);
+	sleep(paxos_config.proposer_timeout);
 	
 	struct timeout_iterator* iter = proposer_timeout_iterator(p);
 	to = timeout_iterator_accept(iter);
@@ -335,7 +334,7 @@ TEST_F(ProposerTest, AcceptedShouldNotTimeout) {
 	// this one should timeout
 	proposer_prepare(p, &pr);
 	
-	usleep(paxos_config.proposer_timeout);
+	sleep(paxos_config.proposer_timeout);
 	
 	struct timeout_iterator* iter = proposer_timeout_iterator(p);
 	prepare_req* to = timeout_iterator_prepare(iter);
@@ -355,7 +354,7 @@ TEST_F(ProposerTest, ShouldNotTimeoutTwice) {
 	struct timeout_iterator* iter;
 	
 	proposer_prepare(p, &pr);
-	usleep(paxos_config.proposer_timeout);
+	sleep(paxos_config.proposer_timeout);
 	
 	iter = proposer_timeout_iterator(p);
 	prepare_req* to = timeout_iterator_prepare(iter);
