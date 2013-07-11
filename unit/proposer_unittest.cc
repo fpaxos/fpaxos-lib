@@ -42,7 +42,7 @@ protected:
 		quorum = paxos_quorum(acceptors);
 		paxos_config.proposer_timeout = 100;
 		p = proposer_new(id, acceptors);
-		paxos_config.verbosity = PAXOS_LOG_DEBUG;
+		paxos_config.verbosity = PAXOS_LOG_QUIET;
 	}
 	
 	virtual void TearDown() {

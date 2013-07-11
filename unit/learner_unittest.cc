@@ -28,7 +28,7 @@ protected:
 	static const int acceptors = 3;
 	        
 	virtual void SetUp() {
-		paxos_config.verbosity = PAXOS_LOG_ERROR;
+		paxos_config.verbosity = PAXOS_LOG_QUIET;
 		l = learner_new(acceptors);
 	}
 	
