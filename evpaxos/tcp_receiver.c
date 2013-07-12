@@ -122,6 +122,7 @@ tcp_receiver_new(struct event_base* b, struct address* a,
 	assert(r->listener != NULL);
 	evconnlistener_set_error_cb(r->listener, on_listener_error);
 	r->bevs = carray_new(10);
+	paxos_log_info("Listening on port %d", a->port);
 	
 	return r;
 }

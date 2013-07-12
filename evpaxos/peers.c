@@ -107,8 +107,8 @@ on_socket_event(struct bufferevent* bev, short ev, void *arg)
 	} else if (ev & BEV_EVENT_ERROR || ev & BEV_EVENT_EOF) {
 		struct event_base* base;
 		int err = EVUTIL_SOCKET_ERROR();
-		paxos_log_error("Connection error %d (%s)",
-			err, evutil_socket_error_to_string(err));
+		paxos_log_error("%s (%s:%d)", evutil_socket_error_to_string(err),
+			p->addr.address_string, p->addr.port);
 		base = bufferevent_get_base(p->bev);
 		bufferevent_free(p->bev);
 		p->bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);
