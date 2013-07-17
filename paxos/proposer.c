@@ -63,7 +63,7 @@ static struct instance* instance_new(iid_t iid, ballot_t ballot, int acceptors);
 static void instance_free(struct instance* inst);
 static int instance_has_timedout(struct instance* inst, struct timeval* now);
 static accept_req* instance_to_accept_req(struct instance* inst);
-static paxos_msg* wrap_value(char* value, size_t size);
+static paxos_msg* wrap_value(const char* value, size_t size);
 
 
 struct proposer*
@@ -96,7 +96,7 @@ proposer_free(struct proposer* p)
 }
 
 void
-proposer_propose(struct proposer* p, char* value, size_t size)
+proposer_propose(struct proposer* p, const char* value, size_t size)
 {
 	paxos_msg* msg;
 	msg = wrap_value(value, size);
@@ -386,7 +386,7 @@ instance_to_accept_req(struct instance* inst)
 }
 
 static paxos_msg*
-wrap_value(char* value, size_t size)
+wrap_value(const char* value, size_t size)
 {
 	paxos_msg* msg = malloc(size + sizeof(paxos_msg));
 	msg->data_size = size;
