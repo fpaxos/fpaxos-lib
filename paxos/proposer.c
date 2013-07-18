@@ -148,7 +148,7 @@ proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack,
 	}
 	
 	if (!quorum_add(&inst->quorum, ack->acceptor_id)) {
-		paxos_log_debug("Promise dropped from %d, instance %u has a quorum",
+		paxos_log_debug("Duplicate promise dropped from: %d, iid: %u",
 			ack->acceptor_id, inst->iid);
 		return 0;
 	}
@@ -162,15 +162,10 @@ proposer_receive_prepare_ack(struct proposer* p, prepare_ack* ack,
 			inst->value_ballot = ack->value_ballot;
 			inst->value = wrap_value(ack->value, ack->value_size);
 		} else if (ack->value_ballot > inst->value_ballot) {
-			carray_push_back(p->values, inst->value);
+			free(inst->value);
 			inst->value_ballot = ack->value_ballot;
 			inst->value = wrap_value(ack->value, ack->value_size);
 			paxos_log_debug("Value in promise saved, removed older value");
-		} else if (ack->value_ballot == inst->value_ballot) {
-			// TODO does this assumes that the QUORUM is 2?
-			paxos_log_debug("Instance %d closed", inst->iid);
-			kh_del_instance(p->prepare_instances, k);
-			instance_free(inst);
 		} else
 			paxos_log_debug("Value in promise ignored");
 	}
@@ -227,7 +222,7 @@ proposer_receive_accept_ack(struct proposer* p, accept_ack* ack,
 	if (ack->ballot == inst->ballot) {
 		assert(ack->value_ballot == inst->ballot);
 		if (!quorum_add(&inst->quorum, ack->acceptor_id)) {
-			paxos_log_debug("Dropping duplicate accept from: %d, iid: %u", 
+			paxos_log_debug("Duplicate accept dropped from: %d, iid: %u", 
 				ack->acceptor_id, inst->iid);
 			return 0;
 		}
@@ -242,7 +237,9 @@ proposer_receive_accept_ack(struct proposer* p, accept_ack* ack,
 		
 	} else {
 		paxos_log_debug("Instance %u preempted: ballot %d ack ballot %d",
-			inst->iid, inst->ballot, ack->ballot);		
+			inst->iid, inst->ballot, ack->ballot);
+		carray_push_back(p->values, inst->value);
+		inst->value = NULL;
 		proposer_move_instance(p, p->accept_instances, p->prepare_instances, 
 			inst);
 		proposer_preempt(p, inst, out);
