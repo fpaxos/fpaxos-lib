@@ -227,6 +227,8 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	
 	p->state = proposer_new(p->id, conf->acceptors_count);
 	
+	proposer_preexecute(p);
+	
 	free_config(conf);
 	return p;
 }
