@@ -215,7 +215,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	p->receiver = tcp_receiver_new(b, &conf->proposers[id], handle_request, p);
 	
 	// Setup connections to acceptors
-	p->acceptors = peers_new(b, conf->acceptors_count);
+	p->acceptors = peers_new(b);
 	for (i = 0; i < conf->acceptors_count; i++)
 		peers_connect(p->acceptors, &conf->acceptors[i], handle_request, p);
 	

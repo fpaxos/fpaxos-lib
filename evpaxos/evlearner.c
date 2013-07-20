@@ -138,7 +138,7 @@ evlearner_init_conf(struct evpaxos_config* c, deliver_function f, void* arg,
 	l->state = learner_new(c->acceptors_count);
 	
 	// setup connections to acceptors
-	l->acceptors = peers_new(b, c->acceptors_count);
+	l->acceptors = peers_new(b);
 	for (i = 0; i < c->acceptors_count; i++)
 		peers_connect(l->acceptors, &c->acceptors[i], on_acceptor_msg, l);
 	

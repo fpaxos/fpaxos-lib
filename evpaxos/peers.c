@@ -48,7 +48,7 @@ static void connect_peer(struct peer* p);
 
 
 struct peers*
-peers_new(struct event_base* base, int count)
+peers_new(struct event_base* base)
 {
 	struct peers* p = malloc(sizeof(struct peers));
 	p->count = 0;
