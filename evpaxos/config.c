@@ -18,7 +18,7 @@
 */
 
 
-#include "config_reader.h"
+#include "config.h"
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -54,18 +54,51 @@ struct option options[] =
 	{ 0 }
 };
 
+static int parse_line(struct evpaxos_config* c, char* line);
+static void address_init(struct address* a, char* addr, int port);
+static void address_free(struct address* a);
 
-static void
-address_init(struct address* a, char* addr, int port)
+
+struct evpaxos_config*
+evpaxos_config_read(const char* path)
 {
-	a->address_string = strdup(addr);
-	a->port = port;
+	FILE* f;
+	char line[512];
+	int linenumber = 0;
+	struct evpaxos_config* c;
+
+	if ((f = fopen(path, "r")) == NULL) {
+		printf("Error: can't open config file %s\n", path);
+		exit(1);
+	}
+	
+	c = malloc(sizeof(struct evpaxos_config));
+	memset(c, 0, sizeof(struct evpaxos_config));
+	
+	while (fgets(line, sizeof(line), f) != NULL) {
+		if (line[0] != '#' && line[0] != '\n') {
+			if (parse_line(c, line) == 0) {
+				printf("Please, check line %d\n", linenumber);
+				printf("Error parsing config file %s\n", path);
+				exit(1);
+			}
+		}
+		linenumber++;
+	}
+	
+	fclose(f);
+	return c;
 }
 
-static void
-address_free(struct address* a)
+void
+evpaxos_config_free(struct evpaxos_config* config)
 {
-	free(a->address_string);
+	int i;
+	for (i = 0; i < config->proposers_count; ++i)
+		address_free(&config->proposers[i]);
+	for (i = 0; i < config->acceptors_count; ++i)
+		address_free(&config->acceptors[i]);
+	free(config);
 }
 
 static char*
@@ -157,7 +190,7 @@ lookup_option(char* opt)
 }
 
 static int 
-parse_line(char* line, struct config* c)
+parse_line(struct evpaxos_config* c, char* line)
 {
 	int rv;
 	char* tok;
@@ -204,44 +237,15 @@ parse_line(char* line, struct config* c)
 	return rv;
 }
 
-struct config*
-read_config(const char* path)
+static void
+address_init(struct address* a, char* addr, int port)
 {
-	FILE* f;
-	char line[512];
-	int linenumber = 0;
-	struct config* c;
-
-	if ((f = fopen(path, "r")) == NULL) {
-		printf("Error: can't open config file %s\n", path);
-		exit(1);
-	}
-	
-	c = malloc(sizeof(struct config));
-	memset(c, 0, sizeof(struct config));
-	
-	while (fgets(line, sizeof(line), f) != NULL) {
-		if (line[0] != '#' && line[0] != '\n') {
-			if (parse_line(line, c) == 0) {
-				printf("Please, check line %d\n", linenumber);
-				printf("Error parsing config file %s\n", path);
-				exit(1);
-			}
-		}
-		linenumber++;
-	}
-	
-	fclose(f);
-	return c;
+	a->addr = strdup(addr);
+	a->port = port;
 }
 
-void
-free_config(struct config* c)
+static void
+address_free(struct address* a)
 {
-	int i;
-	for (i = 0; i < c->proposers_count; ++i)
-		address_free(&c->proposers[i]);
-	for (i = 0; i < c->acceptors_count; ++i)
-		address_free(&c->acceptors[i]);
-	free(c);
+	free(a->addr);
 }

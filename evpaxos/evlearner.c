@@ -21,7 +21,7 @@
 #include "learner.h"
 #include "peers.h"
 #include "tcp_sendbuf.h"
-#include "config_reader.h"
+#include "config.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <event2/event.h>
@@ -126,7 +126,7 @@ on_acceptor_msg(struct bufferevent* bev, void* arg)
 }
 
 static struct evlearner*
-evlearner_init_conf(struct config* c, deliver_function f, void* arg, 
+evlearner_init_conf(struct evpaxos_config* c, deliver_function f, void* arg, 
 	struct event_base* b)
 {
 	int i;
@@ -148,7 +148,7 @@ evlearner_init_conf(struct config* c, deliver_function f, void* arg,
 	l->hole_timer = evtimer_new(b, learner_check_holes, l);
 	event_add(l->hole_timer, &l->tv);
 	
-	free_config(c);
+	evpaxos_config_free(c);
 	return l;
 }
 
@@ -156,7 +156,7 @@ struct evlearner*
 evlearner_init(const char* config_file, deliver_function f, void* arg, 
 	struct event_base* b)
 {
-	struct config* c = read_config(config_file);
+	struct evpaxos_config* c = evpaxos_config_read(config_file);
 	if (c == NULL) return NULL;
 	return evlearner_init_conf(c, f, arg, b);
 }

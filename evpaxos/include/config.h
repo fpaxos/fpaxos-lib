@@ -26,12 +26,13 @@
 // TODO remove MAX_ADDR
 #define MAX_ADDR 10
 
-struct address {
-	char* address_string;
+struct address
+{
+	char* addr;
 	int port;
 };
 
-struct config
+struct evpaxos_config
 {
 	int proposers_count;
 	int acceptors_count;
@@ -39,7 +40,7 @@ struct config
 	struct address acceptors[MAX_ADDR];
 };
 
-struct config* read_config(const char* path);
-void free_config(struct config* c);
+struct evpaxos_config* evpaxos_config_read(const char* path);
+void evpaxos_config_free(struct evpaxos_config* config);
 
 #endif

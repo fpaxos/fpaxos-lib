@@ -24,7 +24,7 @@
 #include <event2/buffer.h>
 
 #include "evpaxos.h"
-#include "config_reader.h"
+#include "config.h"
 #include "tcp_receiver.h"
 #include "acceptor.h"
 #include "libpaxos_messages.h"
@@ -38,10 +38,10 @@
 struct evacceptor
 {
 	int acceptor_id;
-	struct config* conf;
+	struct acceptor* state;
 	struct event_base* base;
 	struct tcp_receiver* receiver;
-	struct acceptor* state;
+	struct evpaxos_config* conf;
 };
 
 
@@ -132,7 +132,7 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 	
 	a = malloc(sizeof(struct evacceptor));
 
-	a->conf = read_config(config_file);
+	a->conf = evpaxos_config_read(config_file);
 	if (a->conf == NULL) {
 		free(a);
 		return NULL;
@@ -158,7 +158,7 @@ evacceptor_free(struct evacceptor* a)
 {
 	acceptor_free(a->state);
 	tcp_receiver_free(a->receiver);
-	free_config(a->conf);
+	evpaxos_config_free(a->conf);
 	free(a);
 	return 0;
 }

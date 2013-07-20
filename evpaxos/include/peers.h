@@ -21,7 +21,7 @@
 #ifndef _PEERS_H_
 #define _PEERS_H_
 
-#include "config_reader.h"
+#include "config.h"
 #include <event2/bufferevent.h>
 
 struct peers;

@@ -20,7 +20,7 @@
 
 #include "evpaxos.h"
 #include "peers.h"
-#include "config_reader.h"
+#include "config.h"
 #include "libpaxos_messages.h"
 #include "tcp_sendbuf.h"
 #include "tcp_receiver.h"
@@ -194,8 +194,8 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 {
 	int i;
 	struct evproposer* p;
-	
-	struct config* conf = read_config(config_file);
+
+	struct evpaxos_config* conf = evpaxos_config_read(config_file);
 	if (conf == NULL)
 		return NULL;
 	
@@ -229,7 +229,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	
 	proposer_preexecute(p);
 	
-	free_config(conf);
+	evpaxos_config_free(conf);
 	return p;
 }
 

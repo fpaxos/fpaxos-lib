@@ -23,7 +23,7 @@
 
 #include "evpaxos.h"
 #include "carray.h"
-#include "config_reader.h"
+#include "config.h"
 #include <event2/event.h>
 #include <event2/bufferevent.h>
 

@@ -17,12 +17,12 @@
 	along with LibPaxos.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "peers.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <event2/bufferevent.h>
-#include "config_reader.h"
 
 struct peer
 {
@@ -103,12 +103,12 @@ on_socket_event(struct bufferevent* bev, short ev, void *arg)
 	
 	if (ev & BEV_EVENT_CONNECTED) {
 		paxos_log_info("Connected to %s:%d",
-			p->addr.address_string, p->addr.port);
+			p->addr.addr, p->addr.port);
 	} else if (ev & BEV_EVENT_ERROR || ev & BEV_EVENT_EOF) {
 		struct event_base* base;
 		int err = EVUTIL_SOCKET_ERROR();
 		paxos_log_error("%s (%s:%d)", evutil_socket_error_to_string(err),
-			p->addr.address_string, p->addr.port);
+			p->addr.addr, p->addr.port);
 		base = bufferevent_get_base(p->bev);
 		bufferevent_free(p->bev);
 		p->bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);
@@ -131,11 +131,11 @@ connect_peer(struct peer* p)
 	struct sockaddr_in sin;
 	memset(&sin, 0, sizeof(sin));
 	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = inet_addr(p->addr.address_string);
+	sin.sin_addr.s_addr = inet_addr(p->addr.addr);
 	sin.sin_port = htons(p->addr.port);
 	bufferevent_enable(p->bev, EV_READ|EV_WRITE);
 	bufferevent_socket_connect(p->bev, (struct sockaddr*)&sin, sizeof(sin));
-	paxos_log_info("Connect to %s:%d", p->addr.address_string, p->addr.port);
+	paxos_log_info("Connect to %s:%d", p->addr.addr, p->addr.port);
 }
 
 static struct peer*
@@ -143,7 +143,7 @@ make_peer(struct event_base* base, struct address* a, bufferevent_data_cb cb,
 	void* arg)
 {
 	struct peer* p = malloc(sizeof(struct peer));
-	p->addr.address_string = strdup(a->address_string);
+	p->addr.addr = strdup(a->addr);
 	p->addr.port = a->port;
 	p->reconnect_ev = evtimer_new(base, on_connection_timeout, p);
 	p->bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);
@@ -159,6 +159,6 @@ free_peer(struct peer* p)
 {
 	bufferevent_free(p->bev);
 	event_free(p->reconnect_ev);
-	free(p->addr.address_string);
+	free(p->addr.addr);
 	free(p);
 }
