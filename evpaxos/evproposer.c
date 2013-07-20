@@ -192,10 +192,11 @@ proposer_check_timeouts(evutil_socket_t fd, short event, void *arg)
 struct evproposer*
 evproposer_init(int id, const char* config_file, struct event_base* b)
 {
-	int i;
+	int port;
+	int acceptor_count;
 	struct evproposer* p;
-
 	struct evpaxos_config* conf = evpaxos_config_read(config_file);
+	
 	if (conf == NULL)
 		return NULL;
 	
@@ -205,19 +206,20 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 		return NULL;
 	}
 
+	port = evpaxos_proposer_listen_port(conf, id);
+	acceptor_count = evpaxos_acceptor_count(conf);
+	
 	p = malloc(sizeof(struct evproposer));
-
 	p->id = id;
 	p->base = b;
 	p->preexec_window = paxos_config.proposer_preexec_window;
 		
 	// Setup client listener
-	p->receiver = tcp_receiver_new(b, &conf->proposers[id], handle_request, p);
+	p->receiver = tcp_receiver_new(b, port, handle_request, p);
 	
 	// Setup connections to acceptors
 	p->acceptors = peers_new(b);
-	for (i = 0; i < conf->acceptors_count; i++)
-		peers_connect(p->acceptors, &conf->acceptors[i], handle_request, p);
+	peers_connect_to_acceptors(p->acceptors, conf, handle_request, p);
 	
 	// Setup timeout
 	p->tv.tv_sec = paxos_config.proposer_timeout;
@@ -225,7 +227,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	p->timeout_ev = evtimer_new(b, proposer_check_timeouts, p);
 	event_add(p->timeout_ev, &p->tv);
 	
-	p->state = proposer_new(p->id, conf->acceptors_count);
+	p->state = proposer_new(p->id, acceptor_count);
 	
 	proposer_preexecute(p);
 	

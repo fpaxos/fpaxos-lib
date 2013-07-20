@@ -128,6 +128,8 @@ handle_req(struct bufferevent* bev, void* arg)
 struct evacceptor* 
 evacceptor_init(int id, const char* config_file, struct event_base* b)
 {
+	int port;
+	int acceptor_count;
 	struct evacceptor* a;
 	
 	a = malloc(sizeof(struct evacceptor));
@@ -138,16 +140,18 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 		return NULL;
 	}
 	
-	if (id < 0 || id >= a->conf->acceptors_count) {
+	port = evpaxos_acceptor_listen_port(a->conf, id);
+	acceptor_count = evpaxos_acceptor_count(a->conf);
+	
+	if (id < 0 || id >= acceptor_count) {
 		paxos_log_error("Invalid acceptor id: %d.", id);
-		paxos_log_error("Should be between 0 and %d", a->conf->acceptors_count);
+		paxos_log_error("Should be between 0 and %d", acceptor_count);
 		return NULL;
 	}
 	
     a->acceptor_id = id;
 	a->base = b;
-	a->receiver = tcp_receiver_new(a->base, &a->conf->acceptors[id],
-		handle_req, a);
+	a->receiver = tcp_receiver_new(a->base, port, handle_req, a);
 	a->state = acceptor_new(id);
 
     return a;

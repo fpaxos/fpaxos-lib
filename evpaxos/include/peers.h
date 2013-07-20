@@ -28,7 +28,11 @@ struct peers;
 
 struct peers* peers_new(struct event_base* base);
 void peers_free(struct peers* p);
-void peers_connect(struct peers* p, struct address* a, bufferevent_data_cb cb, void* arg);
+void peers_connect(struct peers* p, struct sockaddr_in* addr, 
+	bufferevent_data_cb cb, void* arg);
+	
+void peers_connect_to_acceptors(struct peers* p, struct evpaxos_config* c,
+	bufferevent_data_cb cb, void* arg);
 int peers_count(struct peers* p);
 struct bufferevent* peers_get_buffer(struct peers* p, int i);
 

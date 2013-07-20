@@ -23,24 +23,17 @@
 
 #include "evpaxos.h"
 
-// TODO remove MAX_ADDR
-#define MAX_ADDR 10
-
-struct address
-{
-	char* addr;
-	int port;
-};
-
-struct evpaxos_config
-{
-	int proposers_count;
-	int acceptors_count;
-	struct address proposers[MAX_ADDR];
-	struct address acceptors[MAX_ADDR];
-};
+struct evpaxos_config;
 
 struct evpaxos_config* evpaxos_config_read(const char* path);
 void evpaxos_config_free(struct evpaxos_config* config);
+
+int paxos_proposer_count(struct evpaxos_config* c);
+struct sockaddr_in evpaxos_proposer_address(struct evpaxos_config* c, int i);
+int evpaxos_proposer_listen_port(struct evpaxos_config* c, int i);
+int evpaxos_acceptor_count(struct evpaxos_config* config);
+struct sockaddr_in evpaxos_acceptor_address(struct evpaxos_config* c, int i);
+int evpaxos_acceptor_listen_port(struct evpaxos_config* c, int i);
+
 
 #endif

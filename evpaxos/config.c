@@ -23,7 +23,21 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <arpa/inet.h>
 
+struct address
+{
+	char* addr;
+	int port;
+};
+
+struct evpaxos_config
+{
+	int proposers_count;
+	int acceptors_count;
+	struct address proposers[MAX_N_OF_PROPOSERS];
+	struct address acceptors[MAX_N_OF_PROPOSERS];
+};
 
 enum option_type
 {
@@ -57,6 +71,7 @@ struct option options[] =
 static int parse_line(struct evpaxos_config* c, char* line);
 static void address_init(struct address* a, char* addr, int port);
 static void address_free(struct address* a);
+static struct sockaddr_in address_to_sockaddr(struct address* a);
 
 
 struct evpaxos_config*
@@ -99,6 +114,42 @@ evpaxos_config_free(struct evpaxos_config* config)
 	for (i = 0; i < config->acceptors_count; ++i)
 		address_free(&config->acceptors[i]);
 	free(config);
+}
+
+int
+paxos_proposer_count(struct evpaxos_config* config)
+{
+	return config->proposers_count;
+}
+
+struct sockaddr_in
+evpaxos_proposer_address(struct evpaxos_config* config, int i)
+{
+	return address_to_sockaddr(&config->proposers[i]);
+}
+	
+int
+evpaxos_proposer_listen_port(struct evpaxos_config* config, int i)
+{
+	return config->proposers[i].port;
+}
+
+int 
+evpaxos_acceptor_count(struct evpaxos_config* config)
+{
+	return config->acceptors_count;
+}
+
+struct sockaddr_in
+evpaxos_acceptor_address(struct evpaxos_config* config, int i)
+{
+	return address_to_sockaddr(&config->acceptors[i]);
+}
+
+int
+evpaxos_acceptor_listen_port(struct evpaxos_config* config, int i)
+{
+	return config->acceptors[i].port;
 }
 
 static char*
@@ -248,4 +299,14 @@ static void
 address_free(struct address* a)
 {
 	free(a->addr);
+}
+
+static struct sockaddr_in
+address_to_sockaddr(struct address* a) {
+	struct sockaddr_in addr;
+	memset(&addr, 0, sizeof(struct sockaddr_in));
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(a->port);
+	addr.sin_addr.s_addr = inet_addr(a->addr);
+	return addr;
 }

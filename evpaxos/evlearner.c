@@ -129,18 +129,17 @@ static struct evlearner*
 evlearner_init_conf(struct evpaxos_config* c, deliver_function f, void* arg, 
 	struct event_base* b)
 {
-	int i;
 	struct evlearner* l;
+	int acceptor_count = evpaxos_acceptor_count(c);
 	
 	l = malloc(sizeof(struct evlearner));
 	l->delfun = f;
 	l->delarg = arg;
-	l->state = learner_new(c->acceptors_count);
+	l->state = learner_new(acceptor_count);
 	
 	// setup connections to acceptors
 	l->acceptors = peers_new(b);
-	for (i = 0; i < c->acceptors_count; i++)
-		peers_connect(l->acceptors, &c->acceptors[i], on_acceptor_msg, l);
+	peers_connect_to_acceptors(l->acceptors, c, on_acceptor_msg, l);
 	
 	// setup hole checking timer
 	l->tv.tv_sec = 0;

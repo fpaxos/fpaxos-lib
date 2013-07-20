@@ -36,12 +36,13 @@ struct tcp_receiver
 };
 
 struct tcp_receiver*
-tcp_receiver_new(struct event_base* b, struct address* a, bufferevent_data_cb callback, void* arg);
+tcp_receiver_new(struct event_base* b, int port, 
+	bufferevent_data_cb cb, void* arg);
 
-void 
+void
 tcp_receiver_free(struct tcp_receiver* r);
 
-struct carray* 
+struct carray*
 tcp_receiver_get_events(struct tcp_receiver* r);
 
 #endif

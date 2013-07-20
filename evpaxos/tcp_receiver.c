@@ -31,14 +31,14 @@
 
 
 static void 
-set_sockaddr_in(struct sockaddr_in* sin, struct address* a)
+set_sockaddr_in(struct sockaddr_in* sin, int port)
 {
 	memset(sin, 0, sizeof(sin));
 	sin->sin_family = AF_INET;
 	/* Listen on 0.0.0.0 */
 	sin->sin_addr.s_addr = htonl(0);
 	/* Listen on the given port. */
-	sin->sin_port = htons(a->port);
+	sin->sin_port = htons(port);
 }
 
 static void
@@ -104,7 +104,7 @@ on_listener_error(struct evconnlistener* l, void* arg)
 }
 
 struct tcp_receiver*
-tcp_receiver_new(struct event_base* b, struct address* a,
+tcp_receiver_new(struct event_base* b, int port,
  	bufferevent_data_cb cb, void* arg)
 {
 	struct tcp_receiver* r;
@@ -114,7 +114,7 @@ tcp_receiver_new(struct event_base* b, struct address* a,
 		| LEV_OPT_REUSEABLE;
 	
 	r = malloc(sizeof(struct tcp_receiver));
-	set_sockaddr_in(&sin, a);
+	set_sockaddr_in(&sin, port);
 	r->callback = cb;
 	r->arg = arg;
 	r->listener = evconnlistener_new_bind(
@@ -122,7 +122,7 @@ tcp_receiver_new(struct event_base* b, struct address* a,
 	assert(r->listener != NULL);
 	evconnlistener_set_error_cb(r->listener, on_listener_error);
 	r->bevs = carray_new(10);
-	paxos_log_info("Listening on port %d", a->port);
+	paxos_log_info("Listening on port %d", port);
 	
 	return r;
 }
