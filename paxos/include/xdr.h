@@ -18,23 +18,22 @@
 */
 
 
-#ifndef _PEERS_H_
-#define _PEERS_H_
+#ifndef _XDR_H_
+#define _XDR_H_
 
-#include "config.h"
-#include <event2/bufferevent.h>
+#include "paxos.h"
+#include <rpc/types.h>
+#include <rpc/xdr.h>
+#include <rpc/rpc.h>
 
-struct peers;
-typedef void (*peer_cb)(struct bufferevent* bev,
-	paxos_message* m, void* arg);
-	
-struct peers* peers_new(struct event_base* base);
-void peers_free(struct peers* p);
-void peers_connect(struct peers* p, struct sockaddr_in* addr, 
-	peer_cb cb, void* arg);
-void peers_connect_to_acceptors(struct peers* p, struct evpaxos_config* c,
-	peer_cb cb, void* arg);
-int peers_count(struct peers* p);
-struct bufferevent* peers_get_buffer(struct peers* p, int i);
+bool_t xdr_paxos_value(XDR* xdrs, paxos_value* objp);
+bool_t xdr_paxos_prepare(XDR* xdrs, paxos_prepare* objp);
+bool_t xdr_paxos_promise(XDR* xdrs, paxos_promise* objp);
+bool_t xdr_paxos_accept(XDR* xdrs, paxos_accept* objp);
+bool_t xdr_paxos_accepted(XDR* xdrs, paxos_accepted* objp);
+bool_t xdr_paxos_repeat(XDR *xdrs, paxos_repeat *objp);
+bool_t xdr_paxos_client_value(XDR *xdrs, paxos_client_value *objp);
+bool_t xdr_paxos_message_type(XDR *xdrs, paxos_message_type *objp);
+bool_t xdr_paxos_message(XDR *xdrs, paxos_message *objp);
 
 #endif

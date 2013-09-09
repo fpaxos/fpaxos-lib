@@ -19,6 +19,8 @@
 
 
 #include "paxos.h"
+#include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
@@ -38,6 +40,36 @@ struct paxos_config paxos_config =
 	0,                 /* bdb_delete_on_restart */
 };
 
+
+int
+paxos_quorum(int acceptors)
+{
+	return (acceptors/2)+1;
+}
+
+paxos_value*
+paxos_value_new(const char* value, size_t size)
+{
+	paxos_value* v;
+	v = malloc(sizeof(paxos_value));
+	v->value.value_len = size;
+	v->value.value_val = malloc(size);
+	memcpy(v->value.value_val, value, size);
+	return v;
+}
+
+void
+paxos_value_free(paxos_value* v)
+{
+	free(v->value.value_val);
+	free(v);
+}
+
+paxos_value*
+paxos_value_dup(const paxos_value* v)
+{
+	return paxos_value_new(v->value.value_val, v->value.value_len);
+}
 
 void
 paxos_log(int level, const char* format, va_list ap)
@@ -80,10 +112,4 @@ paxos_log_debug(const char* format, ...)
 	va_start(ap, format);
 	paxos_log(PAXOS_LOG_DEBUG, format, ap);
 	va_end(ap);
-}
-
-int
-paxos_quorum(int acceptors)
-{
-	return (acceptors/2)+1;
 }

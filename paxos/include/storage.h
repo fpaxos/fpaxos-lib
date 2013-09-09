@@ -22,7 +22,6 @@
 #define _STORAGE_H_
 
 #include "paxos.h"
-#include "libpaxos_messages.h"
 
 struct storage;
 
@@ -31,9 +30,9 @@ int storage_close(struct storage* s);
 void storage_tx_begin(struct storage* s);
 void storage_tx_commit(struct storage* s);
 acceptor_record* storage_get_record(struct storage* s, iid_t iid);
-acceptor_record* storage_save_accept(struct storage* s, accept_req * ar);
-acceptor_record* storage_save_prepare(struct storage* s, prepare_req * pr, acceptor_record * rec);
-acceptor_record* storage_save_final_value(struct storage* s, char * value, size_t size, iid_t iid, ballot_t ballot);
-iid_t storage_get_max_iid(struct storage * s);
+acceptor_record* storage_save_accept(struct storage* s, paxos_accept* ar);
+acceptor_record* storage_save_prepare(struct storage* s, paxos_prepare* pr, 
+	acceptor_record* rec);
+acceptor_record* storage_save_final_value(struct storage* s, char* value, 	size_t size, iid_t iid, ballot_t ballot);
 
 #endif

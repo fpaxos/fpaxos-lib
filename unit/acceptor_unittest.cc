@@ -40,116 +40,118 @@ protected:
 };
 
 TEST_F(AcceptorTest, Prepare) {
-	prepare_req p = {1, 101};
-	acceptor_record* rec = acceptor_receive_prepare(a, &p);
-	ASSERT_EQ(rec->acceptor_id, id);
-	ASSERT_EQ(rec->iid, 1);
-	ASSERT_EQ(rec->ballot, 101);
-	ASSERT_EQ(rec->is_final, 0);
-	ASSERT_EQ(rec->value_ballot, 0);
-	ASSERT_EQ(rec->value_size, 0);
+	paxos_prepare pre = {1, 101};
+	paxos_promise pro;
+	acceptor_receive_prepare(a, &pre, &pro);
+	ASSERT_EQ(pro.acceptor_id, id);
+	ASSERT_EQ(pro.iid, 1);
+	ASSERT_EQ(pro.ballot, 101);
+	ASSERT_EQ(pro.value_ballot, 0);
+	ASSERT_EQ(NULL, pro.value.value_val);
 }
 
 TEST_F(AcceptorTest, PrepareDuplicate) {
-	prepare_req p = {1, 101};
-	acceptor_receive_prepare(a, &p);
-	acceptor_record* rec = acceptor_receive_prepare(a, &p);
-	ASSERT_EQ(rec->acceptor_id, id);
-	ASSERT_EQ(rec->iid, 1);
-	ASSERT_EQ(rec->ballot, 101);
-	ASSERT_EQ(rec->is_final, 0);
-	ASSERT_EQ(rec->value_ballot, 0);
-	ASSERT_EQ(rec->value_size, 0);
+	paxos_prepare pre = {1, 101};
+	paxos_promise pro;
+	acceptor_receive_prepare(a, &pre, &pro);
+	acceptor_receive_prepare(a, &pre, &pro);
+	ASSERT_EQ(pro.acceptor_id, id);
+	ASSERT_EQ(pro.iid, 1);
+	ASSERT_EQ(pro.ballot, 101);
+	ASSERT_EQ(pro.value_ballot, 0);
+	ASSERT_EQ(NULL, pro.value.value_val);
 }
 
 TEST_F(AcceptorTest, PrepareSmallerBallot) {
-	prepare_req p;
-	acceptor_record* rec;
-	int ballots[] = {11, 5, 9};
-	
+	paxos_prepare pre;
+	paxos_promise pro;
+	int ballots[] = {11, 5, 9, 10, 2};
 	for (int i = 0; i < (sizeof(ballots)/sizeof(int)); ++i) {
-		p = (prepare_req) {1, ballots[i]};
-		rec = acceptor_receive_prepare(a, &p);
-		ASSERT_EQ(rec->ballot, ballots[0]);
+		pre = (paxos_prepare) {1, ballots[i]};
+		acceptor_receive_prepare(a, &pre, &pro);
+		ASSERT_EQ(pro.ballot, ballots[0]);
 	}
 }
 
 TEST_F(AcceptorTest, PrepareHigherBallot) {
-	prepare_req p;
-	acceptor_record* rec;
-	int ballots[] = {0, 10, 11};
-	
+	paxos_prepare pre;
+	paxos_promise pro;
+	int ballots[] = {0, 10, 11, 20, 33};
 	for (int i = 0; i < sizeof(ballots)/sizeof(int); ++i) {
-		p = (prepare_req) {1, ballots[i]};
-		rec = acceptor_receive_prepare(a, &p);
-		ASSERT_EQ(rec->ballot, ballots[i]);
+		pre = (paxos_prepare) {1, ballots[i]};
+		acceptor_receive_prepare(a, &pre, &pro);
+		ASSERT_EQ(pro.ballot, ballots[i]);
 	}
 }
 
 TEST_F(AcceptorTest, Accept) {
-	acceptor_record* rec;
-	accept_req ar = {1, 101, 0};	// no value
-	rec = acceptor_receive_accept(a, &ar);
-	ASSERT_EQ(rec->acceptor_id, id);
-	ASSERT_EQ(rec->iid, 1);
-	ASSERT_EQ(rec->ballot, 101);
-	ASSERT_EQ(rec->is_final, 0);
-	ASSERT_EQ(rec->value_ballot, 101);
-	ASSERT_EQ(rec->value_size, 0);
+	paxos_accept ar = {1, 101, 0};	// no value
+	paxos_accepted acc;
+	acceptor_receive_accept(a, &ar, &acc);
+	ASSERT_EQ(acc.acceptor_id, id);
+	ASSERT_EQ(acc.iid, 1);
+	ASSERT_EQ(acc.ballot, 101);
+	ASSERT_EQ(acc.is_final, 0);
+	ASSERT_EQ(acc.value_ballot, 101);
+	ASSERT_EQ(NULL, acc.value.value_val);
 }
 
 TEST_F(AcceptorTest, AcceptPrepared) {
-	acceptor_record* rec;
-	prepare_req pr = {1, 101};
-	accept_req ar = {1, 101, 0};
+	paxos_prepare pre = {1, 101};
+	paxos_accept accept = {1, 101, 0};
+	paxos_promise pro;
+	paxos_accepted accepted;
 	
-	rec = acceptor_receive_prepare(a, &pr);
-	ASSERT_EQ(rec->ballot, 101);
-	ASSERT_EQ(rec->value_ballot, 0);
+	acceptor_receive_prepare(a, &pre, &pro);
+	ASSERT_EQ(pro.ballot, 101);
+	ASSERT_EQ(pro.value_ballot, 0);
 	
-	rec = acceptor_receive_accept(a, &ar);
-	ASSERT_EQ(rec->ballot, 101);
-	ASSERT_EQ(rec->value_ballot, 101);
+	acceptor_receive_accept(a, &accept, &accepted);
+	ASSERT_EQ(accepted.ballot, 101);
+	ASSERT_EQ(accepted.value_ballot, 101);
 }
 
 TEST_F(AcceptorTest, AcceptHigherBallot) {
-	acceptor_record* rec;
-	prepare_req pr = {1, 101};
-	accept_req ar = {1, 201, 0};
+	paxos_prepare pr = {1, 101};
+	paxos_accept ar = {1, 201, 0};
+	paxos_promise pro;
+	paxos_accepted acc;
 	
-	rec = acceptor_receive_prepare(a, &pr);
-	ASSERT_EQ(rec->ballot, 101);
-	ASSERT_EQ(rec->value_ballot, 0);
+	acceptor_receive_prepare(a, &pr, &pro);
+	ASSERT_EQ(pro.ballot, 101);
+	ASSERT_EQ(pro.value_ballot, 0);
 	
-	rec = acceptor_receive_accept(a, &ar);
-	ASSERT_EQ(rec->ballot, 201);
-	ASSERT_EQ(rec->value_ballot, 201);
+	acceptor_receive_accept(a, &ar, &acc);
+	ASSERT_EQ(acc.ballot, 201);
+	ASSERT_EQ(acc.value_ballot, 201);
 }
 
 TEST_F(AcceptorTest, AcceptSmallerBallot) {
-	acceptor_record* rec;
-	prepare_req pr = {1, 201};
-	accept_req ar = {1, 101, 0};
+	paxos_prepare pr = {1, 201};
+	paxos_accept ar = {1, 101, 0};
+	paxos_promise pro;
+	paxos_accepted acc;
 	
-	rec = acceptor_receive_prepare(a, &pr);
-	ASSERT_EQ(rec->ballot, 201);
-	ASSERT_EQ(rec->value_ballot, 0);
+	acceptor_receive_prepare(a, &pr, &pro);
+	ASSERT_EQ(pro.ballot, 201);
+	ASSERT_EQ(pro.value_ballot, 0);
 	
-	rec = acceptor_receive_accept(a, &ar);
-	ASSERT_EQ(rec->ballot, 201);
-	ASSERT_EQ(rec->value_ballot, 0);
+	acceptor_receive_accept(a, &ar, &acc);
+	ASSERT_EQ(acc.ballot, 201);
+	ASSERT_EQ(acc.value_ballot, 0);
 }
 
 TEST_F(AcceptorTest, PrepareWithAcceptedValue) {
-	acceptor_record* rec;
-	prepare_req pr = {1, 101};
-	accept_req ar = {1, 101, 0};
+	paxos_prepare pr = {1, 101};
+	paxos_accept ar = {1, 101, 0};
+	paxos_promise pro;
+	paxos_accepted acc;
 	
-	acceptor_receive_prepare(a, &pr);
-	acceptor_receive_accept(a, &ar);
+	acceptor_receive_prepare(a, &pr, &pro);
+	acceptor_receive_accept(a, &ar, &acc);
 	
-	pr = (prepare_req) {1, 201};
-	rec = acceptor_receive_prepare(a, &pr);
-	ASSERT_EQ(rec->ballot, 201);
-	ASSERT_EQ(rec->value_ballot, 101);
+	pr = (paxos_prepare) {1, 201};
+	acceptor_receive_prepare(a, &pr, &pro);
+	ASSERT_EQ(pro.ballot, 201);
+	ASSERT_EQ(pro.value_ballot, 101);
 }

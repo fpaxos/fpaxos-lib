@@ -21,21 +21,11 @@
 #include "proposer.h"
 #include <gtest/gtest.h>
 
-#define CHECK_ACCEPT_REQ(r, i, b, v, s) { \
-	ASSERT_NE(r, (void*)NULL);            \
-	ASSERT_EQ(r->iid, i);                 \
-	ASSERT_EQ(r->ballot, b);              \
-	ASSERT_EQ(r->value_size, s);          \
-	ASSERT_STREQ(r->value, v);            \
-}
-
-prepare_ack* prepare_ack_with_value(prepare_ack pa, const char* value) {
-	int len = strlen(value)+1;
-	prepare_ack* ack = (prepare_ack*)malloc(sizeof(prepare_ack) + len);
-	*ack = pa;
-	ack->value_size = len;
-	memcpy(ack->value, value, len);
-	return ack;
+#define CHECK_ACCEPT(r, i, b, v, s) {   \
+	ASSERT_EQ(r.iid, i);                \
+	ASSERT_EQ(r.ballot, b);             \
+	ASSERT_EQ(r.value.value_len, s);    \
+	ASSERT_STREQ(r.value.value_val, v); \
 }
 
 class ProposerTest : public testing::Test {
@@ -58,37 +48,36 @@ protected:
 	}
 	
 	void TestPrepareAckFromQuorum(iid_t iid, ballot_t bal) {
-		prepare_req pr;
+		paxos_prepare pr;
 		for (size_t i = 0; i < quorum; ++i) {
-			prepare_ack pa = (prepare_ack) {i, iid, bal, 0, 0};
-			ASSERT_EQ(0, proposer_receive_prepare_ack(p, &pa, &pr));
+			paxos_promise pa = (paxos_promise) {i, iid, bal, 0, 0};
+			ASSERT_EQ(0, proposer_receive_promise(p, &pa, &pr));
 		}
 	}
 	
 	void TestPrepareAckFromQuorum(iid_t iid, ballot_t bal, 
 		const char* value, ballot_t vbal = 0) {
-		prepare_req pr;
-		prepare_ack* pa;
-		pa = prepare_ack_with_value((prepare_ack){0, iid, bal, vbal}, value);
+		paxos_prepare pr;
+		paxos_promise pa = (paxos_promise) {0, iid, bal, vbal,
+			strlen(value)+1, (char*)value};
 		for (size_t i = 0; i < quorum; ++i) {
-			pa->acceptor_id = i;
-			ASSERT_EQ(0, proposer_receive_prepare_ack(p, pa, &pr));
+			pa.acceptor_id = i;
+			ASSERT_EQ(0, proposer_receive_promise(p, &pa, &pr));
 		}
-		free(pa);
 	}
 	
 	void TestAcceptAckFromQuorum(iid_t iid, ballot_t bal) {
-		prepare_req pr;
+		paxos_prepare pr;
 		for (size_t i = 0; i < quorum; ++i) {
-			accept_ack aa = (accept_ack) {i, iid, bal, bal, 0, 0};
-			ASSERT_EQ(0, proposer_receive_accept_ack(p, &aa, &pr));
+			paxos_accepted aa = (paxos_accepted) {i, iid, bal, bal, 0, 0};
+			ASSERT_EQ(0, proposer_receive_accepted(p, &aa, &pr));
 		}
 	}
 };
 
 TEST_F(ProposerTest, Prepare) {
 	int count = 10;
-	prepare_req pr;
+	paxos_prepare pr;
 	for (int i = 0; i < count; ++i) {
 		proposer_prepare(p, &pr);
 		ASSERT_EQ(pr.iid, i+1);
@@ -98,59 +87,62 @@ TEST_F(ProposerTest, Prepare) {
 }
 
 TEST_F(ProposerTest, IgnoreOldBallots) {
-	prepare_req pr, preempted;
-	prepare_ack pa;
+	paxos_prepare pr, preempted;
+	paxos_promise pa;
 
 	proposer_prepare(p, &pr);
 	
 	// ignore smaller ballot
-	pa = (prepare_ack) {1, pr.iid, pr.ballot-1, 0, 0};
-	ASSERT_EQ(0, proposer_receive_prepare_ack(p, &pa, &preempted));
+	pa = (paxos_promise) {1, pr.iid, pr.ballot-1, 0, 0};
+	ASSERT_EQ(0, proposer_receive_promise(p, &pa, &preempted));
 	
 	// preempt
-	pa = (prepare_ack) {1, pr.iid, pr.ballot+1, 0, 0};
-	ASSERT_EQ(1, proposer_receive_prepare_ack(p, &pa, &preempted));
+	pa = (paxos_promise) {1, pr.iid, pr.ballot+1, 0, 0};
+	ASSERT_EQ(1, proposer_receive_promise(p, &pa, &preempted));
 	
 	// again ignore smaller ballot
-	pa = (prepare_ack) {1, pr.iid, pr.ballot, 0, 0};
-	ASSERT_EQ(0, proposer_receive_prepare_ack(p, &pa, &preempted));
+	pa = (paxos_promise) {1, pr.iid, pr.ballot, 0, 0};
+	ASSERT_EQ(0, proposer_receive_promise(p, &pa, &preempted));
 }
 
 TEST_F(ProposerTest, IgnoreDuplicatePrepareAcks) {
-	prepare_req pr, preempted;
+	paxos_prepare pr, preempted;
+	paxos_accept ar;
 	proposer_prepare(p, &pr);
 	proposer_propose(p, "value", strlen("value")+1);
 	for (size_t i = 0; i < 10; ++i) {
-		prepare_ack pa = (prepare_ack) {2, pr.iid, pr.ballot, 0, 0};
-		ASSERT_EQ(0, proposer_receive_prepare_ack(p, &pa, &preempted));
-		accept_req* ar = proposer_accept(p);
-		ASSERT_EQ(NULL, ar);
+		paxos_promise pa = (paxos_promise) {2, pr.iid, pr.ballot, 0, 0};
+		ASSERT_EQ(0, proposer_receive_promise(p, &pa, &preempted));
+		ASSERT_FALSE(proposer_accept(p, &ar));
 	}
+	paxos_promise pa = (paxos_promise) {1, pr.iid, pr.ballot, 0, 0};
+	proposer_receive_promise(p, &pa, &preempted);
+	proposer_accept(p, &ar);
+	TestAcceptAckFromQuorum(ar.iid, ar.ballot);
 }
 
 TEST_F(ProposerTest, PrepareAndAccept) {
-	prepare_req pr;
-	accept_req* ar;
+	paxos_prepare pr;
+	paxos_accept ar;
 	char value[] = "a value";
 	int value_size = strlen(value) + 1;	
 	
 	proposer_prepare(p, &pr);
 	TestPrepareAckFromQuorum(pr.iid, pr.ballot);
 
-	ar = proposer_accept(p);
-	ASSERT_EQ((void*)NULL, ar); // no value to propose yet
+	ASSERT_FALSE(proposer_accept(p, &ar)); // no value to propose yet
 	
 	proposer_propose(p, value, value_size);
 	
-	ar = proposer_accept(p);
-	CHECK_ACCEPT_REQ(ar, pr.iid, pr.ballot, value, value_size);
+	proposer_accept(p, &ar);
+	CHECK_ACCEPT(ar, pr.iid, pr.ballot, value, value_size);
 	
-	TestAcceptAckFromQuorum(ar->iid, ar->ballot);
-	free(ar);
+	TestAcceptAckFromQuorum(ar.iid, ar.ballot);
 }
 
 TEST_F(ProposerTest, PreparePreempted) {
-	prepare_req pr, preempted;
+	paxos_accept ar;
+	paxos_prepare pr, preempted;
 	char value[] = "some value";
 	int value_size = strlen(value) + 1;
 	
@@ -158,20 +150,20 @@ TEST_F(ProposerTest, PreparePreempted) {
 	proposer_propose(p, value, value_size);
 	
 	// preempt! proposer receives a different ballot...
-	prepare_ack pa = (prepare_ack) {1, pr.iid, pr.ballot+1, 0, 0};
-	ASSERT_EQ(1, proposer_receive_prepare_ack(p, &pa, &preempted));
+	paxos_promise pa = (paxos_promise) {1, pr.iid, pr.ballot+1, 0, 0};
+	ASSERT_EQ(1, proposer_receive_promise(p, &pa, &preempted));
 	ASSERT_EQ(preempted.iid, pr.iid);
 	ASSERT_GT(preempted.ballot, pr.ballot);
 	
 	TestPrepareAckFromQuorum(preempted.iid, preempted.ballot);
 	
-	accept_req* ar = proposer_accept(p);
-	CHECK_ACCEPT_REQ(ar, preempted.iid, preempted.ballot, value, value_size);
-	free(ar);
+	proposer_accept(p, &ar);
+	CHECK_ACCEPT(ar, preempted.iid, preempted.ballot, value, value_size);
 }
 
 TEST_F(ProposerTest, PrepareAlreadyClosed) {
-	prepare_req pr, preempted;
+	paxos_accept ar;
+	paxos_prepare pr, preempted;
 	char value[] = "some value";
 	int value_size = strlen(value) + 1;
 	
@@ -179,65 +171,65 @@ TEST_F(ProposerTest, PrepareAlreadyClosed) {
 	proposer_propose(p, value, value_size);
 
 	// preempt! proposer receives a different ballot...
-	prepare_ack* pa = prepare_ack_with_value(
-		(prepare_ack) {1, pr.iid, pr.ballot+1, 0, 0}, "foo bar baz");
-	ASSERT_EQ(1, proposer_receive_prepare_ack(p, pa, &preempted));
+	paxos_promise pa = (paxos_promise) {1, pr.iid, pr.ballot+1, 0, 
+		strlen("foo bar baz")+1, (char*)"foo bar baz"};
+	
+	ASSERT_EQ(1, proposer_receive_promise(p, &pa, &preempted));
 	ASSERT_EQ(preempted.iid, pr.iid);
 	ASSERT_GT(preempted.ballot, pr.ballot);
-	free(pa);
 
 	// acquire the instance
 	TestPrepareAckFromQuorum(preempted.iid, preempted.ballot, value);
 
 	// proposer has majority with the same value, 
 	// we expect the instance to be closed
-	accept_req* ar = proposer_accept(p);
-	TestPrepareAckFromQuorum(ar->iid, ar->ballot);
-	free(ar);
+	proposer_accept(p, &ar);
+	TestPrepareAckFromQuorum(ar.iid, ar.ballot);
 	
 	// try to accept our value on instance 2
 	proposer_prepare(p, &pr);
 	TestPrepareAckFromQuorum(pr.iid, pr.ballot);
 	
-	ar = proposer_accept(p);
-	CHECK_ACCEPT_REQ(ar, pr.iid, pr.ballot, value, value_size)
-	free(ar);
+	proposer_accept(p, &ar);
+	CHECK_ACCEPT(ar, pr.iid, pr.ballot, value, value_size)
 }
 
 TEST_F(ProposerTest, PreparePreemptedWithTwoValues) {
-	prepare_req pr, preempted;
+	paxos_accept ar;
+	paxos_prepare pr, preempted;
 
 	proposer_prepare(p, &pr);
 	proposer_propose(p, "v1", 3);
 	
 	// preempt with value
-	prepare_ack* pa1 = prepare_ack_with_value(
-		(prepare_ack){1, pr.iid, pr.ballot+1, pr.ballot+1, 0}, "v2");
-	prepare_ack* pa2 = prepare_ack_with_value(
-		(prepare_ack){2, pr.iid, pr.ballot+11, pr.ballot+11, 0}, "v3");
-	proposer_receive_prepare_ack(p, pa1, &preempted);
-	proposer_receive_prepare_ack(p, pa2, &preempted);
+	paxos_promise pa1 = (paxos_promise) {1, pr.iid, pr.ballot+1, pr.ballot+1, 
+		strlen("v2")+1, (char*)"v2" };
+	paxos_promise pa2 = (paxos_promise) {2, pr.iid, pr.ballot+11, pr.ballot+11,
+		strlen("v3")+1, (char*)"v3" };
 	
-	pa1->ballot = preempted.ballot;
-	proposer_receive_prepare_ack(p, pa1, &preempted);
+	proposer_receive_promise(p, &pa1, &preempted);
+	proposer_receive_promise(p, &pa2, &preempted);
 	
-	ASSERT_EQ(NULL, proposer_accept(p));
+	pa1.ballot = preempted.ballot;
+	proposer_receive_promise(p, &pa1, &preempted);
 	
-	pa2->ballot = preempted.ballot;
-	proposer_receive_prepare_ack(p, pa2, &preempted);
+	ASSERT_FALSE(proposer_accept(p, &ar));
 	
-	accept_req* ar = proposer_accept(p);
-	CHECK_ACCEPT_REQ(ar, preempted.iid, preempted.ballot, "v3", 3);
-	free(ar);
-
+	pa2.ballot = preempted.ballot;
+	proposer_receive_promise(p, &pa2, &preempted);
+	
+	proposer_accept(p, &ar);
+	CHECK_ACCEPT(ar, preempted.iid, preempted.ballot, "v3", 3);
+	
 	proposer_prepare(p, &pr);
 	TestPrepareAckFromQuorum(pr.iid, pr.ballot);
-	ar = proposer_accept(p);
-	CHECK_ACCEPT_REQ(ar, pr.iid, pr.ballot, "v1", 3);
+	proposer_accept(p, &ar);
+	CHECK_ACCEPT(ar, pr.iid, pr.ballot, "v1", 3);
 }
 
 TEST_F(ProposerTest, AcceptPreempted) {
-	prepare_req pr, preempted;
+	paxos_accept ar;
+	paxos_prepare pr, preempted;
 	char value[] = "some value";
 	int value_size = strlen(value) + 1;
 	
@@ -245,15 +237,13 @@ TEST_F(ProposerTest, AcceptPreempted) {
 	proposer_propose(p, value, value_size);
 	TestPrepareAckFromQuorum(pr.iid, pr.ballot);
 	
-	accept_req* ar = proposer_accept(p);
-	ASSERT_NE(ar, (void*)NULL);
+	ASSERT_TRUE(proposer_accept(p, &ar));
 	
 	// preempt! proposer receives accept nack
-	accept_ack aa = (accept_ack) {0, ar->iid, ar->ballot+1, ar->ballot+1, 0, 0};
-	ASSERT_EQ(1, proposer_receive_accept_ack(p, &aa, &preempted));
+	paxos_accepted aa = (paxos_accepted) {0, ar.iid, ar.ballot+1, ar.ballot+1, 0, 0};
+	ASSERT_EQ(1, proposer_receive_accepted(p, &aa, &preempted));
 	ASSERT_EQ(preempted.iid, pr.iid);
-	ASSERT_GT(preempted.ballot, ar->ballot);
-	free(ar);
+	ASSERT_GT(preempted.ballot, ar.ballot);
 	
 	// check that proposer pushed the instance back to the prepare phase
 	ASSERT_EQ(proposer_prepared_count(p), 1);
@@ -261,21 +251,20 @@ TEST_F(ProposerTest, AcceptPreempted) {
 	// close the instance
 	TestPrepareAckFromQuorum(preempted.iid, preempted.ballot, 
 		"preempt", aa.value_ballot);
-	ar = proposer_accept(p);
+	proposer_accept(p, &ar);
 	TestAcceptAckFromQuorum(preempted.iid, preempted.ballot);
-	free(ar);
 	
 	// make sure our value did not disappear...
 	proposer_prepare(p, &pr);
 	TestPrepareAckFromQuorum(pr.iid, pr.ballot);
-	ar = proposer_accept(p);
-	CHECK_ACCEPT_REQ(ar, pr.iid, pr.ballot, value, value_size);
-	free(ar);
+	proposer_accept(p, &ar);
+	CHECK_ACCEPT(ar, pr.iid, pr.ballot, value, value_size);
 }
 
 TEST_F(ProposerTest, PreparedCount) {
 	int count = 100;
-	prepare_req pr, preempted;
+	paxos_accept ar;
+	paxos_prepare pr, preempted;
 	
 	for (size_t i = 0; i < count; ++i) {
 		proposer_prepare(p, &pr);
@@ -284,42 +273,36 @@ TEST_F(ProposerTest, PreparedCount) {
 	}
 	
 	for (size_t i = 0; i < count; ++i)
-		proposer_accept(p);
+		proposer_accept(p, &ar);
 	ASSERT_EQ(count, proposer_prepared_count(p));
 	
 	for (size_t i = 0; i < count; ++i) {
 		TestPrepareAckFromQuorum(i+1, pr.ballot);
-		accept_req* ar = proposer_accept(p);
-		free(ar);
+		proposer_accept(p, &ar);
 		ASSERT_EQ(count-(i+1), proposer_prepared_count(p));
 	}
 }
 
 TEST_F(ProposerTest, PendingPrepareShouldTimeout) {
-	prepare_req pr;
-	prepare_req* to;
+	paxos_prepare pr, to;
 	struct timeout_iterator* iter;
 	
 	proposer_prepare(p, &pr);
 	sleep(paxos_config.proposer_timeout);
 	
 	iter = proposer_timeout_iterator(p);
-	to = timeout_iterator_prepare(iter);
+	ASSERT_TRUE(timeout_iterator_prepare(iter, &to));
+	ASSERT_EQ(pr.iid, to.iid);
+	ASSERT_EQ(pr.ballot, to.ballot);
 	
-	ASSERT_NE((prepare_req*)NULL, to);
-	ASSERT_EQ(pr.iid, to->iid);
-	ASSERT_EQ(pr.ballot, to->ballot);
-	free(to);
-	
-	ASSERT_EQ(NULL, timeout_iterator_prepare(iter));
+	ASSERT_FALSE(timeout_iterator_prepare(iter, &to));
 	timeout_iterator_free(iter);
 }
 
 TEST_F(ProposerTest, PreparedShouldNotTimeout) {
 	struct timeout_iterator* iter;
-	prepare_req pr1, pr2, preempted;
-	prepare_req* to;
-	
+	paxos_prepare pr1, pr2, preempted, to;
+
 	proposer_prepare(p, &pr1);
 	proposer_prepare(p, &pr2);
 	TestPrepareAckFromQuorum(pr1.iid, pr1.ballot);
@@ -327,42 +310,38 @@ TEST_F(ProposerTest, PreparedShouldNotTimeout) {
 	sleep(paxos_config.proposer_timeout);
 	
 	iter = proposer_timeout_iterator(p);
-	to = timeout_iterator_prepare(iter);
-	ASSERT_NE((prepare_req*)NULL, to);
-	ASSERT_EQ(pr2.iid, to->iid);
-	ASSERT_EQ(pr2.ballot, to->ballot);
-	free(to);
+	ASSERT_TRUE(timeout_iterator_prepare(iter, &to));
+	ASSERT_EQ(pr2.iid, to.iid);
+	ASSERT_EQ(pr2.ballot, to.ballot);
 	
-	ASSERT_EQ(NULL, timeout_iterator_prepare(iter));
+	ASSERT_FALSE(timeout_iterator_prepare(iter, &to));
 	timeout_iterator_free(iter);
 }
 
 TEST_F(ProposerTest, PendingAcceptShouldTimeout) {
-	prepare_req pr, preempted;
-	accept_req* to;
+	paxos_prepare pr, preempted;
+	paxos_accept ar, to;
 	
 	proposer_prepare(p, &pr);
 	proposer_propose(p, "a value", strlen("a value")+1);
 	TestPrepareAckFromQuorum(pr.iid, pr.ballot);
 
-	accept_req* ar = proposer_accept(p);
-	free(ar);
+	proposer_accept(p, &ar);
 	
 	sleep(paxos_config.proposer_timeout);
 	
 	struct timeout_iterator* iter = proposer_timeout_iterator(p);
-	to = timeout_iterator_accept(iter);
-	ASSERT_NE((accept_req*)NULL, to);
-	ASSERT_EQ(pr.iid, to->iid);
-	ASSERT_EQ(pr.ballot, to->ballot);
-	free(to);
+	ASSERT_TRUE(timeout_iterator_accept(iter, &to));
+	ASSERT_EQ(pr.iid, to.iid);
+	ASSERT_EQ(pr.ballot, to.ballot);
 	
-	ASSERT_EQ(NULL, timeout_iterator_accept(iter));
+	ASSERT_FALSE(timeout_iterator_accept(iter, &to));
 	timeout_iterator_free(iter);
 }
 
 TEST_F(ProposerTest, AcceptedShouldNotTimeout) {
-	prepare_req pr, preempted;
+	paxos_accept ar;
+	paxos_prepare pr, preempted, to;
 
 	// phase 1
 	proposer_prepare(p, &pr);
@@ -370,9 +349,8 @@ TEST_F(ProposerTest, AcceptedShouldNotTimeout) {
 	TestPrepareAckFromQuorum(pr.iid, pr.ballot);
 	
 	// phase 2
-	accept_req* ar = proposer_accept(p);
-	TestAcceptAckFromQuorum(ar->iid, ar->ballot);
-	free(ar);
+	proposer_accept(p, &ar);
+	TestAcceptAckFromQuorum(ar.iid, ar.ballot);
 	
 	// this one should timeout
 	proposer_prepare(p, &pr);
@@ -380,32 +358,28 @@ TEST_F(ProposerTest, AcceptedShouldNotTimeout) {
 	sleep(paxos_config.proposer_timeout);
 	
 	struct timeout_iterator* iter = proposer_timeout_iterator(p);
-	prepare_req* to = timeout_iterator_prepare(iter);
-	ASSERT_NE((prepare_req*)NULL, to);
-	ASSERT_EQ(pr.iid, to->iid);
-	ASSERT_EQ(pr.ballot, to->ballot);
-	free(to);
+	ASSERT_TRUE(timeout_iterator_prepare(iter, &to));
+	ASSERT_EQ(pr.iid, to.iid);
+	ASSERT_EQ(pr.ballot, to.ballot);
 	
-	ASSERT_EQ(NULL, timeout_iterator_prepare(iter));
-	ASSERT_EQ(NULL, timeout_iterator_accept(iter));
+	ASSERT_FALSE(timeout_iterator_prepare(iter, &to));
+	ASSERT_FALSE(timeout_iterator_accept(iter, &ar));
 
 	timeout_iterator_free(iter);
 }
 
 TEST_F(ProposerTest, ShouldNotTimeoutTwice) {
-	prepare_req pr;
+	paxos_prepare pr, to;
 	struct timeout_iterator* iter;
 	
 	proposer_prepare(p, &pr);
 	sleep(paxos_config.proposer_timeout);
 	
 	iter = proposer_timeout_iterator(p);
-	prepare_req* to = timeout_iterator_prepare(iter);
-	ASSERT_NE((prepare_req*)NULL, to);
-	free(to);
+	ASSERT_TRUE(timeout_iterator_prepare(iter, &to));
 	timeout_iterator_free(iter);
 	
 	iter = proposer_timeout_iterator(p);
-	ASSERT_EQ(NULL, timeout_iterator_prepare(iter));
+	ASSERT_FALSE(timeout_iterator_prepare(iter, &to));
 	timeout_iterator_free(iter);
 }

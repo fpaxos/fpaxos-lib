@@ -21,6 +21,7 @@
 #include "paxos.h"
 #include "quorum.h"
 #include <stdlib.h>
+#include <string.h>
 
 
 void
@@ -35,10 +36,8 @@ quorum_init(struct quorum* q, int acceptors)
 void
 quorum_clear(struct quorum* q)
 {
-	int i;
 	q->count = 0;
-	for (i = 0; i < q->quorum; ++i)
-		q->acceptor_ids[i] = 0;
+	memset(q->acceptor_ids, 0, sizeof(int) * q->acceptors);
 }
 
 void

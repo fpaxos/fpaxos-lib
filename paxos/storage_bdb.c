@@ -26,6 +26,9 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <assert.h>
+#include "xdr.h"
+#include <rpc/xdr.h>
+#include <rpc/types.h>
 
 struct storage
 {
@@ -33,7 +36,8 @@ struct storage
 	DB_ENV* env;
 	DB_TXN* txn;
 	int acceptor_id;
-	char record_buf[PAXOS_MAX_VALUE_SIZE];
+	char buffer[PAXOS_MAX_VALUE_SIZE];
+	acceptor_record record;
 };
 
 static int 
@@ -42,14 +46,14 @@ bdb_init_tx_handle(struct storage* s, char* db_env_path)
 	int result;
 	DB_ENV* dbenv; 
 	
-	//Create environment handle
+	// Create environment handle
 	result = db_env_create(&dbenv, 0);
 	if (result != 0) {
 		paxos_log_error("DB_ENV creation failed: %s", db_strerror(result));
 		return -1;
 	}
 	
-	//Durability mode
+	// Durability mode
 	if (!paxos_config.bdb_sync)
 		result = dbenv->set_flags(dbenv, DB_TXN_WRITE_NOSYNC, 1);
 	
@@ -58,10 +62,10 @@ bdb_init_tx_handle(struct storage* s, char* db_env_path)
 		return -1;
 	}
 	
-	//Redirect errors to sdout
+	// Redirect errors to sdout
 	dbenv->set_errfile(dbenv, stdout);
 
-	//Set the size of the memory cache
+	// Set the size of the memory cache
 	result = dbenv->set_cachesize(dbenv, 0, paxos_config.bdb_cachesize, 1);
 	if (result != 0) {
 		paxos_log_error("DB_ENV set_cachesize failed: %s",
@@ -69,14 +73,6 @@ bdb_init_tx_handle(struct storage* s, char* db_env_path)
 		return -1;
 	}
 	
-	//TODO see page size impact
-	//Set page size for this db
-	// result = dbp->set_pagesize(dbp, pagesize);
-	// assert(result  == 0);
-
-	//FIXME set log size
-
-
 	// Environment open flags
 	int flags;
 	flags =
@@ -89,7 +85,7 @@ bdb_init_tx_handle(struct storage* s, char* db_env_path)
 		DB_REGISTER 	|
 		DB_INIT_MPOOL;     /* Initialize the memory pool (in-memory cache) */
 
-	//Open the DB environment
+	// Open the DB environment
 	result = dbenv->open(dbenv, 
 		db_env_path,            /* Environment directory */
 		flags,                  /* Open flags */
@@ -112,7 +108,7 @@ bdb_init_db(struct storage* s, char* db_path)
 	int result;
 	DB* dbp;
 	
-	//Create the DB file
+	// Create the DB file
 	result = db_create(&(s->db), s->env, 0);
 	if (result != 0) {
 		paxos_log_error("Berkeley DB storage call to db_create failed: %s", 
@@ -127,7 +123,7 @@ bdb_init_db(struct storage* s, char* db_path)
 
 	storage_tx_begin(s);
 
-	//Open the DB file
+	// Open the DB file
 	result = dbp->open(dbp,
 		s->txn,          /* Transaction pointer */
 		db_path,         /* On-disk file that holds the database. */
@@ -157,22 +153,22 @@ storage_open(int acceptor_id)
 	
 	s->acceptor_id = acceptor_id;
 	
-	//Create path to db file in db dir
+	// Create path to db file in db dir
 	char* db_env_path;
 	asprintf(&db_env_path, "%s_%d", paxos_config.bdb_env_path, acceptor_id);
 	char* db_filename = paxos_config.bdb_db_filename;
 	
 	struct stat sb;
-	//Check if the environment dir and db file exists
+	// Check if the environment dir and db file exists
 	int dir_exists = (stat(db_env_path, &sb) == 0);
 
-	//Create the directory if it does not exist
+	// Create the directory if it does not exist
 	if (!dir_exists && (mkdir(db_env_path, S_IRWXU) != 0)) {
 		paxos_log_error("Failed to create env dir %s: %s",
 			db_env_path, strerror(errno));
 		return NULL;
 	} 
-	//Delete and recreate an empty dir if not recovering
+	// Delete and recreate an empty dir if not recovering
 	if (paxos_config.bdb_trash_files && dir_exists) {
 		char rm_command[600];
 		sprintf(rm_command, "rm -r %s", db_env_path);
@@ -208,7 +204,7 @@ storage_close(struct storage* s)
 	DB* dbp = s->db;
 	DB_ENV* dbenv = s->env;
 	
-	if(dbp->close(dbp, 0) != 0) {
+	if (dbp->close(dbp, 0) != 0) {
 		paxos_log_error("DB_ENV close failed");
 		result = -1;
 	}
@@ -248,209 +244,158 @@ storage_get_record(struct storage* s, iid_t iid)
 	DBT dbkey, dbdata;
 	DB* dbp = s->db;
 	DB_TXN* txn = s->txn;
-	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
 
 	memset(&dbkey, 0, sizeof(DBT));
 	memset(&dbdata, 0, sizeof(DBT));
 
-	//Key is iid
+	// Key is iid
 	dbkey.data = &iid;
 	dbkey.size = sizeof(iid_t);
     
-	//Data is our buffer
-	dbdata.data = record_buffer;
+	// Data is copied to our buffer
+	dbdata.data = s->buffer;
 	dbdata.ulen = PAXOS_MAX_VALUE_SIZE;
-	//Force copy to the specified buffer
 	dbdata.flags = DB_DBT_USERMEM;
 
-	//Read the record
 	flags = 0;
-	result = dbp->get(dbp, 
-		txn,
-		&dbkey,
-		&dbdata,
-		flags);
+	result = dbp->get(dbp, txn, &dbkey, &dbdata, flags);
     
 	if (result == DB_NOTFOUND || result == DB_KEYEMPTY) {
 		paxos_log_debug("The record for iid: %d does not exist", iid);
 		return NULL;
 	} else if (result != 0) {
-		paxos_log_error("Error while reading record with iid%u : %s",
+		paxos_log_error("Error while reading record with iid %u : %s",
 			iid, db_strerror(result));
 		return NULL;
 	}
-    
-	//Record found
-	assert(iid == record_buffer->iid);
-	return record_buffer;
-}
-
-acceptor_record*
-storage_save_accept(struct storage* s, accept_req * ar)
-{
-	int flags, result;
-	DBT dbkey, dbdata;
-	DB* dbp = s->db;
-	DB_TXN* txn = s->txn;
-	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
-    
-	//Store as acceptor_record (== accept_ack)
-	record_buffer->acceptor_id = s->acceptor_id;
-	record_buffer->iid = ar->iid;
-	record_buffer->ballot = ar->ballot;
-	record_buffer->value_ballot = ar->ballot;
-	record_buffer->is_final = 0;
-	record_buffer->value_size = ar->value_size;
-	memcpy(record_buffer->value, ar->value, ar->value_size);
-    
-	memset(&dbkey, 0, sizeof(DBT));
-	memset(&dbdata, 0, sizeof(DBT));
-
-	//Key is iid
-	dbkey.data = &ar->iid;
-	dbkey.size = sizeof(iid_t);
-        
-	//Data is our buffer
-	dbdata.data = record_buffer;
-	dbdata.size = ACCEPT_ACK_SIZE(record_buffer);
-    
-	//Store permanently
-	flags = 0;
-	result = dbp->put(dbp, 
-		txn, 
-		&dbkey, 
-		&dbdata, 
-	0);
-
-	assert(result == 0);    
-	return record_buffer;
-}
-
-acceptor_record*
-storage_save_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
-{
-	int flags, result;
-	DBT dbkey, dbdata;
-	DB* dbp = s->db;
-	DB_TXN* txn = s->txn;
-	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
 	
-	//No previous record, create a new one
-	if (rec == NULL) {
-		//Record does not exist yet
-		rec = record_buffer;
-		rec->acceptor_id = s->acceptor_id;
-		rec->iid = pr->iid;
-		rec->ballot = pr->ballot;
-		rec->value_ballot = 0;
-		rec->is_final = 0;
-		rec->value_size = 0;
-	} else {
-		//Record exists, just update the ballot
-		rec->ballot = pr->ballot;
+	XDR xdr;
+	xdrmem_create(&xdr, s->buffer, PAXOS_MAX_VALUE_SIZE, XDR_DECODE);
+	memset(&s->record, 0, sizeof(acceptor_record));
+	if (!xdr_paxos_accepted(&xdr, &s->record)) {
+		paxos_log_error("Error while decoding record for instance %d", iid);
+		return NULL;
 	}
-    
+	
+	xdr_destroy(&xdr);
+	assert(iid == s->record.iid);
+	return &s->record;
+}
+
+static int
+store_record(struct storage* s, acceptor_record* rec)
+{
+	XDR xdr;
+	DBT dbkey, dbdata;
+	
+	xdrmem_create(&xdr, s->buffer, PAXOS_MAX_VALUE_SIZE, XDR_ENCODE);
+	if (!xdr_paxos_accepted(&xdr, rec)) {
+		paxos_log_error("Error while encoding record for instance %d", 
+			rec->iid);
+		return -1;
+	}
+	
 	memset(&dbkey, 0, sizeof(DBT));
 	memset(&dbdata, 0, sizeof(DBT));
-
-	//Key is iid
-	dbkey.data = &pr->iid;
+	
+	// Key is the iid
+	dbkey.data = &rec->iid;
 	dbkey.size = sizeof(iid_t);
         
-	//Data is our buffer
-	dbdata.data = record_buffer;
-	dbdata.size = ACCEPT_ACK_SIZE(record_buffer);
+	// Data is the encoded buffer
+	dbdata.data = &s->buffer;
+	dbdata.size = xdr_getpos(&xdr);
+	
+	// Store permanently
+	int rv = s->db->put(s->db, s->txn, &dbkey, &dbdata, 0);
+	if (rv != 0) {
+		paxos_log_error("BDB->put() failed! %s", db_strerror(rv));
+		return rv;
+	}
+
+	xdr_destroy(&xdr);
+	return 0;
+}
+
+acceptor_record*
+storage_save_accept(struct storage* s, paxos_accept* ar)
+{
+	s->record = (acceptor_record) {
+		s->acceptor_id,
+		ar->iid,
+		ar->ballot,
+		ar->ballot,
+		0,
+		{ ar->value.value_len, ar->value.value_val }
+	};
+	
+	if (store_record(s, &s->record) != 0)
+		return NULL;
     
-	//Store permanently
-	flags = 0;
-	result = dbp->put(dbp, 
-		txn, 
-		&dbkey, 
-		&dbdata, 
-		0);
-        
-	assert(result == 0);
-	return record_buffer;	
+	return &s->record;
+}
+
+acceptor_record*
+storage_save_prepare(struct storage* s, paxos_prepare* pr, acceptor_record* rec)
+{
+	if (rec == NULL) { // Record does not exist yet
+		s->record = (acceptor_record) {
+			s->acceptor_id,
+			pr->iid,
+			pr->ballot,
+			0,
+			0,
+			{ 0, NULL }
+		};
+	} else {
+		s->record.ballot = pr->ballot;
+	}	
+	
+	if (store_record(s, &s->record) != 0)
+		return NULL;
+    
+	return &s->record;
 }
 
 acceptor_record*
 storage_save_final_value(struct storage* s, char* value, size_t size, 
 	iid_t iid, ballot_t b)
 {
-	int flags, result;
-	DBT dbkey, dbdata;
-	DB* dbp = s->db;
-	DB_TXN* txn = s->txn;
-	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
+	// int flags, result;
+	// DBT dbkey, dbdata;
+	// DB* dbp = s->db;
+	// DB_TXN* txn = s->txn;
+	// acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
+	// 
+	// //Store as acceptor_record (== accept_ack)
+	// record_buffer->iid = iid;
+	// record_buffer->ballot = b;
+	// record_buffer->value_ballot = b;
+	// record_buffer->is_final = 1;
+	// record_buffer->value->size = size;
+	// memcpy(record_buffer->value, value, size);
+	// 
+	// memset(&dbkey, 0, sizeof(DBT));
+	// memset(&dbdata, 0, sizeof(DBT));
+	// 
+	// //Key is iid
+	// dbkey.data = &iid;
+	// dbkey.size = sizeof(iid_t);
+	// 
+	// //Data is our buffer
+	// dbdata.data = record_buffer;
+	// dbdata.size = sizeof(record_buffer);
+	// 
+	// //Store permanently
+	// flags = 0;
+	// 	result = dbp->put(dbp, 
+	// 	txn, 
+	// 	&dbkey, 
+	// 	&dbdata, 
+	// 	0);
+	// 
+	// assert(result == 0);    
+	// return record_buffer;
 	
-	//Store as acceptor_record (== accept_ack)
-	record_buffer->iid = iid;
-	record_buffer->ballot = b;
-	record_buffer->value_ballot = b;
-	record_buffer->is_final = 1;
-	record_buffer->value_size = size;
-	memcpy(record_buffer->value, value, size);
-	
-	memset(&dbkey, 0, sizeof(DBT));
-	memset(&dbdata, 0, sizeof(DBT));
-	
-	//Key is iid
-	dbkey.data = &iid;
-	dbkey.size = sizeof(iid_t);
-	
-	//Data is our buffer
-	dbdata.data = record_buffer;
-	dbdata.size = ACCEPT_ACK_SIZE(record_buffer);
-	
-	//Store permanently
-	flags = 0;
-		result = dbp->put(dbp, 
-		txn, 
-		&dbkey, 
-		&dbdata, 
-		0);
-	
-	assert(result == 0);    
-	return record_buffer;
-}
-
-/*@
- * Walk through the database and return the highest iid we have seen. 
- * If this is a RECNO database this can probably be done more cheaply
- * but for now we will make this usable regardless of the index impl
- */
-iid_t 
-storage_get_max_iid(struct storage * s)
-{
-	int ret;
-	DB *dbp = s->db;
-	DBC *dbcp;
-	DBT key, data;
-	iid_t max_iid = 0;
-	
-	/* Acquire a cursor for the database. */
-	if ((ret = dbp->cursor(dbp, NULL, &dbcp, 0)) != 0) {
-		dbp->err(dbp, ret, "DB->cursor");
-		return (1);
-	}
-	
-	/* Re-initialize the key/data pair. */ memset(&key, 0, sizeof(key));
-	memset(&data, 0, sizeof(data));
-	
-	/* Walk through the database and print out the key/data pairs. */
-	while ((ret = dbcp->c_get(dbcp, &key, &data, DB_NEXT)) == 0) {
-		assert(data.size = sizeof(iid_t));
-		max_iid = *(iid_t *)key.data;
-	}
-	
-	if (ret != DB_NOTFOUND) {
-		dbp->err(dbp, ret, "DBcursor->get");
-		return 0;
-	}
-	
-	/* Close the cursor. */
-	if ((ret = dbcp->c_close(dbcp)) != 0) {
-		dbp->err(dbp, ret, "DBcursor->close");
-	}
-	return (max_iid);
+	return NULL;
 }

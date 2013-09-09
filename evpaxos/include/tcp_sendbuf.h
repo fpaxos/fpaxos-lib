@@ -29,10 +29,10 @@
 #include <fcntl.h>
 #include <event2/bufferevent.h>
 
-void sendbuf_add_prepare_ack(struct bufferevent* bev, acceptor_record* rec);
-void sendbuf_add_prepare_req(struct bufferevent* bev, prepare_req* pr);
-void sendbuf_add_accept_req(struct bufferevent* bev, accept_req* ar);
-void sendbuf_add_accept_ack(struct bufferevent* bev, acceptor_record* rec);
-void sendbuf_add_repeat_req(struct bufferevent* bev, iid_t iid);
+void send_paxos_prepare(struct bufferevent* bev, paxos_prepare* p);
+void send_paxos_promise(struct bufferevent* bev, paxos_promise* p);
+void send_paxos_accept(struct bufferevent* bev, paxos_accept* p);
+void send_paxos_accepted(struct bufferevent* bev, paxos_accepted* p);
+void send_paxos_repeat(struct bufferevent* bev, paxos_repeat* p);
 
 #endif

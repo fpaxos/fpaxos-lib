@@ -24,7 +24,6 @@
 #include <string.h>
 #include <assert.h>
 
-#define MAX_SIZE_RECORD (8*1024)
 #define MAX_RECORDS (4*1024)
 
 struct storage
@@ -33,22 +32,18 @@ struct storage
 	acceptor_record *records[MAX_RECORDS];
 };
 
+
 struct storage*
 storage_open(int acceptor_id)
 {
-	struct storage* s = malloc(sizeof(struct storage));
-	assert(s != NULL);
-	memset(s, 0, sizeof(struct storage));
-	
 	int i;
-	for (i=0; i<MAX_RECORDS; ++i){
-		s->records[i] = (acceptor_record *) malloc(MAX_SIZE_RECORD);
-		assert(s->records[i] != NULL);
-		s->records[i]->iid = 0;
+	struct storage* s = malloc(sizeof(struct storage));
+	memset(s, 0, sizeof(struct storage));
+	for (i = 0; i < MAX_RECORDS; ++i) {
+		s->records[i] = malloc(sizeof(acceptor_record));
+		memset(s->records[i], 0, sizeof(acceptor_record));
 	}
-
 	s->acceptor_id = acceptor_id;
-
 	return s;
 }
 
@@ -56,12 +51,12 @@ int
 storage_close(struct storage* s)
 {
 	int i;
-	for (i=0; i<MAX_RECORDS; ++i){
+	for (i = 0; i < MAX_RECORDS; ++i) {
+		if (s->records[i]->value.value_val != NULL)
+			free(s->records[i]->value.value_val);
 		free(s->records[i]);
 	}
-	
 	free(s);
-	
 	return 0;
 }
 
@@ -81,19 +76,18 @@ acceptor_record*
 storage_get_record(struct storage* s, iid_t iid)
 {
 	acceptor_record* record_buffer = s->records[iid % MAX_RECORDS];
-	if (iid < record_buffer->iid){
-		fprintf(stderr, "instance too old %d: current is %d", iid, record_buffer->iid);
+	if (iid < record_buffer->iid) {
+		paxos_log_error("Instance %d too old! Current is %d",
+			iid, record_buffer->iid);
 		exit(1);
 	}
-	if (iid == record_buffer->iid){
+	if (iid == record_buffer->iid)
 		return record_buffer;
-	} else {
-		return NULL;
-	}
+	return NULL;
 }
 
 acceptor_record*
-storage_save_accept(struct storage* s, accept_req * ar)
+storage_save_accept(struct storage* s, paxos_accept* ar)
 {
 	acceptor_record* record_buffer = s->records[ar->iid % MAX_RECORDS];
 	
@@ -103,14 +97,19 @@ storage_save_accept(struct storage* s, accept_req * ar)
 	record_buffer->ballot = ar->ballot;
 	record_buffer->value_ballot = ar->ballot;
 	record_buffer->is_final = 0;
-	record_buffer->value_size = ar->value_size;
-	memcpy(record_buffer->value, ar->value, ar->value_size);
-	
+	record_buffer->value.value_len = 0;
+	record_buffer->value.value_val = NULL;
+	if (ar->value.value_val != NULL) {
+		record_buffer->value.value_len = ar->value.value_len;
+		record_buffer->value.value_val = malloc(ar->value.value_len);
+		memcpy(record_buffer->value.value_val,
+			ar->value.value_val, ar->value.value_len);
+	}
 	return record_buffer;
 }
 
 acceptor_record*
-storage_save_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
+storage_save_prepare(struct storage* s, paxos_prepare* pr, acceptor_record* rec)
 {
 	acceptor_record* record_buffer = s->records[pr->iid % MAX_RECORDS];
 	
@@ -123,10 +122,14 @@ storage_save_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
 		rec->ballot = pr->ballot;
 		rec->value_ballot = 0;
 		rec->is_final = 0;
-		rec->value_size = 0;
+		rec->value.value_len = 0;
+		rec->value.value_val = NULL;
 	} else {
 		//Record exists, just update the ballot
 		rec->ballot = pr->ballot;
+		// if (rec->value.value_val != NULL) {
+		// 	free()
+		// }
 	}
 	
 	return record_buffer;
@@ -138,13 +141,11 @@ storage_save_final_value(struct storage* s, char* value, size_t size,
 {
 	acceptor_record* record_buffer = s->records[iid % MAX_RECORDS];
 	
-	//Store as acceptor_record (== accept_ack)
 	record_buffer->iid = iid;
 	record_buffer->ballot = b;
 	record_buffer->value_ballot = b;
 	record_buffer->is_final = 1;
-	record_buffer->value_size = size;
-	memcpy(record_buffer->value, value, size);
+	// record_buffer->value = paxos_value_new(value, size);
 	
-		return record_buffer;
+	return record_buffer;
 }

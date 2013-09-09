@@ -21,7 +21,6 @@
 #include "evpaxos.h"
 #include "peers.h"
 #include "config.h"
-#include "libpaxos_messages.h"
 #include "tcp_sendbuf.h"
 #include "tcp_receiver.h"
 #include "proposer.h"
@@ -46,22 +45,22 @@ struct evproposer
 
 
 static void
-send_prepares(struct evproposer* p, prepare_req* pr)
+send_prepares(struct evproposer* p, paxos_prepare* pr)
 {
 	int i;
 	for (i = 0; i < peers_count(p->acceptors); i++) {
 		struct bufferevent* bev = peers_get_buffer(p->acceptors, i);
-		sendbuf_add_prepare_req(bev, pr);
+		send_paxos_prepare(bev, pr);
 	}
 }
 
 static void
-send_accepts(struct evproposer* p, accept_req* ar)
+send_accepts(struct evproposer* p, paxos_accept* ar)
 {
 	int i;
 	for (i = 0; i < peers_count(p->acceptors); i++) {
 		struct bufferevent* bev = peers_get_buffer(p->acceptors, i);
-    	sendbuf_add_accept_req(bev, ar);
+    	send_paxos_accept(bev, ar);
 	}
 }
 
@@ -69,7 +68,7 @@ static void
 proposer_preexecute(struct evproposer* p)
 {
 	int i;
-	prepare_req pr;
+	paxos_prepare pr;
 	int count = p->preexec_window - proposer_prepared_count(p->state);
 	if (count <= 0) return;
 	for (i = 0; i < count; i++) {
@@ -82,107 +81,74 @@ proposer_preexecute(struct evproposer* p)
 static void
 try_accept(struct evproposer* p)
 {
-	accept_req* ar;
-	while ((ar = proposer_accept(p->state)) != NULL) {
-		send_accepts(p, ar);
-		free(ar);
-	}
+	paxos_accept accept;
+	while (proposer_accept(p->state, &accept))
+		send_accepts(p, &accept);
 	proposer_preexecute(p);
 }
 
 static void
-proposer_handle_prepare_ack(struct evproposer* p, prepare_ack* ack)
+evproposer_handle_promise(struct evproposer* p, paxos_promise* ack)
 {
-	prepare_req pr;
-	int preempted = proposer_receive_prepare_ack(p->state, ack, &pr);
+	paxos_prepare pr;
+	int preempted = proposer_receive_promise(p->state, ack, &pr);
 	if (preempted)
 		send_prepares(p, &pr);
 }
 
 static void
-proposer_handle_accept_ack(struct evproposer* p, accept_ack* ack)
+evproposer_handle_accepted(struct evproposer* p, paxos_accepted* ack)
 {
-	prepare_req pr;
-	int preempted = proposer_receive_accept_ack(p->state, ack, &pr);
+	paxos_prepare pr;
+	int preempted = proposer_receive_accepted(p->state, ack, &pr);
 	if (preempted)
 		send_prepares(p, &pr);
 }
 
 static void
-proposer_handle_client_msg(struct evproposer* p, char* value, int size)
+evproposer_handle_client_value(struct evproposer* p, paxos_client_value* v)
 {
-	proposer_propose(p->state, value, size);
+	proposer_propose(p->state, v->value.value_val, v->value.value_len);
 }
 
 static void
-proposer_handle_msg(struct evproposer* p, struct bufferevent* bev)
+evproposer_handle_msg(struct bufferevent* bev, paxos_message* msg, void* arg)
 {
-	paxos_msg msg;
-	struct evbuffer* in;
-	char buffer[PAXOS_MAX_VALUE_SIZE];
-
-	in = bufferevent_get_input(bev);
-	evbuffer_remove(in, &msg, sizeof(paxos_msg));
-	if (msg.data_size > PAXOS_MAX_VALUE_SIZE) {
-		evbuffer_drain(in, msg.data_size);
-		paxos_log_error("Discarding message of size %ld. Maximum is %d",
-			msg.data_size, PAXOS_MAX_VALUE_SIZE);
-		return;
-	}
-	evbuffer_remove(in, buffer, msg.data_size);
-	
-	switch (msg.type) {
-		case prepare_acks:
-			proposer_handle_prepare_ack(p, (prepare_ack*)buffer);
+	struct evproposer* p = arg;
+	switch (msg->type) {
+		case PAXOS_PROMISE:
+			evproposer_handle_promise(p, &msg->paxos_message_u.promise);
 			break;
-		case accept_acks:
-			proposer_handle_accept_ack(p, (accept_ack*)buffer);
+		case PAXOS_ACCEPTED:
+			evproposer_handle_accepted(p, &msg->paxos_message_u.accepted);
 			break;
-		case submit:
-			proposer_handle_client_msg(p, buffer, msg.data_size);
+		case PAXOS_CLIENT_VALUE:
+			evproposer_handle_client_value(p, 	
+				&msg->paxos_message_u.client_value);
 			break;
 		default:
-			paxos_log_error("Unknow msg type %d not handled", msg.type);
+			paxos_log_error("Unknow msg type %d not handled", msg->type);
 			return;
 	}
-	
 	try_accept(p);
 }
 
 static void
-handle_request(struct bufferevent* bev, void* arg)
-{
-	size_t len;
-	paxos_msg msg;
-	struct evproposer* p = arg;
-	struct evbuffer* in = bufferevent_get_input(bev);
-	
-	while ((len = evbuffer_get_length(in)) > sizeof(paxos_msg)) {
-		evbuffer_copyout(in, &msg, sizeof(paxos_msg));
-		if (len < PAXOS_MSG_SIZE((&msg)))
-			return;
-		proposer_handle_msg(p, bev);
-	}
-}
-
-static void
-proposer_check_timeouts(evutil_socket_t fd, short event, void *arg)
+evproposer_check_timeouts(evutil_socket_t fd, short event, void *arg)
 {
 	struct evproposer* p = arg;
 	struct timeout_iterator* iter = proposer_timeout_iterator(p->state);
-	
-	prepare_req* pr;
-	while ((pr = timeout_iterator_prepare(iter)) != NULL) {
-		paxos_log_info("Instance %d timed out.", pr->iid);
-		send_prepares(p, pr);
-		free(pr);
+
+	paxos_prepare pr;	
+	while (timeout_iterator_prepare(iter, &pr)) {
+		paxos_log_info("Instance %d timed out.", pr.iid);
+		send_prepares(p, &pr);
 	}
 	
-	accept_req* ar;
-	while ((ar = timeout_iterator_accept(iter)) != NULL) {
-		paxos_log_info("Instance %d timed out.", ar->iid);
-		send_accepts(p, ar);
-		free(ar);
+	paxos_accept ar;
+	while (timeout_iterator_accept(iter, &ar)) {
+		paxos_log_info("Instance %d timed out.", ar.iid);
+		send_accepts(p, &ar);
 	}
 	
 	timeout_iterator_free(iter);
@@ -215,16 +181,16 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	p->preexec_window = paxos_config.proposer_preexec_window;
 		
 	// Setup client listener
-	p->receiver = tcp_receiver_new(b, port, handle_request, p);
+	p->receiver = tcp_receiver_new(b, port, evproposer_handle_msg, p);
 	
 	// Setup connections to acceptors
 	p->acceptors = peers_new(b);
-	peers_connect_to_acceptors(p->acceptors, conf, handle_request, p);
+	peers_connect_to_acceptors(p->acceptors, conf, evproposer_handle_msg, p);
 	
 	// Setup timeout
 	p->tv.tv_sec = paxos_config.proposer_timeout;
 	p->tv.tv_usec = 0;
-	p->timeout_ev = evtimer_new(b, proposer_check_timeouts, p);
+	p->timeout_ev = evtimer_new(b, evproposer_check_timeouts, p);
 	event_add(p->timeout_ev, &p->tv);
 	
 	p->state = proposer_new(p->id, acceptor_count);
@@ -240,6 +206,7 @@ evproposer_free(struct evproposer* p)
 {
 	peers_free(p->acceptors);
 	tcp_receiver_free(p->receiver);
+	event_free(p->timeout_ev);
 	proposer_free(p->state);
 	free(p);
 }

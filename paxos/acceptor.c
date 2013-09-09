@@ -28,10 +28,10 @@ struct acceptor
 };
 
 static acceptor_record*
-apply_prepare(struct storage* s, prepare_req* ar, acceptor_record* rec);
+apply_prepare(struct storage* s, paxos_prepare* ar, acceptor_record* rec);
 
 static acceptor_record*
-apply_accept(struct storage* s, accept_req* ar, acceptor_record* rec);
+apply_accept(struct storage* s, paxos_accept* ar, acceptor_record* rec);
 
 
 struct acceptor*
@@ -39,10 +39,10 @@ acceptor_new(int id)
 {
 	struct acceptor* s;
 	s = malloc(sizeof(struct acceptor));
-	s->store = storage_open(id); 
+	s->store = storage_open(id);
 	if (s->store == NULL) {
 		free(s);
-		return NULL;	
+		return NULL;
 	}
 	return s;
 }
@@ -56,40 +56,52 @@ acceptor_free(struct acceptor* a)
 	return rv;
 }
 
-acceptor_record*
-acceptor_receive_prepare(struct acceptor* a, prepare_req* req)
+int
+acceptor_receive_prepare(struct acceptor* a, 
+	paxos_prepare* req, paxos_promise* out)
 {
 	acceptor_record* rec;
 	storage_tx_begin(a->store);
 	rec = storage_get_record(a->store, req->iid);
 	rec = apply_prepare(a->store, req, rec);
 	storage_tx_commit(a->store);
-	return rec;
+	out->acceptor_id = rec->acceptor_id;
+	out->iid = rec->iid;
+	out->ballot = rec->ballot;
+	out->value_ballot = rec->value_ballot;
+	out->value.value_len = rec->value.value_len;
+	out->value.value_val = rec->value.value_val;
+	return 1;
 }
 
-acceptor_record*
-acceptor_receive_accept(struct acceptor* a, accept_req* req)
+int
+acceptor_receive_accept(struct acceptor* a,
+	paxos_accept* req, paxos_accepted* out)
 {
 	acceptor_record* rec;
 	storage_tx_begin(a->store);
 	rec = storage_get_record(a->store, req->iid);
 	rec = apply_accept(a->store, req, rec);
 	storage_tx_commit(a->store);
-	return rec;
+	*out = *rec;
+	return 1;
 }
 
-acceptor_record*
-acceptor_receive_repeat(struct acceptor* a, iid_t iid)
+int
+acceptor_receive_repeat(struct acceptor* a, iid_t iid, paxos_accepted* out)
 {
 	acceptor_record* rec;
 	storage_tx_begin(a->store);
 	rec = storage_get_record(a->store, iid);
 	storage_tx_commit(a->store);
-	return rec;
+	if (rec == NULL)
+		return 0;
+	*out = *rec;
+	return 1;
 }
 
 static acceptor_record*
-apply_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
+apply_prepare(struct storage* s, paxos_prepare* pr, acceptor_record* rec)
 {
 	// We already have a more recent ballot
 	if (rec != NULL && rec->ballot >= pr->ballot) {
@@ -113,7 +125,7 @@ apply_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
 }
 
 static acceptor_record*
-apply_accept(struct storage* s, accept_req* ar, acceptor_record* rec)
+apply_accept(struct storage* s, paxos_accept* ar, acceptor_record* rec)
 {
 	// We already have a more recent ballot
 	if (rec != NULL && rec->ballot > ar->ballot) {

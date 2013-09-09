@@ -17,11 +17,14 @@
 	along with LibPaxos.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+
 #include "peers.h"
+#include "xdr.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <event2/buffer.h>
 #include <event2/bufferevent.h>
 
 struct peer
@@ -29,7 +32,7 @@ struct peer
 	struct bufferevent* bev;
 	struct event* reconnect_ev;
 	struct sockaddr_in addr;
-	bufferevent_data_cb cb;
+	peer_cb callback;
 	void* arg;
 };
 
@@ -42,7 +45,7 @@ struct peers
 
 static struct timeval reconnect_timeout = {2,0};
 static struct peer* make_peer(struct event_base* base, 
-	struct sockaddr_in* addr, bufferevent_data_cb cb, void* arg);
+	struct sockaddr_in* addr, peer_cb cb, void* arg);
 static void free_peer(struct peer* p);
 static void connect_peer(struct peer* p);
 
@@ -69,8 +72,7 @@ peers_free(struct peers* p)
 }
 
 void
-peers_connect(struct peers* p, struct sockaddr_in* addr,
-	bufferevent_data_cb cb, void* arg)
+peers_connect(struct peers* p, struct sockaddr_in* addr, peer_cb cb, void* arg)
 {
 	p->peers = realloc(p->peers, sizeof(struct peer*) * (p->count+1));
 	p->peers[p->count] = make_peer(p->base, addr, cb, arg);
@@ -79,7 +81,7 @@ peers_connect(struct peers* p, struct sockaddr_in* addr,
 
 void
 peers_connect_to_acceptors(struct peers* p, struct evpaxos_config* c,
-	bufferevent_data_cb cb, void* arg)
+	peer_cb cb, void* arg)
 {
 	int i;
 	for (i = 0; i < evpaxos_acceptor_count(c); i++) {
@@ -101,10 +103,49 @@ peers_get_buffer(struct peers* p, int i)
 }
 
 static void
-on_read(struct bufferevent* bev, void* arg) 
+handle_paxos_message(struct peer* p, struct bufferevent* bev,
+	uint32_t size)
 {
+	XDR xdr;
+	paxos_message msg;
+	struct evbuffer* in = bufferevent_get_input(bev);
+	char* buffer = (char*)evbuffer_pullup(in, size);
+	xdrmem_create(&xdr, buffer, size, XDR_DECODE);
+	memset(&msg, 0, sizeof(paxos_message));
+	if (!xdr_paxos_message(&xdr, &msg)) {
+		paxos_log_error("Error while decoding paxos message!");
+	} else {
+		p->callback(bev, &msg, p->arg);
+	}
+	xdr_free((xdrproc_t)xdr_paxos_message, &msg);
+	xdr_destroy(&xdr);
+}
+
+static void
+on_read(struct bufferevent* bev, void* arg)
+{
+	uint32_t msg_size;
+	size_t buffer_len;
+	struct evbuffer* in;
 	struct peer* p = arg;
-	p->cb(bev, p->arg);
+	
+	in = bufferevent_get_input(bev);
+	
+	while ((buffer_len = evbuffer_get_length(in)) > sizeof(uint32_t)) {
+		evbuffer_copyout(in, &msg_size, sizeof(uint32_t));
+		msg_size = ntohl(msg_size);
+		if (buffer_len < (msg_size + sizeof(uint32_t)))
+			return;
+		if (msg_size > PAXOS_MAX_VALUE_SIZE) {
+			evbuffer_drain(in, msg_size);
+			paxos_log_error("Discarding message of size %ld. Maximum is %d",
+				msg_size, PAXOS_MAX_VALUE_SIZE);
+			return;
+		}
+		evbuffer_drain(in, sizeof(uint32_t));
+		handle_paxos_message(p, bev, msg_size);
+		evbuffer_drain(in, msg_size);
+	}
 }
 
 static void
@@ -147,15 +188,15 @@ connect_peer(struct peer* p)
 }
 
 static struct peer*
-make_peer(struct event_base* base, struct sockaddr_in* addr,
-	bufferevent_data_cb cb, void* arg)
+make_peer(struct event_base* base, struct sockaddr_in* addr, 
+	peer_cb cb, void* arg)
 {
 	struct peer* p = malloc(sizeof(struct peer));
 	p->addr = *addr;
 	p->reconnect_ev = evtimer_new(base, on_connection_timeout, p);
 	p->bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);
 	bufferevent_setcb(p->bev, on_read, NULL, on_socket_event, p);
-	p->cb = cb;
+	p->callback = cb;
 	p->arg = arg;
 	connect_peer(p);	
 	return p;

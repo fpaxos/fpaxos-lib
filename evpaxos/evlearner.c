@@ -40,35 +40,31 @@ struct evlearner
 
 
 static void
-learner_check_holes(evutil_socket_t fd, short event, void *arg)
+evlearner_check_holes(evutil_socket_t fd, short event, void *arg)
 {
+	paxos_repeat msg;
 	int i, chunks = 10000;
-	iid_t iid, from, to;
 	struct evlearner* l = arg;
-	if (learner_has_holes(l->state, &from, &to)) {
-		if ((to - from) > chunks)
-			to = from + chunks;
-		for (iid = from; iid < to; iid++) {
-			for (i = 0; i < peers_count(l->acceptors); i++) {
-				struct bufferevent* bev = peers_get_buffer(l->acceptors, i);
-				sendbuf_add_repeat_req(bev, iid);
-			}
+	if (learner_has_holes(l->state, &msg.from, &msg.to)) {
+		if ((msg.to - msg.from) > chunks)
+			msg.to = msg.from + chunks;
+		for (i = 0; i < peers_count(l->acceptors); i++) {
+			struct bufferevent* bev = peers_get_buffer(l->acceptors, i);
+			send_paxos_repeat(bev, &msg);
 		}
 	}
 	event_add(l->hole_timer, &l->tv);
 }
 
 static void 
-learner_deliver_next_closed(struct evlearner* l)
+evlearner_deliver_next_closed(struct evlearner* l)
 {
 	int prop_id;
-	accept_ack* ack;
-	while ((ack = learner_deliver_next(l->state)) != NULL) {
-		// deliver the value through callback
-		prop_id = ack->ballot % MAX_N_OF_PROPOSERS;
-		l->delfun(ack->value, ack->value_size, ack->iid, 
-			ack->ballot, prop_id, l->delarg);
-		free(ack);
+	paxos_accepted deliver;
+	while (learner_deliver_next(l->state, &deliver)) {
+		prop_id = deliver.ballot % MAX_N_OF_PROPOSERS;
+		l->delfun(deliver.value.value_val, deliver.value.value_len,
+			deliver.iid, deliver.ballot, prop_id, l->delarg);
 	}
 }
 
@@ -77,52 +73,23 @@ learner_deliver_next_closed(struct evlearner* l)
     for that instance and afterwards check if the instance is closed
 */
 static void
-learner_handle_accept_ack(struct evlearner* l, accept_ack * aa)
+evlearner_handle_accepted(struct evlearner* l, paxos_accepted* aa)
 {
-	learner_receive_accept(l->state, aa);
-	learner_deliver_next_closed(l);
+	learner_receive_accepted(l->state, aa);
+	evlearner_deliver_next_closed(l);
 }
 
 static void
-learner_handle_msg(struct evlearner* l, struct bufferevent* bev)
+evlearner_handle_msg(struct bufferevent* bev, paxos_message* msg, void* arg)
 {
-	paxos_msg msg;
-	struct evbuffer* in;
-	char buffer[PAXOS_MAX_VALUE_SIZE];
-
-	in = bufferevent_get_input(bev);
-	evbuffer_remove(in, &msg, sizeof(paxos_msg));
-	if (msg.data_size > PAXOS_MAX_VALUE_SIZE) {
-		evbuffer_drain(in, msg.data_size);
-		paxos_log_error("Discarding message of size %ld. Maximum is %d",
-			msg.data_size, PAXOS_MAX_VALUE_SIZE);
-		return;
-	}
-	evbuffer_remove(in, buffer, msg.data_size);
-	
-	switch (msg.type) {
-		case accept_acks:
-			learner_handle_accept_ack(l, (accept_ack*)buffer);
+	struct evlearner* l = (struct evlearner*)arg;
+	switch (msg->type) {
+		case PAXOS_ACCEPTED:
+			evlearner_handle_accepted(l, &msg->paxos_message_u.accepted);
 			break;
 		default:
-			paxos_log_error("Unknow msg type %d not handled", msg.type);
+			paxos_log_error("Unknow msg type %d not handled", msg->type);
     }
-}
-
-static void
-on_acceptor_msg(struct bufferevent* bev, void* arg)
-{
-	size_t len;
-	paxos_msg msg;
-	struct evlearner* l = arg;
-	struct evbuffer* in = bufferevent_get_input(bev);
-	
-	while ((len = evbuffer_get_length(in)) > sizeof(paxos_msg)) {
-		evbuffer_copyout(in, &msg, sizeof(paxos_msg));
-		if (len < PAXOS_MSG_SIZE((&msg)))
-			return;
-		learner_handle_msg(l, bev);
-	}
 }
 
 static struct evlearner*
@@ -139,12 +106,12 @@ evlearner_init_conf(struct evpaxos_config* c, deliver_function f, void* arg,
 	
 	// setup connections to acceptors
 	l->acceptors = peers_new(b);
-	peers_connect_to_acceptors(l->acceptors, c, on_acceptor_msg, l);
+	peers_connect_to_acceptors(l->acceptors, c, evlearner_handle_msg, l);
 	
 	// setup hole checking timer
 	l->tv.tv_sec = 0;
 	l->tv.tv_usec = 100000;
-	l->hole_timer = evtimer_new(b, learner_check_holes, l);
+	l->hole_timer = evtimer_new(b, evlearner_check_holes, l);
 	event_add(l->hole_timer, &l->tv);
 	
 	evpaxos_config_free(c);

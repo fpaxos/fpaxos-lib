@@ -18,81 +18,89 @@
 */
 
 
-#include "libpaxos_messages.h"
 #include "tcp_sendbuf.h"
+#include "xdr.h"
+#include <rpc/types.h>
+#include <rpc/xdr.h>
+#include <rpc/rpc.h>
 #include <event2/bufferevent.h>
 
 
-static void
-add_paxos_header(struct bufferevent* bev, paxos_msg_code c, size_t s)
+static int
+send_message(struct bufferevent* bev, paxos_message* msg)
 {
-	paxos_msg m;
-	m.data_size = s;
-	m.type = c;
-	bufferevent_write(bev, &m, sizeof(paxos_msg));
-}
-
-void 
-sendbuf_add_prepare_req(struct bufferevent* bev, prepare_req* pr)
-{
-	size_t s = PREPARE_REQ_SIZE(pr);
-	add_paxos_header(bev, prepare_reqs, s);
-	bufferevent_write(bev, pr, s);
-	paxos_log_debug("Send prepare iid: %d ballot: %d", pr->iid, pr->ballot);
-}
-
-void
-sendbuf_add_prepare_ack(struct bufferevent* bev, acceptor_record* rec)
-{
-	size_t s;
-	prepare_ack pa;
-	
-	pa.acceptor_id = rec->acceptor_id;
-	pa.iid = rec->iid;
-	pa.ballot = rec->ballot;
-	pa.value_ballot = rec->value_ballot;
-	pa.value_size = rec->value_size;
-	
-	s = PREPARE_ACK_SIZE((&pa));
-	add_paxos_header(bev, prepare_acks, s);
-	bufferevent_write(bev, &pa, sizeof(prepare_ack));
-	if (pa.value_size > 0)
-		bufferevent_write(bev, rec->value, rec->value_size);
-	paxos_log_debug("Send prepare ack for inst %d ballot %d", rec->iid,
-		rec->ballot);
-}
-
-void 
-sendbuf_add_accept_req(struct bufferevent* bev, accept_req* ar)
-{
-	size_t s = ACCEPT_REQ_SIZE(ar);
-	add_paxos_header(bev, accept_reqs, s);
-	bufferevent_write(bev, ar, s);
-	paxos_log_debug("Send accept req for inst %d ballot %d", ar->iid, 
-		ar->ballot);
+	XDR xdr;
+	uint32_t size;
+	char buffer[PAXOS_MAX_VALUE_SIZE];
+	xdrmem_create(&xdr, buffer, PAXOS_MAX_VALUE_SIZE, XDR_ENCODE);
+	if (!xdr_paxos_message(&xdr, msg)) {
+		paxos_log_error("Error while encoding paxos message");
+		xdr_destroy(&xdr);
+		return 0;
+	}
+	size = htonl(xdr_getpos(&xdr));
+	bufferevent_write(bev, &size, sizeof(uint32_t));
+	bufferevent_write(bev, buffer, xdr_getpos(&xdr));
+	xdr_destroy(&xdr);
+	return 1;
 }
 
 void
-sendbuf_add_accept_ack(struct bufferevent* bev, accept_ack* aa)
+send_paxos_prepare(struct bufferevent* bev, paxos_prepare* p)
+{
+	paxos_message msg = {
+		.type = PAXOS_PREPARE,
+		.paxos_message_u.prepare = *p };
+	send_message(bev, &msg);
+	paxos_log_debug("Send prepare for iid %d ballot %d", p->iid, p->ballot);
+}
+
+void
+send_paxos_promise(struct bufferevent* bev, paxos_promise* p)
+{
+	paxos_message msg = {
+		.type = PAXOS_PROMISE,
+		.paxos_message_u.promise = *p };
+	send_message(bev, &msg);
+	paxos_log_debug("Send promise for iid %d ballot %d", p->iid, p->ballot);
+}
+
+void 
+send_paxos_accept(struct bufferevent* bev, paxos_accept* p)
+{
+	paxos_message msg = {
+		.type = PAXOS_ACCEPT,
+		.paxos_message_u.accept = *p };
+	send_message(bev, &msg);
+	paxos_log_debug("Send accept for iid %d ballot %d", p->iid, p->ballot);
+}
+
+void
+send_paxos_accepted(struct bufferevent* bev, paxos_accepted* p)
 {	
-	size_t s = ACCEPT_ACK_SIZE(aa);
-	add_paxos_header(bev, accept_acks, s);
-	bufferevent_write(bev, aa, s);
-	paxos_log_debug("Send accept ack for inst %d ballot %d", aa->iid,
-		aa->ballot);
+	paxos_message msg = {
+		.type = PAXOS_ACCEPTED,
+		.paxos_message_u.accepted = *p };
+	send_message(bev, &msg);
+	paxos_log_debug("Send accepted for inst %d ballot %d", p->iid, p->ballot);
 }
 
 void
-sendbuf_add_repeat_req(struct bufferevent* bev, iid_t iid)
+send_paxos_repeat(struct bufferevent* bev, paxos_repeat* p)
 {
-	add_paxos_header(bev, repeat_reqs, sizeof(iid_t));
-	bufferevent_write(bev, &iid, sizeof(iid_t));
-	paxos_log_debug("Send repeat request for inst %d", iid);
+	paxos_message msg = {
+		.type = PAXOS_REPEAT,
+		.paxos_message_u.repeat = *p };
+	send_message(bev, &msg);
+	paxos_log_debug("Send repeat for inst %d-%d", p->from, p->to);
 }
 
 void
-paxos_submit(struct bufferevent* bev, char* value, int size)
+paxos_submit(struct bufferevent* bev, char* data, int size)
 {
-	add_paxos_header(bev, submit, size);
-	bufferevent_write(bev, value, size);
+	paxos_message msg = {
+		.type = PAXOS_CLIENT_VALUE,
+		.paxos_message_u.client_value.value.value_len = size,
+		.paxos_message_u.client_value.value.value_val = data };
+	send_message(bev, &msg);
 }

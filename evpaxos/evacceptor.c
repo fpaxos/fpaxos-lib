@@ -27,7 +27,6 @@
 #include "config.h"
 #include "tcp_receiver.h"
 #include "acceptor.h"
-#include "libpaxos_messages.h"
 #include "tcp_sendbuf.h"
 
 #include <stdio.h>
@@ -49,79 +48,67 @@ struct evacceptor
 	Received a prepare request (phase 1a).
 */
 static void 
-handle_prepare_req(struct evacceptor* a, 
-	struct bufferevent* bev, prepare_req* pr)
+evacceptor_handle_prepare(struct evacceptor* a, 
+	struct bufferevent* bev, paxos_prepare* m)
 {
-	paxos_log_debug("Handling prepare for instance %d ballot %d",
-		pr->iid, pr->ballot);
-	
-	acceptor_record * rec;
-	rec = acceptor_receive_prepare(a->state, pr);
-	sendbuf_add_prepare_ack(bev, rec);
+	paxos_log_debug("Handle prepare for iid %d ballot %d", m->iid, m->ballot);
+	paxos_promise promise;
+	acceptor_receive_prepare(a->state, m, &promise);
+	send_paxos_promise(bev, &promise);
 }
 
 /*
 	Received a accept request (phase 2a).
 */
 static void 
-handle_accept_req(struct evacceptor* a,
-	struct bufferevent* bev, accept_req* ar)
-{
-	paxos_log_debug("Handling accept for instance %d ballot %d", 
-		ar->iid, ar->ballot);
-
+evacceptor_handle_accept(struct evacceptor* a,
+	struct bufferevent* bev, paxos_accept* accept)
+{	
 	int i;
+	paxos_accepted accepted;
 	struct carray* bevs = tcp_receiver_get_events(a->receiver);
-	acceptor_record* rec = acceptor_receive_accept(a->state, ar);
-	if (ar->ballot == rec->ballot) // accepted!
+	paxos_log_debug("Handle accept for iid %d bal %d", 
+		accept->iid, accept->ballot);
+	acceptor_receive_accept(a->state, accept, &accepted);
+	if (accept->ballot == accepted.ballot) // accepted!
 		for (i = 0; i < carray_count(bevs); i++)
-			sendbuf_add_accept_ack(carray_at(bevs, i), rec);
+			send_paxos_accepted(carray_at(bevs, i), &accepted);
 	else
-		sendbuf_add_accept_ack(bev, rec); // send nack
+		send_paxos_accepted(bev, &accepted); // send nack
 }
 
 static void
-handle_repeat_req(struct evacceptor* a, struct bufferevent* bev, iid_t iid)
-{
-	paxos_log_debug("Handling repeat for instance %d", iid);
-	acceptor_record* rec = acceptor_receive_repeat(a->state, iid);
-	if (rec != NULL)
-		sendbuf_add_accept_ack(bev, rec);
+evacceptor_handle_repeat(struct evacceptor* a,
+	struct bufferevent* bev, paxos_repeat* repeat)
+{	
+	iid_t iid;
+	paxos_accepted accepted;
+	paxos_log_debug("Handle repeat for iids %d-%d", repeat->from, repeat->to);
+	for (iid = repeat->from; iid <= repeat->to; ++iid) {
+		if (acceptor_receive_repeat(a->state, iid, &accepted))
+			send_paxos_accepted(bev, &accepted);
+	}
 }
 
 /*
-	This function is invoked when a new message is ready to be read.
+	This function is invoked when a new paxos message has been received.
 */
 static void 
-handle_req(struct bufferevent* bev, void* arg)
+evacceptor_handle_msg(struct bufferevent* bev, paxos_message* msg, void* arg)
 {
-	paxos_msg msg;
-	struct evbuffer* in;
-	char buffer[PAXOS_MAX_VALUE_SIZE];
 	struct evacceptor* a = (struct evacceptor*)arg;
-	
-	in = bufferevent_get_input(bev);
-	evbuffer_remove(in, &msg, sizeof(paxos_msg));
-	if (msg.data_size > PAXOS_MAX_VALUE_SIZE) {
-		evbuffer_drain(in, msg.data_size);
-		paxos_log_error("Discarding message of size %ld. Maximum is %d",
-			msg.data_size, PAXOS_MAX_VALUE_SIZE);
-		return;
-	}
-	evbuffer_remove(in, buffer, msg.data_size);
-	
-	switch (msg.type) {
-		case prepare_reqs:
-			handle_prepare_req(a, bev, (prepare_req*)buffer);
+	switch (msg->type) {
+		case PAXOS_PREPARE:
+			evacceptor_handle_prepare(a, bev, &msg->paxos_message_u.prepare);
 			break;
-		case accept_reqs:
-			handle_accept_req(a, bev, (accept_req*)buffer);
+		case PAXOS_ACCEPT:
+			evacceptor_handle_accept(a, bev, &msg->paxos_message_u.accept);
 			break;
-		case repeat_reqs:
-			handle_repeat_req(a, bev, *((iid_t*)buffer));
+		case PAXOS_REPEAT:
+			evacceptor_handle_repeat(a, bev, &msg->paxos_message_u.repeat);
 			break;
 		default:
-			paxos_log_error("Unknow msg type %d not handled", msg.type);
+			paxos_log_error("Unknow msg type %d not handled", msg->type);
 	}
 }
 
@@ -151,7 +138,7 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 	
     a->acceptor_id = id;
 	a->base = b;
-	a->receiver = tcp_receiver_new(a->base, port, handle_req, a);
+	a->receiver = tcp_receiver_new(a->base, port, evacceptor_handle_msg, a);
 	a->state = acceptor_new(id);
 
     return a;
