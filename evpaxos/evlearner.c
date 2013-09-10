@@ -105,8 +105,8 @@ evlearner_init_conf(struct evpaxos_config* c, deliver_function f, void* arg,
 	l->state = learner_new(acceptor_count);
 	
 	// setup connections to acceptors
-	l->acceptors = peers_new(b);
-	peers_connect_to_acceptors(l->acceptors, c, evlearner_handle_msg, l);
+	l->acceptors = peers_new(b, c);
+	peers_connect_to_acceptors(l->acceptors, evlearner_handle_msg, l);
 	
 	// setup hole checking timer
 	l->tv.tv_sec = 0;

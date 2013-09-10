@@ -42,6 +42,7 @@ struct peers
 	int count;
 	struct peer** peers;
 	struct event_base* base;
+	struct evpaxos_config* config;
 };
 
 static struct timeval reconnect_timeout = {2,0};
@@ -53,12 +54,13 @@ static void peers_connect(struct peers* p, int id,
 	struct sockaddr_in* addr, peer_cb cb, void* arg);
 
 struct peers*
-peers_new(struct event_base* base)
+peers_new(struct event_base* base, struct evpaxos_config* conf)
 {
 	struct peers* p = malloc(sizeof(struct peers));
 	p->count = 0;
 	p->peers = NULL;
 	p->base = base;
+	p->config = conf;
 	return p;
 }
 
@@ -83,12 +85,11 @@ peers_connect(struct peers* p, int id, struct sockaddr_in* addr,
 }
 
 void
-peers_connect_to_acceptors(struct peers* p, struct evpaxos_config* c,
-	peer_cb cb, void* arg)
+peers_connect_to_acceptors(struct peers* p, peer_cb cb, void* arg)
 {
 	int i;
-	for (i = 0; i < evpaxos_acceptor_count(c); i++) {
-		struct sockaddr_in addr = evpaxos_acceptor_address(c, i);
+	for (i = 0; i < evpaxos_acceptor_count(p->config); i++) {
+		struct sockaddr_in addr = evpaxos_acceptor_address(p->config, i);
 		peers_connect(p, i, &addr, cb, arg);
 	}
 }
@@ -118,7 +119,7 @@ handle_paxos_message(struct peer* p, struct bufferevent* bev,
 	if (!xdr_paxos_message(&xdr, &msg)) {
 		paxos_log_error("Error while decoding paxos message!");
 	} else {
-		p->callback(p, &msg, p->arg);
+		p->callback(&msg, p->id, p->arg);
 	}
 	xdr_free((xdrproc_t)xdr_paxos_message, &msg);
 	xdr_destroy(&xdr);

@@ -27,12 +27,9 @@
 struct peers;
 typedef void (*peer_cb)(paxos_message* m, int from, void* arg);
 	
-struct peers* peers_new(struct event_base* base);
+struct peers* peers_new(struct event_base* base, struct evpaxos_config* c);
 void peers_free(struct peers* p);
-void peers_connect_to_acceptors(struct peers* p,
-	struct evpaxos_config* c,
-	peer_cb cb,
-	void* arg);
+void peers_connect_to_acceptors(struct peers* p, peer_cb cb, void* arg);
 int peers_count(struct peers* p);
 struct bufferevent* peers_get_buffer(struct peers* p, int i);
 

@@ -202,9 +202,8 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	p->receiver = tcp_receiver_new(b, port, evproposer_handle_client_msg, p);
 	
 	// Setup connections to acceptors
-	p->acceptors = peers_new(b);
-	peers_connect_to_acceptors(p->acceptors, conf, 
-		evproposer_handle_acceptor_msg, p);
+	p->acceptors = peers_new(b, conf);
+	peers_connect_to_acceptors(p->acceptors, evproposer_handle_acceptor_msg, p);
 	
 	// Setup timeout
 	p->tv.tv_sec = paxos_config.proposer_timeout;
