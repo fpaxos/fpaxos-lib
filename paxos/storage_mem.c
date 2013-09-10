@@ -92,7 +92,6 @@ storage_save_accept(struct storage* s, paxos_accept* ar)
 	acceptor_record* record_buffer = s->records[ar->iid % MAX_RECORDS];
 	
 	//Store as acceptor_record (== accept_ack)
-	record_buffer->acceptor_id = s->acceptor_id;
 	record_buffer->iid = ar->iid;
 	record_buffer->ballot = ar->ballot;
 	record_buffer->value_ballot = ar->ballot;
@@ -117,7 +116,6 @@ storage_save_prepare(struct storage* s, paxos_prepare* pr, acceptor_record* rec)
 	if (rec == NULL) {
 		//Record does not exist yet
 		rec = record_buffer;
-		rec->acceptor_id = s->acceptor_id;
 		rec->iid = pr->iid;
 		rec->ballot = pr->ballot;
 		rec->value_ballot = 0;
