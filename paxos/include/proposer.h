@@ -37,13 +37,13 @@ int proposer_prepared_count(struct proposer* p);
 
 // phase 1
 void proposer_prepare(struct proposer* p, paxos_prepare* out);
-int proposer_receive_promise(struct proposer* p, paxos_promise* ack, 
-	paxos_prepare* out);
+int proposer_receive_promise(struct proposer* p, paxos_promise* ack,
+	int from_id, paxos_prepare* out);
 
 // phase 2
 int proposer_accept(struct proposer* p, paxos_accept* out);
-int proposer_receive_accepted(struct proposer* p, paxos_accepted* ack, 
-	paxos_prepare* out);
+int proposer_receive_accepted(struct proposer* p, paxos_accepted* ack,
+	int from_id, paxos_prepare* out);
 
 // timeouts
 struct timeout_iterator* proposer_timeout_iterator(struct proposer* p);

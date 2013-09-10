@@ -43,7 +43,6 @@ TEST_F(AcceptorTest, Prepare) {
 	paxos_prepare pre = {1, 101};
 	paxos_promise pro;
 	acceptor_receive_prepare(a, &pre, &pro);
-	ASSERT_EQ(pro.acceptor_id, id);
 	ASSERT_EQ(pro.iid, 1);
 	ASSERT_EQ(pro.ballot, 101);
 	ASSERT_EQ(pro.value_ballot, 0);
@@ -55,7 +54,6 @@ TEST_F(AcceptorTest, PrepareDuplicate) {
 	paxos_promise pro;
 	acceptor_receive_prepare(a, &pre, &pro);
 	acceptor_receive_prepare(a, &pre, &pro);
-	ASSERT_EQ(pro.acceptor_id, id);
 	ASSERT_EQ(pro.iid, 1);
 	ASSERT_EQ(pro.ballot, 101);
 	ASSERT_EQ(pro.value_ballot, 0);
@@ -88,7 +86,6 @@ TEST_F(AcceptorTest, Accept) {
 	paxos_accept ar = {1, 101, 0};	// no value
 	paxos_accepted acc;
 	acceptor_receive_accept(a, &ar, &acc);
-	ASSERT_EQ(acc.acceptor_id, id);
 	ASSERT_EQ(acc.iid, 1);
 	ASSERT_EQ(acc.ballot, 101);
 	ASSERT_EQ(acc.is_final, 0);

@@ -25,15 +25,14 @@
 #include <event2/bufferevent.h>
 
 struct peers;
-typedef void (*peer_cb)(struct bufferevent* bev,
-	paxos_message* m, void* arg);
+typedef void (*peer_cb)(paxos_message* m, int from, void* arg);
 	
 struct peers* peers_new(struct event_base* base);
 void peers_free(struct peers* p);
-void peers_connect(struct peers* p, struct sockaddr_in* addr, 
-	peer_cb cb, void* arg);
-void peers_connect_to_acceptors(struct peers* p, struct evpaxos_config* c,
-	peer_cb cb, void* arg);
+void peers_connect_to_acceptors(struct peers* p,
+	struct evpaxos_config* c,
+	peer_cb cb,
+	void* arg);
 int peers_count(struct peers* p);
 struct bufferevent* peers_get_buffer(struct peers* p, int i);
 

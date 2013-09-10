@@ -29,6 +29,7 @@
 
 struct peer
 {
+	int id;
 	struct bufferevent* bev;
 	struct event* reconnect_ev;
 	struct sockaddr_in addr;
@@ -44,11 +45,12 @@ struct peers
 };
 
 static struct timeval reconnect_timeout = {2,0};
-static struct peer* make_peer(struct event_base* base, 
+static struct peer* make_peer(struct event_base* base, int id,
 	struct sockaddr_in* addr, peer_cb cb, void* arg);
 static void free_peer(struct peer* p);
 static void connect_peer(struct peer* p);
-
+static void peers_connect(struct peers* p, int id, 
+	struct sockaddr_in* addr, peer_cb cb, void* arg);
 
 struct peers*
 peers_new(struct event_base* base)
@@ -71,11 +73,12 @@ peers_free(struct peers* p)
 	free(p);
 }
 
-void
-peers_connect(struct peers* p, struct sockaddr_in* addr, peer_cb cb, void* arg)
+static void
+peers_connect(struct peers* p, int id, struct sockaddr_in* addr,
+	peer_cb cb, void* arg)
 {
 	p->peers = realloc(p->peers, sizeof(struct peer*) * (p->count+1));
-	p->peers[p->count] = make_peer(p->base, addr, cb, arg);
+	p->peers[p->count] = make_peer(p->base, id, addr, cb, arg);
 	p->count++;
 }
 
@@ -86,7 +89,7 @@ peers_connect_to_acceptors(struct peers* p, struct evpaxos_config* c,
 	int i;
 	for (i = 0; i < evpaxos_acceptor_count(c); i++) {
 		struct sockaddr_in addr = evpaxos_acceptor_address(c, i);
-		peers_connect(p, &addr, cb, arg);
+		peers_connect(p, i, &addr, cb, arg);
 	}
 }
 
@@ -115,7 +118,7 @@ handle_paxos_message(struct peer* p, struct bufferevent* bev,
 	if (!xdr_paxos_message(&xdr, &msg)) {
 		paxos_log_error("Error while decoding paxos message!");
 	} else {
-		p->callback(bev, &msg, p->arg);
+		p->callback(p, &msg, p->arg);
 	}
 	xdr_free((xdrproc_t)xdr_paxos_message, &msg);
 	xdr_destroy(&xdr);
@@ -188,10 +191,11 @@ connect_peer(struct peer* p)
 }
 
 static struct peer*
-make_peer(struct event_base* base, struct sockaddr_in* addr, 
-	peer_cb cb, void* arg)
+make_peer(struct event_base* base, int id, 
+	struct sockaddr_in* addr,  peer_cb cb, void* arg)
 {
 	struct peer* p = malloc(sizeof(struct peer));
+	p->id = id;
 	p->addr = *addr;
 	p->reconnect_ev = evtimer_new(base, on_connection_timeout, p);
 	p->bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);

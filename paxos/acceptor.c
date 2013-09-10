@@ -65,12 +65,14 @@ acceptor_receive_prepare(struct acceptor* a,
 	rec = storage_get_record(a->store, req->iid);
 	rec = apply_prepare(a->store, req, rec);
 	storage_tx_commit(a->store);
-	out->acceptor_id = rec->acceptor_id;
-	out->iid = rec->iid;
-	out->ballot = rec->ballot;
-	out->value_ballot = rec->value_ballot;
-	out->value.value_len = rec->value.value_len;
-	out->value.value_val = rec->value.value_val;
+	
+	*out = (paxos_promise) {
+		rec->iid,
+		rec->ballot,
+		rec->value_ballot,
+		{ rec->value.value_len, rec->value.value_val }
+	};
+
 	return 1;
 }
 

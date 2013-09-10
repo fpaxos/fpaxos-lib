@@ -25,8 +25,6 @@ bool_t
 xdr_paxos_promise(XDR *xdrs, paxos_promise *objp)
 {
 
-	if (!xdr_u_int16_t(xdrs, &objp->acceptor_id))
-		return (FALSE);
 	if (!xdr_u_int32_t(xdrs, &objp->iid))
 		return (FALSE);
 	if (!xdr_u_int32_t(xdrs, &objp->ballot))
@@ -55,8 +53,6 @@ bool_t
 xdr_paxos_accepted(XDR *xdrs, paxos_accepted *objp)
 {
 
-	if (!xdr_u_int16_t(xdrs, &objp->acceptor_id))
-		return (FALSE);
 	if (!xdr_u_int32_t(xdrs, &objp->iid))
 		return (FALSE);
 	if (!xdr_u_int32_t(xdrs, &objp->ballot))

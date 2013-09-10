@@ -46,7 +46,6 @@ struct paxos_prepare {
 typedef struct paxos_prepare paxos_prepare;
 
 struct paxos_promise {
-	u_int16_t acceptor_id;
 	u_int32_t iid;
 	u_int32_t ballot;
 	u_int32_t value_ballot;
@@ -68,7 +67,6 @@ struct paxos_accept {
 typedef struct paxos_accept paxos_accept;
 
 struct paxos_accepted {
-	u_int16_t acceptor_id;
 	u_int32_t iid;
 	u_int32_t ballot;
 	u_int32_t value_ballot;

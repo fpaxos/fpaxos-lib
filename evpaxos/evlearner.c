@@ -73,19 +73,19 @@ evlearner_deliver_next_closed(struct evlearner* l)
     for that instance and afterwards check if the instance is closed
 */
 static void
-evlearner_handle_accepted(struct evlearner* l, paxos_accepted* aa)
+evlearner_handle_accepted(struct evlearner* l, paxos_accepted* msg, int from)
 {
-	learner_receive_accepted(l->state, aa);
+	learner_receive_accepted(l->state, msg, from);
 	evlearner_deliver_next_closed(l);
 }
 
 static void
-evlearner_handle_msg(struct bufferevent* bev, paxos_message* msg, void* arg)
+evlearner_handle_msg(paxos_message* msg, int from, void* arg)
 {
-	struct evlearner* l = (struct evlearner*)arg;
+	struct evlearner* l = arg;
 	switch (msg->type) {
 		case PAXOS_ACCEPTED:
-			evlearner_handle_accepted(l, &msg->paxos_message_u.accepted);
+			evlearner_handle_accepted(l, &msg->paxos_message_u.accepted, from);
 			break;
 		default:
 			paxos_log_error("Unknow msg type %d not handled", msg->type);

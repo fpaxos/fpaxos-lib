@@ -88,21 +88,25 @@ try_accept(struct evproposer* p)
 }
 
 static void
-evproposer_handle_promise(struct evproposer* p, paxos_promise* ack)
+evproposer_handle_promise(struct evproposer* p, paxos_promise* promise,
+	int from)
 {
-	paxos_prepare pr;
-	int preempted = proposer_receive_promise(p->state, ack, &pr);
+	int preempted;
+	paxos_prepare prepare;
+	preempted = proposer_receive_promise(p->state, promise, from, &prepare);
 	if (preempted)
-		send_prepares(p, &pr);
+		send_prepares(p, &prepare);
 }
 
 static void
-evproposer_handle_accepted(struct evproposer* p, paxos_accepted* ack)
+evproposer_handle_accepted(struct evproposer* p, paxos_accepted* accepted,
+	 int from)
 {
-	paxos_prepare pr;
-	int preempted = proposer_receive_accepted(p->state, ack, &pr);
+	int preempted;
+	paxos_prepare prepare;
+	preempted = proposer_receive_accepted(p->state, accepted, from, &prepare);
 	if (preempted)
-		send_prepares(p, &pr);
+		send_prepares(p, &prepare);
 }
 
 static void
@@ -112,16 +116,29 @@ evproposer_handle_client_value(struct evproposer* p, paxos_client_value* v)
 }
 
 static void
-evproposer_handle_msg(struct bufferevent* bev, paxos_message* msg, void* arg)
+evproposer_handle_acceptor_msg(paxos_message* msg, int from, void* arg)
 {
 	struct evproposer* p = arg;
 	switch (msg->type) {
 		case PAXOS_PROMISE:
-			evproposer_handle_promise(p, &msg->paxos_message_u.promise);
+			evproposer_handle_promise(p, &msg->paxos_message_u.promise, from);
 			break;
 		case PAXOS_ACCEPTED:
-			evproposer_handle_accepted(p, &msg->paxos_message_u.accepted);
+			evproposer_handle_accepted(p, &msg->paxos_message_u.accepted, from);
 			break;
+		default:
+			paxos_log_error("Unknow msg type %d not handled", msg->type);
+			return;
+	}
+	try_accept(p);
+}
+
+static void
+evproposer_handle_client_msg(struct bufferevent* bev, paxos_message* msg,
+	void* arg)
+{
+	struct evproposer* p = arg;
+	switch (msg->type) {
 		case PAXOS_CLIENT_VALUE:
 			evproposer_handle_client_value(p, 	
 				&msg->paxos_message_u.client_value);
@@ -132,6 +149,7 @@ evproposer_handle_msg(struct bufferevent* bev, paxos_message* msg, void* arg)
 	}
 	try_accept(p);
 }
+
 
 static void
 evproposer_check_timeouts(evutil_socket_t fd, short event, void *arg)
@@ -181,11 +199,12 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	p->preexec_window = paxos_config.proposer_preexec_window;
 		
 	// Setup client listener
-	p->receiver = tcp_receiver_new(b, port, evproposer_handle_msg, p);
+	p->receiver = tcp_receiver_new(b, port, evproposer_handle_client_msg, p);
 	
 	// Setup connections to acceptors
 	p->acceptors = peers_new(b);
-	peers_connect_to_acceptors(p->acceptors, conf, evproposer_handle_msg, p);
+	peers_connect_to_acceptors(p->acceptors, conf, 
+		evproposer_handle_acceptor_msg, p);
 	
 	// Setup timeout
 	p->tv.tv_sec = paxos_config.proposer_timeout;

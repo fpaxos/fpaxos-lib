@@ -321,7 +321,6 @@ acceptor_record*
 storage_save_accept(struct storage* s, paxos_accept* ar)
 {
 	s->record = (acceptor_record) {
-		s->acceptor_id,
 		ar->iid,
 		ar->ballot,
 		ar->ballot,
@@ -340,7 +339,6 @@ storage_save_prepare(struct storage* s, paxos_prepare* pr, acceptor_record* rec)
 {
 	if (rec == NULL) { // Record does not exist yet
 		s->record = (acceptor_record) {
-			s->acceptor_id,
 			pr->iid,
 			pr->ballot,
 			0,
