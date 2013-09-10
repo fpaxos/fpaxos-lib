@@ -65,12 +65,6 @@ paxos_value_free(paxos_value* v)
 	free(v);
 }
 
-paxos_value*
-paxos_value_dup(const paxos_value* v)
-{
-	return paxos_value_new(v->value.value_val, v->value.value_len);
-}
-
 void
 paxos_log(int level, const char* format, va_list ap)
 {
