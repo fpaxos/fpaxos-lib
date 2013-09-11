@@ -20,6 +20,7 @@
 
 #include "tcp_receiver.h"
 #include "xdr.h"
+#include "message.h"
 #include <rpc/types.h>
 #include <rpc/xdr.h>
 #include <rpc/rpc.h>
@@ -44,48 +45,14 @@ set_sockaddr_in(struct sockaddr_in* sin, int port)
 }
 
 static void
-handle_paxos_message(struct tcp_receiver* r, struct bufferevent* bev,
-	uint32_t size)
-{
-	XDR xdr;
-	paxos_message msg;
-	struct evbuffer* in = bufferevent_get_input(bev);
-	char* buffer = (char*)evbuffer_pullup(in, size);;
-	xdrmem_create(&xdr, buffer, size, XDR_DECODE);
-	memset(&msg, 0, sizeof(paxos_message));
-	if (!xdr_paxos_message(&xdr, &msg)) {
-		paxos_log_error("Error while decoding paxos message!");
-	} else {
-		r->callback(bev, &msg, r->arg);
-	}
-	xdr_free((xdrproc_t)xdr_paxos_message, &msg);
-	xdr_destroy(&xdr);
-}
-
-static void
 on_read(struct bufferevent* bev, void* arg)
 {
-	uint32_t msg_size;
-	size_t buffer_len;
-	struct evbuffer* in;
+	paxos_message msg;
 	struct tcp_receiver* r = arg;
-	
-	in = bufferevent_get_input(bev);
-	
-	while ((buffer_len = evbuffer_get_length(in)) > sizeof(uint32_t)) {
-		evbuffer_copyout(in, &msg_size, sizeof(uint32_t));
-		msg_size = ntohl(msg_size);
-		if (buffer_len < (msg_size + sizeof(uint32_t)))
-			return;
-		if (msg_size > PAXOS_MAX_VALUE_SIZE) {
-			evbuffer_drain(in, msg_size);
-			paxos_log_error("Discarding message of size %ld. Maximum is %d",
-				msg_size, PAXOS_MAX_VALUE_SIZE);
-			return;
-		}
-		evbuffer_drain(in, sizeof(uint32_t));
-		handle_paxos_message(r, bev, msg_size);
-		evbuffer_drain(in, msg_size);
+	struct evbuffer* in = bufferevent_get_input(bev);
+	while (recv_paxos_message(in, &msg)) {
+		r->callback(bev, &msg, r->arg);
+		xdr_free((xdrproc_t)xdr_paxos_message, &msg);
 	}
 }
 

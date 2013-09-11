@@ -17,10 +17,11 @@
 	along with LibPaxos.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+
 #include "evpaxos.h"
 #include "learner.h"
 #include "peers.h"
-#include "tcp_sendbuf.h"
+#include "message.h"
 #include "config.h"
 #include <stdlib.h>
 #include <stdio.h>

@@ -22,17 +22,14 @@
 #define _TCP_SENDBUF_H_
 
 #include "evpaxos.h"
-
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
+#include <event2/buffer.h>
 #include <event2/bufferevent.h>
 
-void send_paxos_prepare(struct bufferevent* bev, paxos_prepare* p);
-void send_paxos_promise(struct bufferevent* bev, paxos_promise* p);
-void send_paxos_accept(struct bufferevent* bev, paxos_accept* p);
-void send_paxos_accepted(struct bufferevent* bev, paxos_accepted* p);
-void send_paxos_repeat(struct bufferevent* bev, paxos_repeat* p);
+void send_paxos_prepare(struct bufferevent* bev, paxos_prepare* msg);
+void send_paxos_promise(struct bufferevent* bev, paxos_promise* msg);
+void send_paxos_accept(struct bufferevent* bev, paxos_accept* msg);
+void send_paxos_accepted(struct bufferevent* bev, paxos_accepted* msg);
+void send_paxos_repeat(struct bufferevent* bev, paxos_repeat* msg);
+int recv_paxos_message(struct evbuffer* in, paxos_message* out);
 
 #endif

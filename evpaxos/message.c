@@ -18,8 +18,9 @@
 */
 
 
-#include "tcp_sendbuf.h"
+#include "message.h"
 #include "xdr.h"
+#include <string.h>
 #include <rpc/types.h>
 #include <rpc/xdr.h>
 #include <rpc/rpc.h>
@@ -103,4 +104,46 @@ paxos_submit(struct bufferevent* bev, char* data, int size)
 		.paxos_message_u.client_value.value.value_len = size,
 		.paxos_message_u.client_value.value.value_val = data };
 	send_message(bev, &msg);
+}
+
+static int
+decode_paxos_message(struct evbuffer* in, paxos_message* out, size_t size)
+{
+	XDR xdr;
+	char* buffer = (char*)evbuffer_pullup(in, size);
+	xdrmem_create(&xdr, buffer, size, XDR_DECODE);
+	memset(out, 0, sizeof(paxos_message));
+	int rv = xdr_paxos_message(&xdr, out);
+	if (!rv) paxos_log_error("Error while decoding paxos message!");
+	xdr_destroy(&xdr);
+	return rv;
+}
+
+int
+recv_paxos_message(struct evbuffer* in, paxos_message* out)
+{
+	uint32_t msg_size;
+	size_t buffer_len = evbuffer_get_length(in);
+	
+	if (buffer_len <= sizeof(uint32_t))
+		return 0;
+	
+	evbuffer_copyout(in, &msg_size, sizeof(uint32_t));
+	msg_size = ntohl(msg_size);
+	
+	if (buffer_len < (msg_size + sizeof(uint32_t)))
+		return 0;
+	
+	if (msg_size > PAXOS_MAX_VALUE_SIZE) {
+		evbuffer_drain(in, msg_size);
+		paxos_log_error("Discarding message of size %ld. Maximum is %d",
+			msg_size, PAXOS_MAX_VALUE_SIZE);
+		return 0;
+	}
+	
+	evbuffer_drain(in, sizeof(uint32_t));
+	int rv = decode_paxos_message(in, out, msg_size);
+	evbuffer_drain(in, msg_size);
+
+	return rv;
 }

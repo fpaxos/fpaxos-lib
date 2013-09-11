@@ -18,21 +18,18 @@
 */
 
 
-#include <event2/event.h>
-#include <event2/util.h>
-#include <event2/event_struct.h>
-#include <event2/buffer.h>
-
 #include "evpaxos.h"
 #include "config.h"
 #include "tcp_receiver.h"
 #include "acceptor.h"
-#include "tcp_sendbuf.h"
-
+#include "message.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-
+#include <event2/event.h>
+#include <event2/util.h>
+#include <event2/event_struct.h>
+#include <event2/buffer.h>
 
 struct evacceptor
 {
@@ -51,8 +48,8 @@ static void
 evacceptor_handle_prepare(struct evacceptor* a, 
 	struct bufferevent* bev, paxos_prepare* m)
 {
-	paxos_log_debug("Handle prepare for iid %d ballot %d", m->iid, m->ballot);
 	paxos_promise promise;
+	paxos_log_debug("Handle prepare for iid %d ballot %d", m->iid, m->ballot);
 	acceptor_receive_prepare(a->state, m, &promise);
 	send_paxos_promise(bev, &promise);
 }

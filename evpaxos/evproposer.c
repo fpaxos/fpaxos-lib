@@ -21,7 +21,7 @@
 #include "evpaxos.h"
 #include "peers.h"
 #include "config.h"
-#include "tcp_sendbuf.h"
+#include "message.h"
 #include "tcp_receiver.h"
 #include "proposer.h"
 #include <string.h>
