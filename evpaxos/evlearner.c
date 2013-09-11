@@ -61,11 +61,12 @@ static void
 evlearner_deliver_next_closed(struct evlearner* l)
 {
 	int prop_id;
-	paxos_accepted deliver;
-	while (learner_deliver_next(l->state, &deliver)) {
-		prop_id = deliver.ballot % MAX_N_OF_PROPOSERS;
-		l->delfun(deliver.value.value_val, deliver.value.value_len,
-			deliver.iid, deliver.ballot, prop_id, l->delarg);
+	paxos_accepted* deliver;
+	while ((deliver = learner_deliver_next(l->state)) != NULL) {
+		prop_id = deliver->ballot % MAX_N_OF_PROPOSERS;
+		l->delfun(deliver->value.value_val, deliver->value.value_len,
+			deliver->iid, deliver->ballot, prop_id, l->delarg);
+		paxos_accepted_free(deliver);
 	}
 }
 

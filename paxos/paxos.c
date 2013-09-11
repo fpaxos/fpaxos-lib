@@ -66,6 +66,13 @@ paxos_value_free(paxos_value* v)
 }
 
 void
+paxos_accepted_free(paxos_accepted* a)
+{
+	free(a->value.value_val);
+	free(a);
+}
+
+void
 paxos_log(int level, const char* format, va_list ap)
 {
 	int off;

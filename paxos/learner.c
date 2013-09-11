@@ -55,7 +55,6 @@ static int instance_has_quorum(struct instance* i, int acceptors);
 static void instance_add_accept(struct instance* i, 
 	paxos_accepted* ack, int aid);
 static paxos_accepted* paxos_accepted_dup(paxos_accepted* ack);
-static void paxos_accepted_free(paxos_accepted* acc);
 
 struct learner*
 learner_new(int acceptors)
@@ -103,19 +102,17 @@ learner_receive_accepted(struct learner* l, paxos_accepted* ack, int from_id)
 		l->highest_iid_closed = inst->iid;
 }
 
-int
-learner_deliver_next(struct learner* l, paxos_accepted* out)
+paxos_accepted*
+learner_deliver_next(struct learner* l)
 {
+	paxos_accepted* accepted;
 	struct instance* inst = learner_get_current_instance(l);
-	if (inst == NULL)
-		return 0;
-	if (instance_has_quorum(inst, l->acceptors)) {
-		*out = *inst->final_value;
-		learner_delete_instance(l, inst);
-		l->current_iid++;
-		return 1;
-	}
-	return 0;
+	if (inst == NULL || !instance_has_quorum(inst, l->acceptors))
+		return NULL;
+	accepted = paxos_accepted_dup(inst->final_value);
+	learner_delete_instance(l, inst);
+	l->current_iid++;
+	return accepted;
 }
 
 int
@@ -288,11 +285,4 @@ paxos_accepted_dup(paxos_accepted* ack)
 			ack->value.value_len);
 	}
 	return copy;
-}
-
-static void
-paxos_accepted_free(paxos_accepted* acc)
-{
-	free(acc->value.value_val);
-	free(acc);
 }
