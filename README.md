@@ -74,8 +74,7 @@ detailed output.
 
 ## License
 
-LibPaxos is distributed under GPL version 3.
-
+LibPaxos3 is distributed under the terms of the 3-clause BSD license.
 LibPaxos3 has been developed at the [University of Lugano][7],
 by [Daniele Sciascia][8].
 
