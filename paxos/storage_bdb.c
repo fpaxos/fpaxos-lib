@@ -45,7 +45,6 @@ struct storage
 	DB_TXN* txn;
 	int acceptor_id;
 	char buffer[PAXOS_MAX_VALUE_SIZE];
-	acceptor_record record;
 };
 
 static int 
@@ -239,14 +238,12 @@ void
 storage_tx_commit(struct storage* s)
 {
 	int result;
-	// Since it's either read only or write only
-	// and there is no concurrency, should always commit!
 	result = s->txn->commit(s->txn, 0);
 	assert(result == 0);
 }
 
-acceptor_record* 
-storage_get_record(struct storage* s, iid_t iid)
+int
+storage_get_record(struct storage* s, iid_t iid, paxos_accepted* out)
 {
 	int flags, result;
 	DBT dbkey, dbdata;
@@ -270,36 +267,35 @@ storage_get_record(struct storage* s, iid_t iid)
     
 	if (result == DB_NOTFOUND || result == DB_KEYEMPTY) {
 		paxos_log_debug("The record for iid: %d does not exist", iid);
-		return NULL;
+		return 0;
 	} else if (result != 0) {
 		paxos_log_error("Error while reading record with iid %u : %s",
 			iid, db_strerror(result));
-		return NULL;
+		return 0;
 	}
 	
 	XDR xdr;
 	xdrmem_create(&xdr, s->buffer, PAXOS_MAX_VALUE_SIZE, XDR_DECODE);
-	memset(&s->record, 0, sizeof(acceptor_record));
-	if (!xdr_paxos_accepted(&xdr, &s->record)) {
+	if (!xdr_paxos_accepted(&xdr, out)) {
 		paxos_log_error("Error while decoding record for instance %d", iid);
-		return NULL;
+		return 0;
 	}
-	
 	xdr_destroy(&xdr);
-	assert(iid == s->record.iid);
-	return &s->record;
+	
+	assert(iid == out->iid);
+	return 1;
 }
 
-static int
-store_record(struct storage* s, acceptor_record* rec)
+int
+storage_put_record(struct storage* s, paxos_accepted* acc)
 {
 	XDR xdr;
 	DBT dbkey, dbdata;
 	
 	xdrmem_create(&xdr, s->buffer, PAXOS_MAX_VALUE_SIZE, XDR_ENCODE);
-	if (!xdr_paxos_accepted(&xdr, rec)) {
+	if (!xdr_paxos_accepted(&xdr, acc)) {
 		paxos_log_error("Error while encoding record for instance %d", 
-			rec->iid);
+			acc->iid);
 		return -1;
 	}
 	
@@ -307,7 +303,7 @@ store_record(struct storage* s, acceptor_record* rec)
 	memset(&dbdata, 0, sizeof(DBT));
 	
 	// Key is the iid
-	dbkey.data = &rec->iid;
+	dbkey.data = &acc->iid;
 	dbkey.size = sizeof(iid_t);
         
 	// Data is the encoded buffer
@@ -323,85 +319,4 @@ store_record(struct storage* s, acceptor_record* rec)
 
 	xdr_destroy(&xdr);
 	return 0;
-}
-
-acceptor_record*
-storage_save_accept(struct storage* s, paxos_accept* ar)
-{
-	s->record = (acceptor_record) {
-		ar->iid,
-		ar->ballot,
-		ar->ballot,
-		0,
-		{ ar->value.value_len, ar->value.value_val }
-	};
-	
-	if (store_record(s, &s->record) != 0)
-		return NULL;
-    
-	return &s->record;
-}
-
-acceptor_record*
-storage_save_prepare(struct storage* s, paxos_prepare* pr, acceptor_record* rec)
-{
-	if (rec == NULL) { // Record does not exist yet
-		s->record = (acceptor_record) {
-			pr->iid,
-			pr->ballot,
-			0,
-			0,
-			{ 0, NULL }
-		};
-	} else {
-		s->record.ballot = pr->ballot;
-	}	
-	
-	if (store_record(s, &s->record) != 0)
-		return NULL;
-    
-	return &s->record;
-}
-
-acceptor_record*
-storage_save_final_value(struct storage* s, char* value, size_t size, 
-	iid_t iid, ballot_t b)
-{
-	// int flags, result;
-	// DBT dbkey, dbdata;
-	// DB* dbp = s->db;
-	// DB_TXN* txn = s->txn;
-	// acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
-	// 
-	// //Store as acceptor_record (== accept_ack)
-	// record_buffer->iid = iid;
-	// record_buffer->ballot = b;
-	// record_buffer->value_ballot = b;
-	// record_buffer->is_final = 1;
-	// record_buffer->value->size = size;
-	// memcpy(record_buffer->value, value, size);
-	// 
-	// memset(&dbkey, 0, sizeof(DBT));
-	// memset(&dbdata, 0, sizeof(DBT));
-	// 
-	// //Key is iid
-	// dbkey.data = &iid;
-	// dbkey.size = sizeof(iid_t);
-	// 
-	// //Data is our buffer
-	// dbdata.data = record_buffer;
-	// dbdata.size = sizeof(record_buffer);
-	// 
-	// //Store permanently
-	// flags = 0;
-	// 	result = dbp->put(dbp, 
-	// 	txn, 
-	// 	&dbkey, 
-	// 	&dbdata, 
-	// 	0);
-	// 
-	// assert(result == 0);    
-	// return record_buffer;
-	
-	return NULL;
 }

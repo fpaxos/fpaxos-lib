@@ -91,34 +91,36 @@ TEST_F(AcceptorTest, PrepareHigherBallot) {
 }
 
 TEST_F(AcceptorTest, Accept) {
-	paxos_accept ar = {1, 101, 0};	// no value
+	paxos_accept ar = {1, 101, {4, (char*)"foo"}};
 	paxos_accepted acc;
 	acceptor_receive_accept(a, &ar, &acc);
 	ASSERT_EQ(acc.iid, 1);
 	ASSERT_EQ(acc.ballot, 101);
 	ASSERT_EQ(acc.is_final, 0);
 	ASSERT_EQ(acc.value_ballot, 101);
-	ASSERT_EQ(NULL, acc.value.value_val);
+	ASSERT_STREQ("foo", acc.value.value_val);
+	paxos_accepted_destroy(&acc);
 }
 
 TEST_F(AcceptorTest, AcceptPrepared) {
-	paxos_prepare pre = {1, 101};
-	paxos_accept accept = {1, 101, 0};
+	paxos_prepare pr = {1, 101};
+	paxos_accept ar = {1, 101, {8 , (char*)"foo bar"}};
 	paxos_promise pro;
-	paxos_accepted accepted;
+	paxos_accepted acc;
 	
-	acceptor_receive_prepare(a, &pre, &pro);
+	acceptor_receive_prepare(a, &pr, &pro);
 	ASSERT_EQ(pro.ballot, 101);
 	ASSERT_EQ(pro.value_ballot, 0);
 	
-	acceptor_receive_accept(a, &accept, &accepted);
-	ASSERT_EQ(accepted.ballot, 101);
-	ASSERT_EQ(accepted.value_ballot, 101);
+	acceptor_receive_accept(a, &ar, &acc);
+	ASSERT_EQ(acc.ballot, 101);
+	ASSERT_EQ(acc.value_ballot, 101);
+	paxos_accepted_destroy(&acc);
 }
 
 TEST_F(AcceptorTest, AcceptHigherBallot) {
 	paxos_prepare pr = {1, 101};
-	paxos_accept ar = {1, 201, 0};
+	paxos_accept ar = {1, 201, {4, (char*)"baz"}};
 	paxos_promise pro;
 	paxos_accepted acc;
 	
@@ -129,11 +131,12 @@ TEST_F(AcceptorTest, AcceptHigherBallot) {
 	acceptor_receive_accept(a, &ar, &acc);
 	ASSERT_EQ(acc.ballot, 201);
 	ASSERT_EQ(acc.value_ballot, 201);
+	paxos_accepted_destroy(&acc);
 }
 
 TEST_F(AcceptorTest, AcceptSmallerBallot) {
 	paxos_prepare pr = {1, 201};
-	paxos_accept ar = {1, 101, 0};
+	paxos_accept ar = {1, 101, {4, (char*)"bar"}};
 	paxos_promise pro;
 	paxos_accepted acc;
 	
@@ -148,15 +151,30 @@ TEST_F(AcceptorTest, AcceptSmallerBallot) {
 
 TEST_F(AcceptorTest, PrepareWithAcceptedValue) {
 	paxos_prepare pr = {1, 101};
-	paxos_accept ar = {1, 101, 0};
+	paxos_accept ar = {1, 101, {4, (char*)"bar"}};
 	paxos_promise pro;
 	paxos_accepted acc;
 	
 	acceptor_receive_prepare(a, &pr, &pro);
 	acceptor_receive_accept(a, &ar, &acc);
+	paxos_accepted_destroy(&acc);
 	
 	pr = (paxos_prepare) {1, 201};
 	acceptor_receive_prepare(a, &pr, &pro);
 	ASSERT_EQ(pro.ballot, 201);
 	ASSERT_EQ(pro.value_ballot, 101);
+	paxos_promise_destroy(&pro);
+}
+
+TEST_F(AcceptorTest, Repeat) {
+	int found;
+	paxos_accept ar = {10, 101, {10, (char*)"aaaaaaaaa"}};
+	paxos_accepted acc;
+	
+	acceptor_receive_accept(a, &ar, &acc);
+	paxos_accepted_destroy(&acc);
+	ASSERT_FALSE(acceptor_receive_repeat(a, 1, &acc));
+	paxos_accepted_destroy(&acc);
+	ASSERT_TRUE(acceptor_receive_repeat(a, 10, &acc));
+	paxos_accepted_destroy(&acc);
 }

@@ -37,10 +37,7 @@ struct storage* storage_open(int acceptor_id);
 int storage_close(struct storage* s);
 void storage_tx_begin(struct storage* s);
 void storage_tx_commit(struct storage* s);
-acceptor_record* storage_get_record(struct storage* s, iid_t iid);
-acceptor_record* storage_save_accept(struct storage* s, paxos_accept* ar);
-acceptor_record* storage_save_prepare(struct storage* s, paxos_prepare* pr, 
-	acceptor_record* rec);
-acceptor_record* storage_save_final_value(struct storage* s, char* value, 	size_t size, iid_t iid, ballot_t ballot);
+int storage_get_record(struct storage* s, iid_t iid, paxos_accepted* out);
+int storage_put_record(struct storage* s, paxos_accepted* acc);
 
 #endif

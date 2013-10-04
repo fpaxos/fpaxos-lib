@@ -27,12 +27,12 @@
 
 
 #include "paxos.h"
+#include "xdr.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
-
 
 struct paxos_config paxos_config =
 {
@@ -76,8 +76,20 @@ paxos_value_free(paxos_value* v)
 void
 paxos_accepted_free(paxos_accepted* a)
 {
-	free(a->value.value_val);
+	paxos_accepted_destroy(a);
 	free(a);
+}
+
+void
+paxos_accepted_destroy(paxos_accepted* a)
+{
+	xdr_free((xdrproc_t)xdr_paxos_accepted, a);
+}
+
+void
+paxos_promise_destroy(paxos_promise* p)
+{
+	xdr_free((xdrproc_t)xdr_paxos_promise, p);
 }
 
 void

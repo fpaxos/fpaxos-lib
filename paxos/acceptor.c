@@ -29,17 +29,15 @@
 #include "acceptor.h"
 #include "storage.h"
 #include <stdlib.h>
+#include <string.h>
 
 struct acceptor
 {
 	struct storage* store;
 };
 
-static acceptor_record*
-apply_prepare(struct storage* s, paxos_prepare* ar, acceptor_record* rec);
-
-static acceptor_record*
-apply_accept(struct storage* s, paxos_accept* ar, acceptor_record* rec);
+static void paxos_accepted_to_promise(paxos_accepted* acc, paxos_promise* out);
+static void paxos_accept_to_accepted(paxos_accept* acc, paxos_accepted* out);
 
 
 struct acceptor*
@@ -68,19 +66,18 @@ int
 acceptor_receive_prepare(struct acceptor* a, 
 	paxos_prepare* req, paxos_promise* out)
 {
-	acceptor_record* rec;
+	paxos_accepted acc;
+	memset(&acc, 0, sizeof(paxos_accepted));
 	storage_tx_begin(a->store);
-	rec = storage_get_record(a->store, req->iid);
-	rec = apply_prepare(a->store, req, rec);
-	storage_tx_commit(a->store);
-	
-	*out = (paxos_promise) {
-		rec->iid,
-		rec->ballot,
-		rec->value_ballot,
-		{ rec->value.value_len, rec->value.value_val }
-	};
-
+	int found = storage_get_record(a->store, req->iid, &acc);
+	if (!found || acc.ballot <= req->ballot) {
+		paxos_log_debug("Preparing iid: %u, ballot: %u", req->iid, req->ballot);
+		acc.iid = req->iid;
+		acc.ballot = req->ballot;
+		storage_put_record(a->store, &acc);
+	}
+	storage_tx_commit(a->store);	
+	paxos_accepted_to_promise(&acc, out);
 	return 1;
 }
 
@@ -88,65 +85,50 @@ int
 acceptor_receive_accept(struct acceptor* a,
 	paxos_accept* req, paxos_accepted* out)
 {
-	acceptor_record* rec;
+	memset(out, 0, sizeof(paxos_accepted));
 	storage_tx_begin(a->store);
-	rec = storage_get_record(a->store, req->iid);
-	rec = apply_accept(a->store, req, rec);
+	int found = storage_get_record(a->store, req->iid, out);
+	if (!found || out->ballot <= req->ballot) {
+		paxos_log_debug("Accepting iid: %u, ballot: %u", req->iid, req->ballot);
+		paxos_accepted_destroy(out);
+		paxos_accept_to_accepted(req, out);
+		storage_put_record(a->store, out);
+	}
 	storage_tx_commit(a->store);
-	*out = *rec;
 	return 1;
 }
 
 int
 acceptor_receive_repeat(struct acceptor* a, iid_t iid, paxos_accepted* out)
 {
-	acceptor_record* rec;
+	memset(out, 0, sizeof(paxos_accepted));
 	storage_tx_begin(a->store);
-	rec = storage_get_record(a->store, iid);
+	int found = storage_get_record(a->store, iid, out);
 	storage_tx_commit(a->store);
-	if (rec == NULL)
-		return 0;
-	*out = *rec;
-	return 1;
+	return found;
 }
 
-static acceptor_record*
-apply_prepare(struct storage* s, paxos_prepare* pr, acceptor_record* rec)
+static void
+paxos_accepted_to_promise(paxos_accepted* acc, paxos_promise* out)
 {
-	// We already have a more recent ballot
-	if (rec != NULL && rec->ballot >= pr->ballot) {
-		paxos_log_debug("Prepare iid: %u dropped (ballots curr:%u recv:%u)",
-			pr->iid, rec->ballot, pr->ballot);
-		return rec;
-	}
-	
-	// Stored value is final, the instance is closed already
-	if (rec != NULL && rec->is_final) {
-		paxos_log_debug("Prepare request for iid: %u dropped \
-			(stored value is final)", pr->iid);
-		return rec;
-	}
-	
-	// Record not found or smaller ballot, in both cases overwrite and store
-	paxos_log_debug("Preparing iid: %u, ballot: %u", pr->iid, pr->ballot);
-	
-	// Store the updated record
-	return storage_save_prepare(s, pr, rec);
+	*out = (paxos_promise) {
+		acc->iid,
+		acc->ballot,
+		acc->value_ballot,
+		{ acc->value.value_len, acc->value.value_val }
+	};
 }
 
-static acceptor_record*
-apply_accept(struct storage* s, paxos_accept* ar, acceptor_record* rec)
+static void
+paxos_accept_to_accepted(paxos_accept* acc, paxos_accepted* out)
 {
-	// We already have a more recent ballot
-	if (rec != NULL && rec->ballot > ar->ballot) {
-		paxos_log_debug("Accept for iid:%u dropped (ballots curr:%u recv:%u)",
-			ar->iid, rec->ballot, ar->ballot);
-		return rec;
-	}
-	
-	// Record not found or smaller ballot, in both cases overwrite and store
-	paxos_log_debug("Accepting iid: %u, ballot: %u", ar->iid, ar->ballot);
-	
-	// Store the updated record
-	return storage_save_accept(s, ar);
+	char* value = malloc(acc->value.value_len);
+	memcpy(value, acc->value.value_val, acc->value.value_len);
+	*out = (paxos_accepted) {
+		acc->iid,
+		acc->ballot,
+		acc->ballot,
+		0,
+		{ acc->value.value_len, value }
+	};
 }

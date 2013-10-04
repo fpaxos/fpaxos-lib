@@ -37,8 +37,10 @@
 struct storage
 {
 	int acceptor_id;
-	acceptor_record *records[MAX_RECORDS];
+	paxos_accepted *records[MAX_RECORDS];
 };
+
+void paxos_accepted_copy(paxos_accepted* dst, paxos_accepted* src);
 
 
 struct storage*
@@ -48,8 +50,8 @@ storage_open(int acceptor_id)
 	struct storage* s = malloc(sizeof(struct storage));
 	memset(s, 0, sizeof(struct storage));
 	for (i = 0; i < MAX_RECORDS; ++i) {
-		s->records[i] = malloc(sizeof(acceptor_record));
-		memset(s->records[i], 0, sizeof(acceptor_record));
+		s->records[i] = malloc(sizeof(paxos_accepted));
+		memset(s->records[i], 0, sizeof(paxos_accepted));
 	}
 	s->acceptor_id = acceptor_id;
 	return s;
@@ -80,78 +82,37 @@ storage_tx_commit(struct storage* s)
 	return;
 }
 
-acceptor_record* 
-storage_get_record(struct storage* s, iid_t iid)
+int
+storage_get_record(struct storage* s, iid_t iid, paxos_accepted* out)
 {
-	acceptor_record* record_buffer = s->records[iid % MAX_RECORDS];
-	if (iid < record_buffer->iid) {
-		paxos_log_error("Instance %d too old! Current is %d",
-			iid, record_buffer->iid);
+	paxos_accepted* record = s->records[iid % MAX_RECORDS];
+	if (iid < record->iid) {
+		paxos_log_error("Instance %d too old! Current is %d", iid, record->iid);
 		exit(1);
 	}
-	if (iid == record_buffer->iid)
-		return record_buffer;
-	return NULL;
+	if (iid == record->iid)
+		paxos_accepted_copy(out, record);
+	else
+		return 0;
+	return 1;
 }
 
-acceptor_record*
-storage_save_accept(struct storage* s, paxos_accept* ar)
+int
+storage_put_record(struct storage* s, paxos_accepted* acc)
 {
-	acceptor_record* record_buffer = s->records[ar->iid % MAX_RECORDS];
-	
-	//Store as acceptor_record (== accept_ack)
-	record_buffer->iid = ar->iid;
-	record_buffer->ballot = ar->ballot;
-	record_buffer->value_ballot = ar->ballot;
-	record_buffer->is_final = 0;
-	record_buffer->value.value_len = 0;
-	record_buffer->value.value_val = NULL;
-	if (ar->value.value_val != NULL) {
-		record_buffer->value.value_len = ar->value.value_len;
-		record_buffer->value.value_val = malloc(ar->value.value_len);
-		memcpy(record_buffer->value.value_val,
-			ar->value.value_val, ar->value.value_len);
+	paxos_accepted* record = s->records[acc->iid % MAX_RECORDS];
+	paxos_accepted_destroy(record);
+	paxos_accepted_copy(record, acc);
+	return 1;
+}
+
+void
+paxos_accepted_copy(paxos_accepted* dst, paxos_accepted* src)
+{
+	memcpy(dst, src, sizeof(paxos_accepted));
+	if (dst->value.value_len > 0) {
+		dst->value.value_val = malloc(src->value.value_len);
+		memcpy(dst->value.value_val, src->value.value_val,
+			src->value.value_len);
 	}
-	return record_buffer;
-}
-
-acceptor_record*
-storage_save_prepare(struct storage* s, paxos_prepare* pr, acceptor_record* rec)
-{
-	acceptor_record* record_buffer = s->records[pr->iid % MAX_RECORDS];
-	
-	//No previous record, create a new one
-	if (rec == NULL) {
-		//Record does not exist yet
-		rec = record_buffer;
-		rec->iid = pr->iid;
-		rec->ballot = pr->ballot;
-		rec->value_ballot = 0;
-		rec->is_final = 0;
-		rec->value.value_len = 0;
-		rec->value.value_val = NULL;
-	} else {
-		//Record exists, just update the ballot
-		rec->ballot = pr->ballot;
-		// if (rec->value.value_val != NULL) {
-		// 	free()
-		// }
-	}
-	
-	return record_buffer;
-}
-
-acceptor_record*
-storage_save_final_value(struct storage* s, char* value, size_t size, 
-	iid_t iid, ballot_t b)
-{
-	acceptor_record* record_buffer = s->records[iid % MAX_RECORDS];
-	
-	record_buffer->iid = iid;
-	record_buffer->ballot = b;
-	record_buffer->value_ballot = b;
-	record_buffer->is_final = 1;
-	// record_buffer->value = paxos_value_new(value, size);
-	
-	return record_buffer;
 }

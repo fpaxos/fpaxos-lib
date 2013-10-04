@@ -124,8 +124,6 @@ struct paxos_message {
 typedef struct paxos_message paxos_message;
 
 
-typedef paxos_accepted acceptor_record;
-
 /* Configuration */
 struct paxos_config
 { 
@@ -161,6 +159,8 @@ extern struct paxos_config paxos_config;
 int paxos_quorum(int acceptors);
 paxos_value* paxos_value_new(const char* v, size_t s);
 void paxos_value_free(paxos_value* v);
+void paxos_promise_destroy(paxos_promise* p);
+void paxos_accepted_destroy(paxos_accepted* a);
 void paxos_accepted_free(paxos_accepted* a);
 void paxos_log(int level, const char* format, va_list ap);
 void paxos_log_error(const char* format, ...);

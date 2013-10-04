@@ -60,6 +60,7 @@ evacceptor_handle_prepare(struct evacceptor* a,
 	paxos_log_debug("Handle prepare for iid %d ballot %d", m->iid, m->ballot);
 	acceptor_receive_prepare(a->state, m, &promise);
 	send_paxos_promise(bev, &promise);
+	paxos_promise_destroy(&promise);
 }
 
 /*
@@ -80,6 +81,7 @@ evacceptor_handle_accept(struct evacceptor* a,
 			send_paxos_accepted(carray_at(bevs, i), &accepted);
 	else
 		send_paxos_accepted(bev, &accepted); // send nack
+	paxos_accepted_destroy(&accepted);
 }
 
 static void
@@ -90,8 +92,10 @@ evacceptor_handle_repeat(struct evacceptor* a,
 	paxos_accepted accepted;
 	paxos_log_debug("Handle repeat for iids %d-%d", repeat->from, repeat->to);
 	for (iid = repeat->from; iid <= repeat->to; ++iid) {
-		if (acceptor_receive_repeat(a->state, iid, &accepted))
+		if (acceptor_receive_repeat(a->state, iid, &accepted)) {
 			send_paxos_accepted(bev, &accepted);
+			paxos_accepted_destroy(&accepted);
+		}
 	}
 }
 
