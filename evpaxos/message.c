@@ -27,7 +27,7 @@
 
 
 #include "message.h"
-#include "xdr.h"
+#include "paxos_xdr.h"
 #include <string.h>
 #include <rpc/types.h>
 #include <rpc/xdr.h>

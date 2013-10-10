@@ -1,5 +1,5 @@
-#include "xdr.h"
 #include "paxos.h"
+#include "paxos_xdr.h"
 
 bool_t
 xdr_iid_t(XDR *xdrs, iid_t *objp)

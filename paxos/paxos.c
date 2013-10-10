@@ -27,7 +27,7 @@
 
 
 #include "paxos.h"
-#include "xdr.h"
+#include "paxos_xdr.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

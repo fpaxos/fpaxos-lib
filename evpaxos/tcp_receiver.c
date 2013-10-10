@@ -27,7 +27,7 @@
 
 
 #include "tcp_receiver.h"
-#include "xdr.h"
+#include "paxos_xdr.h"
 #include "message.h"
 #include <rpc/types.h>
 #include <rpc/xdr.h>

@@ -34,7 +34,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <assert.h>
-#include "xdr.h"
+#include "paxos_xdr.h"
 #include <rpc/xdr.h>
 #include <rpc/types.h>
 

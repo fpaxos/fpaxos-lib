@@ -27,7 +27,7 @@
 
 
 #include "peers.h"
-#include "xdr.h"
+#include "paxos_xdr.h"
 #include "message.h"
 #include "peers.h"
 #include <errno.h>
