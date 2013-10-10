@@ -287,10 +287,10 @@ paxos_accepted_dup(paxos_accepted* ack)
 	paxos_accepted* copy;
 	copy = malloc(sizeof(paxos_accepted));
 	memcpy(copy, ack, sizeof(paxos_accepted));
-	if (ack->value.value_val != NULL) {
-		copy->value.value_val = malloc(ack->value.value_len);
-		memcpy(copy->value.value_val, ack->value.value_val,
-			ack->value.value_len);
+	if (ack->value.paxos_value_val != NULL) {
+		copy->value.paxos_value_val = malloc(ack->value.paxos_value_len);
+		memcpy(copy->value.paxos_value_val, ack->value.paxos_value_val,
+			ack->value.paxos_value_len);
 	}
 	return copy;
 }

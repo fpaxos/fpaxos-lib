@@ -109,8 +109,8 @@ paxos_submit(struct bufferevent* bev, char* data, int size)
 {
 	paxos_message msg = {
 		.type = PAXOS_CLIENT_VALUE,
-		.paxos_message_u.client_value.value.value_len = size,
-		.paxos_message_u.client_value.value.value_val = data };
+		.paxos_message_u.client_value.value.paxos_value_len = size,
+		.paxos_message_u.client_value.value.paxos_value_val = data };
 	send_message(bev, &msg);
 }
 

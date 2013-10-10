@@ -161,15 +161,17 @@ proposer_receive_promise(struct proposer* p, paxos_promise* ack,
 	paxos_log_debug("Received valid promise from: %d, iid: %u",
 		from_id, inst->iid);
 		
-	if (ack->value.value_len > 0) {
+	if (ack->value != NULL) {
 		paxos_log_debug("Promise has value");
 		if (inst->value == NULL) {
-			inst->value_ballot = ack->value_ballot;
-			inst->value = paxos_value_new(ack->value.value_val, ack->value.value_len);
-		} else if (ack->value_ballot > inst->value_ballot) {
+			inst->value_ballot = ack->value->ballot;
+			inst->value = paxos_value_new(ack->value->value.paxos_value_val,
+				ack->value->value.paxos_value_len);
+		} else if (ack->value->ballot > inst->value_ballot) {
 			paxos_value_free(inst->value);
-			inst->value_ballot = ack->value_ballot;
-			inst->value = paxos_value_new(ack->value.value_val, ack->value.value_len);
+			inst->value_ballot = ack->value->ballot;
+			inst->value = paxos_value_new(ack->value->value.paxos_value_val,
+				ack->value->value.paxos_value_len);
 			paxos_log_debug("Value in promise saved, removed older value");
 		} else
 			paxos_log_debug("Value in promise ignored");
@@ -382,6 +384,7 @@ instance_to_accept(struct instance* inst, paxos_accept* accept)
 	*accept = (paxos_accept) {
 		inst->iid,
 		inst->ballot,
-		{ inst->value->value.value_len, inst->value->value.value_val }
+		{ inst->value->paxos_value_len,
+		  inst->value->paxos_value_val }
 	};
 }

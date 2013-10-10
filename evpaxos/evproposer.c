@@ -120,7 +120,9 @@ evproposer_handle_accepted(struct evproposer* p, paxos_accepted* accepted,
 static void
 evproposer_handle_client_value(struct evproposer* p, paxos_client_value* v)
 {
-	proposer_propose(p->state, v->value.value_val, v->value.value_len);
+	proposer_propose(p->state,
+		v->value.paxos_value_val, 
+		v->value.paxos_value_len);
 }
 
 static void

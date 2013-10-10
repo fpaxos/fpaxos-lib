@@ -39,64 +39,54 @@
 typedef u_int32_t iid_t;
 typedef u_int32_t ballot_t;
 
-struct paxos_value {
-	struct {
-		u_int value_len;
-		char *value_val;
-	} value;
+typedef struct {
+	u_int paxos_value_len;
+	char *paxos_value_val;
+} paxos_value;
+
+struct paxos_value_ballot {
+	ballot_t ballot;
+	paxos_value value;
 };
-typedef struct paxos_value paxos_value;
+typedef struct paxos_value_ballot paxos_value_ballot;
 
 struct paxos_prepare {
-	u_int32_t iid;
-	u_int32_t ballot;
+	iid_t iid;
+	ballot_t ballot;
 };
 typedef struct paxos_prepare paxos_prepare;
 
 struct paxos_promise {
-	u_int32_t iid;
-	u_int32_t ballot;
-	u_int32_t value_ballot;
-	struct {
-		u_int value_len;
-		char *value_val;
-	} value;
+	iid_t iid;
+	ballot_t ballot;
+	paxos_value_ballot *value;
 };
 typedef struct paxos_promise paxos_promise;
 
 struct paxos_accept {
-	u_int32_t iid;
-	u_int32_t ballot;
-	struct {
-		u_int value_len;
-		char *value_val;
-	} value;
+	iid_t iid;
+	ballot_t ballot;
+	paxos_value value;
 };
 typedef struct paxos_accept paxos_accept;
 
 struct paxos_accepted {
-	u_int32_t iid;
-	u_int32_t ballot;
-	u_int32_t value_ballot;
-	u_int16_t is_final;
-	struct {
-		u_int value_len;
-		char *value_val;
-	} value;
+	iid_t iid;
+	ballot_t ballot;
+	ballot_t value_ballot;
+	paxos_value value;
+	int16_t is_final;
 };
 typedef struct paxos_accepted paxos_accepted;
 
 struct paxos_repeat {
-	u_int32_t from;
-	u_int32_t to;
+	iid_t from;
+	iid_t to;
 };
 typedef struct paxos_repeat paxos_repeat;
 
 struct paxos_client_value {
-	struct {
-		u_int value_len;
-		char *value_val;
-	} value;
+	paxos_value value;
 };
 typedef struct paxos_client_value paxos_client_value;
 

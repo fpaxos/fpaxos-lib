@@ -60,16 +60,16 @@ paxos_value_new(const char* value, size_t size)
 {
 	paxos_value* v;
 	v = malloc(sizeof(paxos_value));
-	v->value.value_len = size;
-	v->value.value_val = malloc(size);
-	memcpy(v->value.value_val, value, size);
+	v->paxos_value_len = size;
+	v->paxos_value_val = malloc(size);
+	memcpy(v->paxos_value_val, value, size);
 	return v;
 }
 
 void
 paxos_value_free(paxos_value* v)
 {
-	free(v->value.value_val);
+	free(v->paxos_value_val);
 	free(v);
 }
 

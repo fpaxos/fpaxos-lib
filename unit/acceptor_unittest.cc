@@ -53,8 +53,7 @@ TEST_F(AcceptorTest, Prepare) {
 	acceptor_receive_prepare(a, &pre, &pro);
 	ASSERT_EQ(pro.iid, 1);
 	ASSERT_EQ(pro.ballot, 101);
-	ASSERT_EQ(pro.value_ballot, 0);
-	ASSERT_EQ(NULL, pro.value.value_val);
+	ASSERT_EQ(NULL, pro.value);
 }
 
 TEST_F(AcceptorTest, PrepareDuplicate) {
@@ -64,8 +63,7 @@ TEST_F(AcceptorTest, PrepareDuplicate) {
 	acceptor_receive_prepare(a, &pre, &pro);
 	ASSERT_EQ(pro.iid, 1);
 	ASSERT_EQ(pro.ballot, 101);
-	ASSERT_EQ(pro.value_ballot, 0);
-	ASSERT_EQ(NULL, pro.value.value_val);
+	ASSERT_EQ(NULL, pro.value);
 }
 
 TEST_F(AcceptorTest, PrepareSmallerBallot) {
@@ -98,7 +96,7 @@ TEST_F(AcceptorTest, Accept) {
 	ASSERT_EQ(acc.ballot, 101);
 	ASSERT_EQ(acc.is_final, 0);
 	ASSERT_EQ(acc.value_ballot, 101);
-	ASSERT_STREQ("foo", acc.value.value_val);
+	ASSERT_STREQ("foo", acc.value.paxos_value_val);
 	paxos_accepted_destroy(&acc);
 }
 
@@ -110,11 +108,12 @@ TEST_F(AcceptorTest, AcceptPrepared) {
 	
 	acceptor_receive_prepare(a, &pr, &pro);
 	ASSERT_EQ(pro.ballot, 101);
-	ASSERT_EQ(pro.value_ballot, 0);
+	ASSERT_EQ(NULL, pro.value);
 	
 	acceptor_receive_accept(a, &ar, &acc);
 	ASSERT_EQ(acc.ballot, 101);
 	ASSERT_EQ(acc.value_ballot, 101);
+	
 	paxos_accepted_destroy(&acc);
 }
 
@@ -126,7 +125,7 @@ TEST_F(AcceptorTest, AcceptHigherBallot) {
 	
 	acceptor_receive_prepare(a, &pr, &pro);
 	ASSERT_EQ(pro.ballot, 101);
-	ASSERT_EQ(pro.value_ballot, 0);
+	ASSERT_EQ(NULL, pro.value);
 	
 	acceptor_receive_accept(a, &ar, &acc);
 	ASSERT_EQ(acc.ballot, 201);
@@ -142,7 +141,7 @@ TEST_F(AcceptorTest, AcceptSmallerBallot) {
 	
 	acceptor_receive_prepare(a, &pr, &pro);
 	ASSERT_EQ(pro.ballot, 201);
-	ASSERT_EQ(pro.value_ballot, 0);
+	ASSERT_EQ(NULL, pro.value);
 	
 	acceptor_receive_accept(a, &ar, &acc);
 	ASSERT_EQ(acc.ballot, 201);
@@ -162,7 +161,7 @@ TEST_F(AcceptorTest, PrepareWithAcceptedValue) {
 	pr = (paxos_prepare) {1, 201};
 	acceptor_receive_prepare(a, &pr, &pro);
 	ASSERT_EQ(pro.ballot, 201);
-	ASSERT_EQ(pro.value_ballot, 101);
+	ASSERT_EQ(pro.value->ballot, 101);
 	paxos_promise_destroy(&pro);
 }
 
