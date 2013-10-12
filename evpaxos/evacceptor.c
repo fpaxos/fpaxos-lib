@@ -108,13 +108,13 @@ evacceptor_handle_msg(struct bufferevent* bev, paxos_message* msg, void* arg)
 	struct evacceptor* a = (struct evacceptor*)arg;
 	switch (msg->type) {
 		case PAXOS_PREPARE:
-			evacceptor_handle_prepare(a, bev, &msg->paxos_message_u.prepare);
+			evacceptor_handle_prepare(a, bev, &msg->u.prepare);
 			break;
 		case PAXOS_ACCEPT:
-			evacceptor_handle_accept(a, bev, &msg->paxos_message_u.accept);
+			evacceptor_handle_accept(a, bev, &msg->u.accept);
 			break;
 		case PAXOS_REPEAT:
-			evacceptor_handle_repeat(a, bev, &msg->paxos_message_u.repeat);
+			evacceptor_handle_repeat(a, bev, &msg->u.repeat);
 			break;
 		default:
 			paxos_log_error("Unknow msg type %d not handled", msg->type);

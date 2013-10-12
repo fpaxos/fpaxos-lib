@@ -62,8 +62,8 @@ storage_close(struct storage* s)
 {
 	int i;
 	for (i = 0; i < MAX_RECORDS; ++i) {
-		if (s->records[i]->value.value_val != NULL)
-			free(s->records[i]->value.value_val);
+		if (s->records[i]->value.paxos_value_val != NULL)
+			free(s->records[i]->value.paxos_value_val);
 		free(s->records[i]);
 	}
 	free(s);
@@ -110,9 +110,9 @@ void
 paxos_accepted_copy(paxos_accepted* dst, paxos_accepted* src)
 {
 	memcpy(dst, src, sizeof(paxos_accepted));
-	if (dst->value.value_len > 0) {
-		dst->value.value_val = malloc(src->value.value_len);
-		memcpy(dst->value.value_val, src->value.value_val,
-			src->value.value_len);
+	if (dst->value.paxos_value_len > 0) {
+		dst->value.paxos_value_val = malloc(src->value.paxos_value_len);
+		memcpy(dst->value.paxos_value_val, src->value.paxos_value_val,
+			src->value.paxos_value_len);
 	}
 }

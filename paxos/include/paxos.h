@@ -31,88 +31,14 @@
 
 #include <stdarg.h>
 #include <sys/types.h>
+#include <paxos_types.h>
 
 /* The maximum message size that paxos will accept */
 #define PAXOS_MAX_VALUE_SIZE (256*1000)
 
 /* Paxos types */
-typedef u_int32_t iid_t;
-typedef u_int32_t ballot_t;
-
-typedef struct {
-	u_int paxos_value_len;
-	char *paxos_value_val;
-} paxos_value;
-
-struct paxos_value_ballot {
-	ballot_t ballot;
-	paxos_value value;
-};
-typedef struct paxos_value_ballot paxos_value_ballot;
-
-struct paxos_prepare {
-	iid_t iid;
-	ballot_t ballot;
-};
-typedef struct paxos_prepare paxos_prepare;
-
-struct paxos_promise {
-	iid_t iid;
-	ballot_t ballot;
-	paxos_value_ballot *value;
-};
-typedef struct paxos_promise paxos_promise;
-
-struct paxos_accept {
-	iid_t iid;
-	ballot_t ballot;
-	paxos_value value;
-};
-typedef struct paxos_accept paxos_accept;
-
-struct paxos_accepted {
-	iid_t iid;
-	ballot_t ballot;
-	ballot_t value_ballot;
-	paxos_value value;
-	int16_t is_final;
-};
-typedef struct paxos_accepted paxos_accepted;
-
-struct paxos_repeat {
-	iid_t from;
-	iid_t to;
-};
-typedef struct paxos_repeat paxos_repeat;
-
-struct paxos_client_value {
-	paxos_value value;
-};
-typedef struct paxos_client_value paxos_client_value;
-
-enum paxos_message_type {
-	PAXOS_PREPARE = 0,
-	PAXOS_PROMISE = 1,
-	PAXOS_ACCEPT = 2,
-	PAXOS_ACCEPTED = 3,
-	PAXOS_REPEAT = 4,
-	PAXOS_CLIENT_VALUE = 5,
-};
-typedef enum paxos_message_type paxos_message_type;
-
-struct paxos_message {
-	paxos_message_type type;
-	union {
-		struct paxos_prepare prepare;
-		struct paxos_promise promise;
-		struct paxos_accept accept;
-		struct paxos_accepted accepted;
-		struct paxos_repeat repeat;
-		struct paxos_client_value client_value;
-	} paxos_message_u;
-};
-typedef struct paxos_message paxos_message;
-
+typedef uint32_t iid_t;
+typedef uint32_t ballot_t;
 
 /* Configuration */
 struct paxos_config
@@ -150,7 +76,9 @@ int paxos_quorum(int acceptors);
 paxos_value* paxos_value_new(const char* v, size_t s);
 void paxos_value_free(paxos_value* v);
 void paxos_promise_destroy(paxos_promise* p);
+void paxos_accept_destroy(paxos_accept* a);
 void paxos_accepted_destroy(paxos_accepted* a);
+void paxos_message_destroy(paxos_message* m);
 void paxos_accepted_free(paxos_accepted* a);
 void paxos_log(int level, const char* format, va_list ap);
 void paxos_log_error(const char* format, ...);

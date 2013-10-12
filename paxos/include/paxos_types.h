@@ -26,22 +26,88 @@
 */
 
 
-#ifndef _XDR_H_
-#define _XDR_H_
+#ifndef _PAXOS_TYPES_H_
+#define _PAXOS_TYPES_H_
 
-#include "paxos.h"
-#include <rpc/types.h>
-#include <rpc/xdr.h>
-#include <rpc/rpc.h>
+#include <stdint.h>
 
-bool_t xdr_paxos_value(XDR* xdrs, paxos_value* objp);
-bool_t xdr_paxos_prepare(XDR* xdrs, paxos_prepare* objp);
-bool_t xdr_paxos_promise(XDR* xdrs, paxos_promise* objp);
-bool_t xdr_paxos_accept(XDR* xdrs, paxos_accept* objp);
-bool_t xdr_paxos_accepted(XDR* xdrs, paxos_accepted* objp);
-bool_t xdr_paxos_repeat(XDR *xdrs, paxos_repeat *objp);
-bool_t xdr_paxos_client_value(XDR *xdrs, paxos_client_value *objp);
-bool_t xdr_paxos_message_type(XDR *xdrs, paxos_message_type *objp);
-bool_t xdr_paxos_message(XDR *xdrs, paxos_message *objp);
+struct paxos_value
+{
+	int paxos_value_len;
+	char *paxos_value_val;
+};
+typedef struct paxos_value paxos_value;
+
+struct paxos_prepare
+{
+	uint32_t iid;
+	uint32_t ballot;
+};
+typedef struct paxos_prepare paxos_prepare;
+
+struct paxos_promise
+{
+	uint32_t iid;
+	uint32_t ballot;
+	uint32_t value_ballot;
+	paxos_value value;
+};
+typedef struct paxos_promise paxos_promise;
+
+struct paxos_accept
+{
+	uint32_t iid;
+	uint32_t ballot;
+	paxos_value value;
+};
+typedef struct paxos_accept paxos_accept;
+
+struct paxos_accepted
+{
+	uint32_t iid;
+	uint32_t ballot;
+	uint32_t value_ballot;
+	paxos_value value;
+};
+typedef struct paxos_accepted paxos_accepted;
+
+struct paxos_repeat
+{
+	uint32_t from;
+	uint32_t to;
+};
+typedef struct paxos_repeat paxos_repeat;
+
+struct paxos_client_value
+{
+	paxos_value value;
+};
+typedef struct paxos_client_value paxos_client_value;
+
+enum paxos_message_type
+{
+	PAXOS_PREPARE,
+	PAXOS_PROMISE,
+	PAXOS_ACCEPT,
+	PAXOS_ACCEPTED,
+	PAXOS_REPEAT,
+	PAXOS_CLIENT_VALUE
+};
+typedef enum paxos_message_type paxos_message_type;
+
+struct paxos_message
+{
+	paxos_message_type type;
+	union
+	{
+		paxos_prepare prepare;
+		paxos_promise promise;
+		paxos_accept accept;
+		paxos_accepted accepted;
+		paxos_repeat repeat;
+		paxos_client_value client_value;
+	} u;
+};
+typedef struct paxos_message paxos_message;
 
 #endif

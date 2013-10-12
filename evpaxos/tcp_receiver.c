@@ -27,11 +27,7 @@
 
 
 #include "tcp_receiver.h"
-#include "paxos_xdr.h"
 #include "message.h"
-#include <rpc/types.h>
-#include <rpc/xdr.h>
-#include <rpc/rpc.h>
 #include <errno.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -60,7 +56,7 @@ on_read(struct bufferevent* bev, void* arg)
 	struct evbuffer* in = bufferevent_get_input(bev);
 	while (recv_paxos_message(in, &msg)) {
 		r->callback(bev, &msg, r->arg);
-		xdr_free((xdrproc_t)xdr_paxos_message, &msg);
+		paxos_message_destroy(&msg);
 	}
 }
 

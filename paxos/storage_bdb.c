@@ -34,9 +34,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <assert.h>
-#include "paxos_xdr.h"
-#include <rpc/xdr.h>
-#include <rpc/types.h>
+
 
 struct storage
 {
@@ -207,23 +205,19 @@ storage_open(int acceptor_id)
 int
 storage_close(struct storage* s)
 {	
-	int result = 0;
-	DB* dbp = s->db;
-	DB_ENV* dbenv = s->env;
-	
-	if (dbp->close(dbp, 0) != 0) {
+	int rv = 0;
+	if (s->db->close(s->db, 0) != 0) {
 		paxos_log_error("DB_ENV close failed");
-		result = -1;
+		rv = -1;
 	}
-	
-	if (dbenv->close(dbenv, 0) != 0) {
+	if (s->env->close(s->env, 0) != 0) {
 		paxos_log_error("DB close failed");
-		result = -1;
+		rv = -1;
 	}
-	 
+	if (rv == 0)
+		paxos_log_info("Berkeley DB storage closed successfully");
 	free(s);
-	paxos_log_info("Berkeley DB storage closed successfully");
-	return result;
+	return rv;
 }
 
 void
@@ -274,13 +268,13 @@ storage_get_record(struct storage* s, iid_t iid, paxos_accepted* out)
 		return 0;
 	}
 	
-	XDR xdr;
-	xdrmem_create(&xdr, s->buffer, PAXOS_MAX_VALUE_SIZE, XDR_DECODE);
-	if (!xdr_paxos_accepted(&xdr, out)) {
-		paxos_log_error("Error while decoding record for instance %d", iid);
-		return 0;
+	memcpy(out, s->buffer, sizeof(paxos_accepted));
+	if (out->value.paxos_value_len > 0) {
+		out->value.paxos_value_val = malloc(out->value.paxos_value_len);
+		memcpy(out->value.paxos_value_val, 
+			&s->buffer[sizeof(paxos_accepted)],
+			out->value.paxos_value_len);
 	}
-	xdr_destroy(&xdr);
 	
 	assert(iid == out->iid);
 	return 1;
@@ -289,26 +283,27 @@ storage_get_record(struct storage* s, iid_t iid, paxos_accepted* out)
 int
 storage_put_record(struct storage* s, paxos_accepted* acc)
 {
-	XDR xdr;
 	DBT dbkey, dbdata;
-	
-	xdrmem_create(&xdr, s->buffer, PAXOS_MAX_VALUE_SIZE, XDR_ENCODE);
-	if (!xdr_paxos_accepted(&xdr, acc)) {
-		paxos_log_error("Error while encoding record for instance %d", 
-			acc->iid);
-		return -1;
-	}
 	
 	memset(&dbkey, 0, sizeof(DBT));
 	memset(&dbdata, 0, sizeof(DBT));
+	
+	int size = sizeof(paxos_accepted);
+	memcpy(s->buffer, acc, size);
+	if (acc->value.paxos_value_len > 0) {
+		memcpy(&s->buffer[size],
+			acc->value.paxos_value_val,
+			acc->value.paxos_value_len);
+		size += acc->value.paxos_value_len;
+	}
 	
 	// Key is the iid
 	dbkey.data = &acc->iid;
 	dbkey.size = sizeof(iid_t);
         
-	// Data is the encoded buffer
+	// Data is the flat buffer
 	dbdata.data = &s->buffer;
-	dbdata.size = xdr_getpos(&xdr);
+	dbdata.size = size;
 	
 	// Store permanently
 	int rv = s->db->put(s->db, s->txn, &dbkey, &dbdata, 0);
@@ -317,6 +312,5 @@ storage_put_record(struct storage* s, paxos_accepted* acc)
 		return rv;
 	}
 
-	xdr_destroy(&xdr);
 	return 0;
 }

@@ -250,10 +250,10 @@ instance_has_quorum(struct instance* inst, int acceptors)
 			
 			// Special case: an acceptor is telling that
 			// this value is -final-, it can be delivered immediately.
-			if (curr_ack->is_final) {
-				count += acceptors; // For sure >= quorum...
-				break;
-			}
+			// if (curr_ack->is_final) {
+				// count += acceptors; // For sure >= quorum...
+				// break;
+			// }
 		}
 	}
     

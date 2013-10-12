@@ -131,10 +131,10 @@ evproposer_handle_acceptor_msg(paxos_message* msg, int from, void* arg)
 	struct evproposer* p = arg;
 	switch (msg->type) {
 		case PAXOS_PROMISE:
-			evproposer_handle_promise(p, &msg->paxos_message_u.promise, from);
+			evproposer_handle_promise(p, &msg->u.promise, from);
 			break;
 		case PAXOS_ACCEPTED:
-			evproposer_handle_accepted(p, &msg->paxos_message_u.accepted, from);
+			evproposer_handle_accepted(p, &msg->u.accepted, from);
 			break;
 		default:
 			paxos_log_error("Unknow msg type %d not handled", msg->type);
@@ -151,7 +151,7 @@ evproposer_handle_client_msg(struct bufferevent* bev, paxos_message* msg,
 	switch (msg->type) {
 		case PAXOS_CLIENT_VALUE:
 			evproposer_handle_client_value(p, 	
-				&msg->paxos_message_u.client_value);
+				&msg->u.client_value);
 			break;
 		default:
 			paxos_log_error("Unknow msg type %d not handled", msg->type);
@@ -159,7 +159,6 @@ evproposer_handle_client_msg(struct bufferevent* bev, paxos_message* msg,
 	}
 	try_accept(p);
 }
-
 
 static void
 evproposer_check_timeouts(evutil_socket_t fd, short event, void *arg)

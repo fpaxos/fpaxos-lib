@@ -97,7 +97,7 @@ evlearner_handle_msg(paxos_message* msg, int from, void* arg)
 	struct evlearner* l = arg;
 	switch (msg->type) {
 		case PAXOS_ACCEPTED:
-			evlearner_handle_accepted(l, &msg->paxos_message_u.accepted, from);
+			evlearner_handle_accepted(l, &msg->u.accepted, from);
 			break;
 		default:
 			paxos_log_error("Unknow msg type %d not handled", msg->type);

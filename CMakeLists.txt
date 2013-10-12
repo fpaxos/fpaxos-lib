@@ -9,6 +9,7 @@ if (NOT USE_MEM_STORE)
 	find_package(BDB REQUIRED)
 endif()
 find_package(LIBEVENT REQUIRED)
+find_package(MSGPACK REQUIRED)
 
 if (NOT APPLE)
 	set(LIBPAXOS_LINKER_LIBS ${LIBPAXOS_LINKER_LIBS} m rt)

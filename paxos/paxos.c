@@ -27,7 +27,6 @@
 
 
 #include "paxos.h"
-#include "paxos_xdr.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -73,6 +72,13 @@ paxos_value_free(paxos_value* v)
 	free(v);
 }
 
+static void
+paxos_value_destroy(paxos_value* v)
+{
+	if (v->paxos_value_len > 0)
+		free(v->paxos_value_val);	
+}
+
 void
 paxos_accepted_free(paxos_accepted* a)
 {
@@ -81,15 +87,47 @@ paxos_accepted_free(paxos_accepted* a)
 }
 
 void
-paxos_accepted_destroy(paxos_accepted* a)
+paxos_promise_destroy(paxos_promise* p)
 {
-	xdr_free((xdrproc_t)xdr_paxos_accepted, a);
+	paxos_value_destroy(&p->value);
 }
 
 void
-paxos_promise_destroy(paxos_promise* p)
+paxos_accept_destroy(paxos_accept* p)
 {
-	xdr_free((xdrproc_t)xdr_paxos_promise, p);
+	paxos_value_destroy(&p->value);
+}
+
+void
+paxos_accepted_destroy(paxos_accepted* p)
+{
+	paxos_value_destroy(&p->value);
+}
+
+void
+paxos_client_value_destroy(paxos_client_value* p)
+{
+	paxos_value_destroy(&p->value);
+}
+
+void
+paxos_message_destroy(paxos_message* m)
+{
+	switch (m->type) {
+	case PAXOS_PROMISE:
+		paxos_promise_destroy(&m->u.promise);
+		break;
+	case PAXOS_ACCEPT:
+		paxos_accept_destroy(&m->u.accept);
+		break;
+	case PAXOS_ACCEPTED:
+		paxos_accepted_destroy(&m->u.accepted);
+		break;
+	case PAXOS_CLIENT_VALUE:
+		paxos_client_value_destroy(&m->u.client_value);
+		break;
+	default: break;
+	}
 }
 
 void

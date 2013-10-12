@@ -58,7 +58,7 @@ protected:
 	void TestPrepareAckFromQuorum(iid_t iid, ballot_t bal) {
 		paxos_prepare pr;
 		for (size_t i = 0; i < quorum; ++i) {
-			paxos_promise pa = (paxos_promise) {iid, bal, NULL};
+			paxos_promise pa = (paxos_promise) {iid, bal, 0, {0, 0}};
 			ASSERT_EQ(0, proposer_receive_promise(p, &pa, i, &pr));
 		}
 	}
@@ -66,9 +66,8 @@ protected:
 	void TestPrepareAckFromQuorum(iid_t iid, ballot_t bal, 
 		const char* value, ballot_t vbal = 0) {
 		paxos_prepare pr;
-		paxos_value_ballot vb = (paxos_value_ballot)
-			{vbal, strlen(value)+1, (char*)value};
-		paxos_promise pa = (paxos_promise) {iid, bal, &vb};
+		paxos_promise pa = (paxos_promise) {iid, bal, vbal, 
+			{strlen(value)+1, (char*)value}};
 		for (size_t i = 0; i < quorum; ++i) {
 			ASSERT_EQ(0, proposer_receive_promise(p, &pa, i, &pr));
 		}
@@ -101,15 +100,15 @@ TEST_F(ProposerTest, IgnoreOldBallots) {
 	proposer_prepare(p, &pr);
 	
 	// ignore smaller ballot
-	pa = (paxos_promise) {pr.iid, pr.ballot-1, NULL};
+	pa = (paxos_promise) {pr.iid, pr.ballot-1, 0, {0,0}};
 	ASSERT_EQ(0, proposer_receive_promise(p, &pa, 1, &preempted));
 	
 	// preempt
-	pa = (paxos_promise) {pr.iid, pr.ballot+1, NULL};
+	pa = (paxos_promise) {pr.iid, pr.ballot+1, 0, {0,0}};
 	ASSERT_EQ(1, proposer_receive_promise(p, &pa, 1, &preempted));
 	
 	// again ignore smaller ballot
-	pa = (paxos_promise) {pr.iid, pr.ballot, NULL};
+	pa = (paxos_promise) {pr.iid, pr.ballot, 0, {0,0}};
 	ASSERT_EQ(0, proposer_receive_promise(p, &pa, 1, &preempted));
 }
 
@@ -119,11 +118,11 @@ TEST_F(ProposerTest, IgnoreDuplicatePrepareAcks) {
 	proposer_prepare(p, &pr);
 	proposer_propose(p, "value", strlen("value")+1);
 	for (size_t i = 0; i < 10; ++i) {
-		paxos_promise pa = (paxos_promise) {pr.iid, pr.ballot, NULL};
+		paxos_promise pa = (paxos_promise) {pr.iid, pr.ballot, 0, {0,0}};
 		ASSERT_EQ(0, proposer_receive_promise(p, &pa, 2, &preempted));
 		ASSERT_FALSE(proposer_accept(p, &ar));
 	}
-	paxos_promise pa = (paxos_promise) {pr.iid, pr.ballot, NULL};
+	paxos_promise pa = (paxos_promise) {pr.iid, pr.ballot, 0, {0,0}};
 	proposer_receive_promise(p, &pa, 1, &preempted);
 	proposer_accept(p, &ar);
 	TestAcceptAckFromQuorum(ar.iid, ar.ballot);
@@ -158,7 +157,7 @@ TEST_F(ProposerTest, PreparePreempted) {
 	proposer_propose(p, value, value_size);
 	
 	// preempt! proposer receives a different ballot...
-	paxos_promise pa = (paxos_promise) {pr.iid, pr.ballot+1, NULL};
+	paxos_promise pa = (paxos_promise) {pr.iid, pr.ballot+1, 0, {0,0}};
 	ASSERT_EQ(1, proposer_receive_promise(p, &pa, 1, &preempted));
 	ASSERT_EQ(preempted.iid, pr.iid);
 	ASSERT_GT(preempted.ballot, pr.ballot);
@@ -179,9 +178,8 @@ TEST_F(ProposerTest, PrepareAlreadyClosed) {
 	proposer_propose(p, value, value_size);
 
 	// preempt! proposer receives a different ballot...
-	paxos_value_ballot vb = (paxos_value_ballot)
-		{0, strlen("foo bar baz")+1, (char*)"foo bar baz"};
-	paxos_promise pa = (paxos_promise) {pr.iid, pr.ballot+1, &vb};
+	paxos_promise pa = (paxos_promise) {pr.iid, pr.ballot+1, 0,
+		{strlen("foo bar baz")+1, (char*)"foo bar baz"}};
 	
 	ASSERT_EQ(1, proposer_receive_promise(p, &pa, 1, &preempted));
 	ASSERT_EQ(preempted.iid, pr.iid);
@@ -211,13 +209,10 @@ TEST_F(ProposerTest, PreparePreemptedWithTwoValues) {
 	proposer_propose(p, "v1", 3);
 	
 	// preempt with value
-	
-	paxos_value_ballot vb1 = (paxos_value_ballot)
-		{pr.ballot+1, strlen("v2")+1, (char*)"v2"};
-	paxos_promise pa1 = (paxos_promise) {pr.iid, pr.ballot+1, &vb1};
-	paxos_value_ballot vb2 = (paxos_value_ballot)
-		{pr.ballot+11, strlen("v3")+1, (char*)"v3"};
-	paxos_promise pa2 = (paxos_promise) {pr.iid, pr.ballot+11, &vb2};
+	paxos_promise pa1 = (paxos_promise)
+		{pr.iid, pr.ballot+1, pr.ballot+1, {3, (char*)"v2"}};
+	paxos_promise pa2 = (paxos_promise)
+		{pr.iid, pr.ballot+11, pr.ballot+11, {3, (char*)"v3"}};
 	
 	proposer_receive_promise(p, &pa1, 1, &preempted);
 	proposer_receive_promise(p, &pa2, 2, &preempted);

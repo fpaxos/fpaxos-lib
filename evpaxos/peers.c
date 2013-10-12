@@ -27,9 +27,7 @@
 
 
 #include "peers.h"
-#include "paxos_xdr.h"
 #include "message.h"
-#include "peers.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -124,7 +122,7 @@ on_read(struct bufferevent* bev, void* arg)
 	struct evbuffer* in = bufferevent_get_input(bev);
 	while (recv_paxos_message(in, &msg)) {
 		p->callback(&msg, p->id, p->arg);
-		xdr_free((xdrproc_t)xdr_paxos_message, &msg);
+		paxos_message_destroy(&msg);
 	}
 }
 

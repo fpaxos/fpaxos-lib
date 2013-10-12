@@ -111,32 +111,26 @@ acceptor_receive_repeat(struct acceptor* a, iid_t iid, paxos_accepted* out)
 static void
 paxos_accepted_to_promise(paxos_accepted* acc, paxos_promise* out)
 {
-	paxos_value_ballot* vb = NULL;
-	if (acc->value.paxos_value_len > 0) {
-		 vb = malloc(sizeof(paxos_value_ballot));
-		 *vb = (paxos_value_ballot) {
-			 acc->value_ballot, 
-			 acc->value.paxos_value_len,
-			 acc->value.paxos_value_val
-		 };
-	 }
 	*out = (paxos_promise) {
 		acc->iid,
 		acc->ballot,
-		vb
+		acc->value_ballot,
+		{acc->value.paxos_value_len, acc->value.paxos_value_val}
 	};
 }
 
 static void
 paxos_accept_to_accepted(paxos_accept* acc, paxos_accepted* out)
 {
-	char* value = malloc(acc->value.paxos_value_len);
-	memcpy(value, acc->value.paxos_value_val, acc->value.paxos_value_len);
-	*out = (paxos_accepted) {
-		acc->iid,
-		acc->ballot,
-		acc->ballot,
-		{ acc->value.paxos_value_len, value },
-		0
-	};
+	char* value = NULL;
+	int value_size = acc->value.paxos_value_len;
+	if (value_size > 0) {
+		value = malloc(value_size);
+		memcpy(value, acc->value.paxos_value_val, value_size);
+	}
+	out->iid = acc->iid;
+	out->ballot = acc->ballot;
+	out->value_ballot = acc->ballot;
+	out->value.paxos_value_len = value_size;
+	out->value.paxos_value_val = value;
 }
