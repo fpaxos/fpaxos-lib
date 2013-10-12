@@ -27,8 +27,9 @@ These are the basic steps required to get and compile LibPaxos3
 	cmake ..
 	make
 
-LibPaxos3 depends on [BerkeleyDB][3] and [libevent][2]. Berkeley DB can be 
-disabled in favor of an in-memory storage (see build options below).
+LibPaxos3 depends on [libevent][2], [msgpack][9], and [Berkeley DB][3].
+Berkeley DB can be  disabled in favor of an in-memory storage (see build options
+below).
 
 LibPaxos3 has been tested on Linux and OS X.
 
@@ -38,6 +39,7 @@ You pass options to cmake as follows: ```cmake -DOPTION=VALUE```
 
 - ```BDB_ROOT=PATH```  - point it to your installation of Berkeley DB
 - ```LIBEVENT_ROOT=PATH``` -  point it to your installation of Libevent
+- ```MSGPACK_ROOT=PATH``` - point it to your installation of MessagePack
 - ```USE_MEM_STORE=ON``` - enables in-memory storage, instead of Berkeley DB
 - ```BUILD_UNIT=ON``` -  enables unit tests - see section below
 
@@ -56,7 +58,7 @@ See ```paxos.conf``` for a sample configuration file.
 
 ##  Unit tests
 
-Unit tests depend on the [Google Test][4] library. First enable unit tests run
+Unit tests depend on the [Google Test][4] library. To enable unit tests run
 
 	cmake -DBUILD_UNIT=ON ..
 	make
@@ -86,3 +88,4 @@ by [Daniele Sciascia][8].
 [6]: https://lists.sourceforge.net/lists/listinfo/libpaxos-general
 [7]: http://inf.usi.ch
 [8]: http://atelier.inf.usi.ch/~sciascid
+[9]: http://www.msgpack.org
