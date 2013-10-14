@@ -4,7 +4,7 @@
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
-    	* Redistributions of source code must retain the above copyright
+		* Redistributions of source code must retain the above copyright
 		  notice, this list of conditions and the following disclaimer.
 		* Redistributions in binary form must reproduce the above copyright
 		  notice, this list of conditions and the following disclaimer in the
@@ -28,45 +28,67 @@
 
 #include "paxos_types_pack.h"
 
-#define UNPACK_ARRAY_AT(obj, i) obj->via.array.ptr[i].via
+#define MSGPACK_OBJECT_AT(obj, i) (obj->via.array.ptr[i].via)
 
 
-static void unpack_raw_at(msgpack_object* o, paxos_value* v, int i)
+static void msgpack_pack_string(msgpack_packer* p, char* buffer, int len)
 {
-	int len = UNPACK_ARRAY_AT(o,i).raw.size;
-	v->paxos_value_val = NULL;
-	if (len > 0) {
-		v->paxos_value_val = malloc(len);
-		memcpy(v->paxos_value_val, UNPACK_ARRAY_AT(o,i).raw.ptr, len);
+	msgpack_pack_raw(p, len);
+	msgpack_pack_raw_body(p, buffer, len);
+}
+
+static void msgpack_unpack_int32_at(msgpack_object* o, int32_t* v, int* i)
+{
+	*v = (int32_t)MSGPACK_OBJECT_AT(o,*i).u64;
+	(*i)++;
+}
+
+static void msgpack_unpack_uint32_at(msgpack_object* o, uint32_t* v, int* i)
+{
+	*v = (uint32_t)MSGPACK_OBJECT_AT(o,*i).u64;
+	(*i)++;
+}
+
+static void msgpack_unpack_string_at(msgpack_object* o, char** buffer, int* len, int* i)
+{
+	*buffer = NULL;
+	*len = MSGPACK_OBJECT_AT(o,*i).raw.size;
+	if (*len > 0) {
+		*buffer = malloc(*len);
+		memcpy(*buffer, MSGPACK_OBJECT_AT(o,*i).raw.ptr, *len);
 	}
-	v->paxos_value_len = len;
+	(*i)++;
 }
 
-static void unpack_uint32_at(msgpack_object* o, uint32_t* u, int i)
+static void msgpack_pack_paxos_value(msgpack_packer* p, paxos_value* v)
 {
-	*u = UNPACK_ARRAY_AT(o,i).u64;
+	msgpack_pack_string(p, v->paxos_value_val, v->paxos_value_len);
 }
 
-void msgpack_pack_paxos_value(msgpack_packer* p, paxos_value* v)
+static void msgpack_unpack_paxos_value_at(msgpack_object* o, paxos_value* v, int* i)
 {
-	msgpack_pack_raw(p, v->paxos_value_len);
-	msgpack_pack_raw_body(p, v->paxos_value_val, v->paxos_value_len);
+	msgpack_unpack_string_at(o, &v->paxos_value_val, &v->paxos_value_len, i);
 }
 
 void msgpack_pack_paxos_prepare(msgpack_packer* p, paxos_prepare* v)
 {
+	msgpack_pack_array(p, 3);
+	msgpack_pack_int32(p, PAXOS_PREPARE);
 	msgpack_pack_uint32(p, v->iid);
 	msgpack_pack_uint32(p, v->ballot);
 }
 
 void msgpack_unpack_paxos_prepare(msgpack_object* o, paxos_prepare* v)
 {
-	unpack_uint32_at(o, &v->iid, 1);
-	unpack_uint32_at(o, &v->ballot, 2);
+	int i = 1;
+	msgpack_unpack_uint32_at(o, &v->iid, &i);
+	msgpack_unpack_uint32_at(o, &v->ballot, &i);
 }
 
 void msgpack_pack_paxos_promise(msgpack_packer* p, paxos_promise* v)
 {
+	msgpack_pack_array(p, 5);
+	msgpack_pack_int32(p, PAXOS_PROMISE);
 	msgpack_pack_uint32(p, v->iid);
 	msgpack_pack_uint32(p, v->ballot);
 	msgpack_pack_uint32(p, v->value_ballot);
@@ -75,14 +97,17 @@ void msgpack_pack_paxos_promise(msgpack_packer* p, paxos_promise* v)
 
 void msgpack_unpack_paxos_promise(msgpack_object* o, paxos_promise* v)
 {
-	unpack_uint32_at(o, &v->iid, 1);
-	unpack_uint32_at(o, &v->ballot, 2);
-	unpack_uint32_at(o, &v->value_ballot, 3);
-	unpack_raw_at(o, &v->value, 4);
+	int i = 1;
+	msgpack_unpack_uint32_at(o, &v->iid, &i);
+	msgpack_unpack_uint32_at(o, &v->ballot, &i);
+	msgpack_unpack_uint32_at(o, &v->value_ballot, &i);
+	msgpack_unpack_paxos_value_at(o, &v->value, &i);
 }
 
 void msgpack_pack_paxos_accept(msgpack_packer* p, paxos_accept* v)
 {
+	msgpack_pack_array(p, 4);
+	msgpack_pack_int32(p, PAXOS_ACCEPT);
 	msgpack_pack_uint32(p, v->iid);
 	msgpack_pack_uint32(p, v->ballot);
 	msgpack_pack_paxos_value(p, &v->value);
@@ -90,13 +115,16 @@ void msgpack_pack_paxos_accept(msgpack_packer* p, paxos_accept* v)
 
 void msgpack_unpack_paxos_accept(msgpack_object* o, paxos_accept* v)
 {
-	unpack_uint32_at(o, &v->iid, 1);
-	unpack_uint32_at(o, &v->ballot, 2);
-	unpack_raw_at(o, &v->value, 3);
+	int i = 1;
+	msgpack_unpack_uint32_at(o, &v->iid, &i);
+	msgpack_unpack_uint32_at(o, &v->ballot, &i);
+	msgpack_unpack_paxos_value_at(o, &v->value, &i);
 }
 
 void msgpack_pack_paxos_accepted(msgpack_packer* p, paxos_accepted* v)
 {
+	msgpack_pack_array(p, 5);
+	msgpack_pack_int32(p, PAXOS_ACCEPTED);
 	msgpack_pack_uint32(p, v->iid);
 	msgpack_pack_uint32(p, v->ballot);
 	msgpack_pack_uint32(p, v->value_ballot);
@@ -105,65 +133,60 @@ void msgpack_pack_paxos_accepted(msgpack_packer* p, paxos_accepted* v)
 
 void msgpack_unpack_paxos_accepted(msgpack_object* o, paxos_accepted* v)
 {
-	unpack_uint32_at(o, &v->iid, 1);
-	unpack_uint32_at(o, &v->ballot, 2);
-	unpack_uint32_at(o, &v->value_ballot, 3);
-	unpack_raw_at(o, &v->value, 4);
+	int i = 1;
+	msgpack_unpack_uint32_at(o, &v->iid, &i);
+	msgpack_unpack_uint32_at(o, &v->ballot, &i);
+	msgpack_unpack_uint32_at(o, &v->value_ballot, &i);
+	msgpack_unpack_paxos_value_at(o, &v->value, &i);
 }
 
 void msgpack_pack_paxos_repeat(msgpack_packer* p, paxos_repeat* v)
 {
+	msgpack_pack_array(p, 3);
+	msgpack_pack_int32(p, PAXOS_REPEAT);
 	msgpack_pack_uint32(p, v->from);
 	msgpack_pack_uint32(p, v->to);
 }
 
 void msgpack_unpack_paxos_repeat(msgpack_object* o, paxos_repeat* v)
 {
-	unpack_uint32_at(o, &v->from, 1);
-	unpack_uint32_at(o, &v->to, 2);
+	int i = 1;
+	msgpack_unpack_uint32_at(o, &v->from, &i);
+	msgpack_unpack_uint32_at(o, &v->to, &i);
 }
 
 void msgpack_pack_paxos_client_value(msgpack_packer* p, paxos_client_value* v)
 {
+	msgpack_pack_array(p, 2);
+	msgpack_pack_int32(p, PAXOS_CLIENT_VALUE);
 	msgpack_pack_paxos_value(p, &v->value);
 }
 
 void msgpack_unpack_paxos_client_value(msgpack_object* o, paxos_client_value* v)
 {
-	unpack_raw_at(o, &v->value, 1);
+	int i = 1;
+	msgpack_unpack_paxos_value_at(o, &v->value, &i);
 }
 
 void msgpack_pack_paxos_message(msgpack_packer* p, paxos_message* v)
 {
 	switch (v->type) {
 	case PAXOS_PREPARE:
-		msgpack_pack_array(p, 3);
-		msgpack_pack_int(p, PAXOS_PREPARE);
 		msgpack_pack_paxos_prepare(p, &v->u.prepare);
 		break;
 	case PAXOS_PROMISE:
-		msgpack_pack_array(p, 5);
-		msgpack_pack_int(p, PAXOS_PROMISE);
 		msgpack_pack_paxos_promise(p, &v->u.promise);
 		break;
 	case PAXOS_ACCEPT:
-		msgpack_pack_array(p, 4);
-		msgpack_pack_int(p, PAXOS_ACCEPT);
 		msgpack_pack_paxos_accept(p, &v->u.accept);
 		break;
 	case PAXOS_ACCEPTED:
-		msgpack_pack_array(p, 5);
-		msgpack_pack_int(p, PAXOS_ACCEPTED);
 		msgpack_pack_paxos_accepted(p, &v->u.accepted);
 		break;
 	case PAXOS_REPEAT:
-		msgpack_pack_array(p, 3);
-		msgpack_pack_int(p, PAXOS_REPEAT);
 		msgpack_pack_paxos_repeat(p, &v->u.repeat);
 		break;
 	case PAXOS_CLIENT_VALUE:
-		msgpack_pack_array(p, 2);
-		msgpack_pack_int(p, PAXOS_CLIENT_VALUE);
 		msgpack_pack_paxos_client_value(p, &v->u.client_value);
 		break;
 	}
@@ -171,7 +194,7 @@ void msgpack_pack_paxos_message(msgpack_packer* p, paxos_message* v)
 
 void msgpack_unpack_paxos_message(msgpack_object* o, paxos_message* v)
 {
-	unpack_uint32_at(o, &v->type, 0);
+	v->type = MSGPACK_OBJECT_AT(o,0).u64;
 	switch (v->type) {
 	case PAXOS_PREPARE:
 		msgpack_unpack_paxos_prepare(o, &v->u.prepare);

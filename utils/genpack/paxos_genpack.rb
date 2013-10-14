@@ -1,3 +1,50 @@
+require "lib/genpack"
+
+# Generates paxos_type.h, paxos_type_pack.h, and paxos_type_pack.c
+
+schema = GenPack::Schema.define "paxos_types" do
+  typedef(:paxos_value) {
+    string :paxos_value
+  }
+  message(:paxos_prepare) { 
+    uint :iid
+    uint :ballot
+  }
+  message(:paxos_promise) {
+    uint :iid
+    uint :ballot
+    uint :value_ballot
+    paxos_value :value
+  }
+  message(:paxos_accept) {
+    uint :iid
+    uint :ballot
+    paxos_value :value
+  }
+  message(:paxos_accepted) {
+    uint :iid
+    uint :ballot
+    uint :value_ballot
+    paxos_value :value
+  }
+  message(:paxos_repeat) {
+    uint :from
+    uint :to
+  }
+  message(:paxos_client_value) {
+    paxos_value :value
+  }
+  union(:paxos_message) {
+    paxos_prepare :prepare
+    paxos_promise :promise
+    paxos_accept :accept
+    paxos_accepted :accepted
+    paxos_repeat :repeat
+    paxos_client_value :client_value
+  }
+end
+
+LICENSE = <<-eos
 /*
 	Copyright (c) 2013, University of Lugano
 	All rights reserved.
@@ -26,25 +73,8 @@
 */
 
 
-#ifndef _PAXOS_TYPES_PACK_H_
-#define _PAXOS_TYPES_PACK_H_
+eos
 
-#include "paxos_types.h"
-#include <msgpack.h>
-
-void msgpack_pack_paxos_prepare(msgpack_packer* p, paxos_prepare* v);
-void msgpack_unpack_paxos_prepare(msgpack_object* o, paxos_prepare* v);
-void msgpack_pack_paxos_promise(msgpack_packer* p, paxos_promise* v);
-void msgpack_unpack_paxos_promise(msgpack_object* o, paxos_promise* v);
-void msgpack_pack_paxos_accept(msgpack_packer* p, paxos_accept* v);
-void msgpack_unpack_paxos_accept(msgpack_object* o, paxos_accept* v);
-void msgpack_pack_paxos_accepted(msgpack_packer* p, paxos_accepted* v);
-void msgpack_unpack_paxos_accepted(msgpack_object* o, paxos_accepted* v);
-void msgpack_pack_paxos_repeat(msgpack_packer* p, paxos_repeat* v);
-void msgpack_unpack_paxos_repeat(msgpack_object* o, paxos_repeat* v);
-void msgpack_pack_paxos_client_value(msgpack_packer* p, paxos_client_value* v);
-void msgpack_unpack_paxos_client_value(msgpack_object* o, paxos_client_value* v);
-void msgpack_pack_paxos_message(msgpack_packer* p, paxos_message* v);
-void msgpack_unpack_paxos_message(msgpack_object* o, paxos_message* v);
-
-#endif
+GenPack::CodeGenerator.generate(schema, LICENSE)
+GenPack::HeaderGenerator.generate(schema, LICENSE)
+GenPack::StructGenerator.generate(schema, LICENSE)
