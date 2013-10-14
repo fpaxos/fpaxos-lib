@@ -63,6 +63,8 @@ static int instance_has_quorum(struct instance* i, int acceptors);
 static void instance_add_accept(struct instance* i, 
 	paxos_accepted* ack, int aid);
 static paxos_accepted* paxos_accepted_dup(paxos_accepted* ack);
+static void paxos_value_copy(paxos_value* dst, paxos_value* src);
+
 
 struct learner*
 learner_new(int acceptors)
@@ -110,17 +112,17 @@ learner_receive_accepted(struct learner* l, paxos_accepted* ack, int from_id)
 		l->highest_iid_closed = inst->iid;
 }
 
-paxos_accepted*
-learner_deliver_next(struct learner* l)
+int
+learner_deliver_next(struct learner* l, paxos_accepted* out)
 {
-	paxos_accepted* accepted;
 	struct instance* inst = learner_get_current_instance(l);
 	if (inst == NULL || !instance_has_quorum(inst, l->acceptors))
-		return NULL;
-	accepted = paxos_accepted_dup(inst->final_value);
+		return 0;
+	memcpy(out, inst->final_value, sizeof(paxos_accepted));
+	paxos_value_copy(&out->value, &inst->final_value->value);
 	learner_delete_instance(l, inst);
 	l->current_iid++;
-	return accepted;
+	return 1;
 }
 
 int
@@ -287,10 +289,17 @@ paxos_accepted_dup(paxos_accepted* ack)
 	paxos_accepted* copy;
 	copy = malloc(sizeof(paxos_accepted));
 	memcpy(copy, ack, sizeof(paxos_accepted));
-	if (ack->value.paxos_value_val != NULL) {
-		copy->value.paxos_value_val = malloc(ack->value.paxos_value_len);
-		memcpy(copy->value.paxos_value_val, ack->value.paxos_value_val,
-			ack->value.paxos_value_len);
-	}
+	paxos_value_copy(&copy->value, &ack->value);
 	return copy;
+}
+
+static void
+paxos_value_copy(paxos_value* dst, paxos_value* src)
+{
+	int len = src->paxos_value_len;
+	dst->paxos_value_len = len;
+	if (src->paxos_value_val != NULL) {
+		dst->paxos_value_val = malloc(len);
+		memcpy(dst->paxos_value_val, src->paxos_value_val, len);	
+	}
 }
