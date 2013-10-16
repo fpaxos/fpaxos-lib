@@ -29,7 +29,7 @@
 #ifndef _TCP_SENDBUF_H_
 #define _TCP_SENDBUF_H_
 
-#include "evpaxos.h"
+#include "paxos.h"
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 

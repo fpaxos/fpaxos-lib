@@ -29,17 +29,14 @@
 #ifndef _EVPAXOS_H_
 #define _EVPAXOS_H_
 
-#include "paxos.h"
-
 #include <sys/types.h>
-#include <stdint.h>
 #include <event2/event.h>
 #include <event2/bufferevent.h>
 
 
 /* When starting a learner you must pass a callback to be invoked whenever
  * a value has been learned.*/
-typedef void (*deliver_function)(char*, size_t, iid_t, ballot_t, int, void*);
+typedef void (*deliver_function)(char* value, size_t size, void* arg);
 
 /* Initializes a learner with a given config file, a deliver callback,
  * an optional argument to that is passed to the callback, and

@@ -29,7 +29,7 @@
 #ifndef _TCP_RECEIVER_H_
 #define _TCP_RECEIVER_H_
 
-#include "evpaxos.h"
+#include "paxos.h"
 #include "carray.h"
 #include "config.h"
 #include <event2/event.h>

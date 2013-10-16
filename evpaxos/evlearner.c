@@ -68,14 +68,11 @@ evlearner_check_holes(evutil_socket_t fd, short event, void *arg)
 static void 
 evlearner_deliver_next_closed(struct evlearner* l)
 {
-	int prop_id;
 	paxos_accepted deliver;
 	while (learner_deliver_next(l->state, &deliver)) {
-		prop_id = deliver.ballot % MAX_N_OF_PROPOSERS;
-		l->delfun(
-			deliver.value.paxos_value_val,
+		l->delfun(deliver.value.paxos_value_val, 
 			deliver.value.paxos_value_len,
-			deliver.iid, deliver.ballot, prop_id, l->delarg);
+			l->delarg);
 		paxos_accepted_destroy(&deliver);
 	}
 }

@@ -40,11 +40,9 @@ handle_sigint(int sig, short ev, void* arg)
 }
 
 static void
-deliver(char* value, size_t size, iid_t iid, ballot_t b, 
-	int proposer, void* arg)
+deliver(char* value, size_t size, void* arg)
 {
-	printf("Paxos instance %u closed by ballot %u\n", iid, b);
-	printf("%s\n", value);
+	printf("Delivered value: %s\n", value);
 }
 
 int

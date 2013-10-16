@@ -27,6 +27,7 @@
 
 
 #include "config.h"
+#include "paxos.h"
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>

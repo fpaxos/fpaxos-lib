@@ -29,6 +29,7 @@
 #ifndef _PEERS_H_
 #define _PEERS_H_
 
+#include "paxos.h"
 #include "config.h"
 #include <event2/bufferevent.h>
 
