@@ -71,6 +71,8 @@ static struct instance* instance_new(iid_t iid, ballot_t ballot, int acceptors);
 static void instance_free(struct instance* inst);
 static int instance_has_timedout(struct instance* inst, struct timeval* now);
 static void instance_to_accept(struct instance* inst, paxos_accept* acc);
+static void carray_paxos_value_free(void* v);
+
 
 struct proposer*
 proposer_new(int id, int acceptors)
@@ -95,8 +97,7 @@ proposer_free(struct proposer* p)
 	kh_foreach_value(p->accept_instances, inst, instance_free(inst));
 	kh_destroy(instance, p->prepare_instances);
 	kh_destroy(instance, p->accept_instances);
-	for (i = 0; i < carray_count(p->values); ++i)
-		free(carray_at(p->values, i));
+	carray_foreach(p->values, carray_paxos_value_free);
 	carray_free(p->values);
 	free(p);
 }
@@ -387,4 +388,10 @@ instance_to_accept(struct instance* inst, paxos_accept* accept)
 		{ inst->value->paxos_value_len,
 		  inst->value->paxos_value_val }
 	};
+}
+
+static void
+carray_paxos_value_free(void* v)
+{
+	paxos_value_free(v);
 }
