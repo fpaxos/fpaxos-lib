@@ -34,8 +34,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <event2/event.h>
-#include <event2/buffer.h>
-#include <event2/bufferevent.h>
 
 struct evlearner
 {
@@ -49,6 +47,12 @@ struct evlearner
 
 
 static void
+peer_send_repeat(struct peer* p, void* arg)
+{
+	send_paxos_repeat(peer_get_buffer(p), arg);
+}
+
+static void
 evlearner_check_holes(evutil_socket_t fd, short event, void *arg)
 {
 	paxos_repeat msg;
@@ -57,10 +61,7 @@ evlearner_check_holes(evutil_socket_t fd, short event, void *arg)
 	if (learner_has_holes(l->state, &msg.from, &msg.to)) {
 		if ((msg.to - msg.from) > chunks)
 			msg.to = msg.from + chunks;
-		for (i = 0; i < peers_count(l->acceptors); i++) {
-			struct bufferevent* bev = peers_get_buffer(l->acceptors, i);
-			send_paxos_repeat(bev, &msg);
-		}
+		peers_foreach_acceptor(l->acceptors, peer_send_repeat, &msg);
 	}
 	event_add(l->hole_timer, &l->tv);
 }
@@ -89,12 +90,12 @@ evlearner_handle_accepted(struct evlearner* l, paxos_accepted* msg, int from)
 }
 
 static void
-evlearner_handle_msg(paxos_message* msg, int from, void* arg)
+evlearner_handle_msg(struct peer* p, paxos_message* msg, void* arg)
 {
 	struct evlearner* l = arg;
 	switch (msg->type) {
 		case PAXOS_ACCEPTED:
-			evlearner_handle_accepted(l, &msg->u.accepted, from);
+			evlearner_handle_accepted(l, &msg->u.accepted, peer_get_id(p));
 			break;
 		default:
 			paxos_log_error("Unknow msg type %d not handled", msg->type);
@@ -114,8 +115,8 @@ evlearner_init_conf(struct evpaxos_config* c, deliver_function f, void* arg,
 	l->state = learner_new(acceptor_count);
 	
 	// setup connections to acceptors
-	l->acceptors = peers_new(b, c);
-	peers_connect_to_acceptors(l->acceptors, evlearner_handle_msg, l);
+	l->acceptors = peers_new(b, c, evlearner_handle_msg, l);
+	peers_connect_to_acceptors(l->acceptors);
 	
 	// setup hole checking timer
 	l->tv.tv_sec = 0;

@@ -2,8 +2,8 @@ include_directories(${CMAKE_SOURCE_DIR}/evpaxos/include)
 include_directories(${CMAKE_SOURCE_DIR}/paxos/include)
 include_directories(${LIBEVENT_INCLUDE_DIRS} ${MSGPACK_INCLUDE_DIRS})
 
-SET(LOCAL_SOURCES config.c message.c tcp_receiver.c peers.c
-	evacceptor.c evlearner.c evproposer.c paxos_types_pack.c)
+set(LOCAL_SOURCES config.c message.c paxos_types_pack.c peers.c
+	evacceptor.c evlearner.c evproposer.c)
 
 add_library(evpaxos SHARED ${LOCAL_SOURCES})
 

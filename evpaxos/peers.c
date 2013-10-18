@@ -34,6 +34,7 @@
 #include <arpa/inet.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
+#include <event2/listener.h>
 
 struct peer
 {
@@ -41,93 +42,146 @@ struct peer
 	struct bufferevent* bev;
 	struct event* reconnect_ev;
 	struct sockaddr_in addr;
-	peer_cb callback;
-	void* arg;
+	struct peers* peers;
 };
 
 struct peers
 {
-	int count;
-	struct peer** peers;
+	int peers_count, clients_count;
+	struct peer** peers;   /* peers we connected to */
+	struct peer** clients; /* peers we accepted connections from */
+	struct evconnlistener* listener;
 	struct event_base* base;
 	struct evpaxos_config* config;
+	peer_cb cb;
+	void* arg;
 };
 
 static struct timeval reconnect_timeout = {2,0};
-static struct peer* make_peer(struct event_base* base, int id,
-	struct sockaddr_in* addr, peer_cb cb, void* arg);
+static struct peer* make_peer(struct peers* p, int id, struct sockaddr_in* in);
 static void free_peer(struct peer* p);
+static void free_all_peers(struct peer** p, int count);
 static void connect_peer(struct peer* p);
-static void peers_connect(struct peers* p, int id, 
-	struct sockaddr_in* addr, peer_cb cb, void* arg);
+static void peers_connect(struct peers* p, int id, struct sockaddr_in* addr);
+static void on_read(struct bufferevent* bev, void* arg);
+static void on_peer_event(struct bufferevent* bev, short ev, void *arg);
+static void on_client_event(struct bufferevent* bev, short events, void *arg);
+static void on_connection_timeout(int fd, short ev, void* arg);
+static void on_listener_error(struct evconnlistener* l, void* arg);
+static void on_accept(struct evconnlistener *l, evutil_socket_t fd,
+	struct sockaddr* addr, int socklen, void *arg);
 
 struct peers*
-peers_new(struct event_base* base, struct evpaxos_config* conf)
+peers_new(struct event_base* base, struct evpaxos_config* conf,
+	peer_cb cb, void* arg)
 {
 	struct peers* p = malloc(sizeof(struct peers));
-	p->count = 0;
+	p->peers_count = 0;
+	p->clients_count = 0;
 	p->peers = NULL;
+	p->clients = NULL;
 	p->base = base;
 	p->config = conf;
+	p->cb = cb;
+	p->arg = arg;
 	return p;
 }
 
 void
 peers_free(struct peers* p)
 {
-	int i;
-	for (i = 0; i < p->count; i++)
-		free_peer(p->peers[i]);		
-	if (p->count > 0)
-		free(p->peers);
+	free_all_peers(p->peers, p->peers_count);
+	free_all_peers(p->clients, p->clients_count);
 	free(p);
 }
 
 static void
-peers_connect(struct peers* p, int id, struct sockaddr_in* addr,
-	peer_cb cb, void* arg)
+peers_connect(struct peers* p, int id, struct sockaddr_in* addr)
 {
-	p->peers = realloc(p->peers, sizeof(struct peer*) * (p->count+1));
-	p->peers[p->count] = make_peer(p->base, id, addr, cb, arg);
-	p->count++;
+
+	p->peers = realloc(p->peers, sizeof(struct peer*) * (p->peers_count+1));
+	p->peers[p->peers_count] = make_peer(p, id, addr);
+	
+	struct peer* peer = p->peers[p->peers_count];
+	bufferevent_setcb(peer->bev, on_read, NULL, on_peer_event, peer);
+	peer->reconnect_ev = evtimer_new(p->base, on_connection_timeout, peer);
+	connect_peer(peer);
+
+	p->peers_count++;
 }
 
 void
-peers_connect_to_acceptors(struct peers* p, peer_cb cb, void* arg)
+peers_connect_to_acceptors(struct peers* p)
 {
 	int i;
 	for (i = 0; i < evpaxos_acceptor_count(p->config); i++) {
 		struct sockaddr_in addr = evpaxos_acceptor_address(p->config, i);
-		peers_connect(p, i, &addr, cb, arg);
+		peers_connect(p, i, &addr);
 	}
 }
 
-int
-peers_count(struct peers* p)
+void
+peers_foreach_acceptor(struct peers* p, peer_iter_cb cb, void* arg)
 {
-	return p->count;
+	int i;
+	for (i = 0; i < p->peers_count; ++i)
+		cb(p->peers[i], arg);
+}
+
+void
+peers_foreach_client(struct peers* p, peer_iter_cb cb, void* arg)
+{
+	int i;
+	for (i = 0; i < p->clients_count; ++i)
+		cb(p->clients[i], arg);
 }
 
 struct bufferevent*
-peers_get_buffer(struct peers* p, int i)
+peer_get_buffer(struct peer* p)
 {
-	return p->peers[i]->bev;
+	return p->bev;
+}
+
+int
+peer_get_id(struct peer* p)
+{
+	return p->id;
+}
+
+void
+peers_listen(struct peers* p, int port)
+{
+	struct sockaddr_in addr;
+	unsigned flags = LEV_OPT_CLOSE_ON_EXEC
+		| LEV_OPT_CLOSE_ON_FREE
+		| LEV_OPT_REUSEABLE;
+	
+	/* listen on the given port at address 0.0.0.0 */
+	memset(&addr, 0, sizeof(struct sockaddr_in));
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl(0);
+	addr.sin_port = htons(port);
+	
+	p->listener = evconnlistener_new_bind(p->base, on_accept, p, flags, -1,
+		(struct sockaddr*)&addr, sizeof(addr));
+	evconnlistener_set_error_cb(p->listener, on_listener_error);
+	paxos_log_info("Listening on port %d", port);
 }
 
 static void
 on_read(struct bufferevent* bev, void* arg)
 {
 	paxos_message msg;
-	struct peer* p = arg;
+	struct peer* p = (struct peer*)arg;
 	struct evbuffer* in = bufferevent_get_input(bev);
 	while (recv_paxos_message(in, &msg)) {
-		p->callback(&msg, p->id, p->arg);
+		p->peers->cb(p, &msg, p->peers->arg);
 		paxos_message_destroy(&msg);
 	}
 }
 
 static void
-on_socket_event(struct bufferevent* bev, short ev, void *arg)
+on_peer_event(struct bufferevent* bev, short ev, void *arg)
 {
 	struct peer* p = (struct peer*)arg;
 	
@@ -142,7 +196,7 @@ on_socket_event(struct bufferevent* bev, short ev, void *arg)
 		base = bufferevent_get_base(p->bev);
 		bufferevent_free(p->bev);
 		p->bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);
-		bufferevent_setcb(p->bev, on_read, NULL, on_socket_event, p);
+		bufferevent_setcb(p->bev, on_read, NULL, on_peer_event, p);
 		event_add(p->reconnect_ev, &reconnect_timeout);
 	} else {
 		paxos_log_error("Event %d not handled", ev);
@@ -150,9 +204,60 @@ on_socket_event(struct bufferevent* bev, short ev, void *arg)
 }
 
 static void
+on_client_event(struct bufferevent* bev, short events, void *arg)
+{
+	struct peer* p = (struct peer*)arg;
+	if (events & (BEV_EVENT_EOF)) {
+		struct peer** clients = p->peers->clients;
+		for (size_t i = p->id; i < p->peers->clients_count-1; ++i) {
+			clients[i] = clients[p->id+1];
+			clients[i]->id = i;
+		}
+		p->peers->clients_count--;
+		p->peers->clients = realloc(p->peers->clients, 
+			sizeof(struct peer*) * (p->peers->clients_count));
+		free_peer(p);
+	}
+}
+
+static void
 on_connection_timeout(int fd, short ev, void* arg)
 {
 	connect_peer((struct peer*)arg);
+}
+
+static void
+on_listener_error(struct evconnlistener* l, void* arg)
+{
+	int err = EVUTIL_SOCKET_ERROR();
+	struct event_base *base = evconnlistener_get_base(l);
+	paxos_log_error("Listener error %d: %s. Shutting down event loop.", err,
+		evutil_socket_error_to_string(err));
+	event_base_loopexit(base, NULL);
+}
+
+static void
+on_accept(struct evconnlistener *l, evutil_socket_t fd,
+	struct sockaddr* addr, int socklen, void *arg)
+{
+	struct peer* peer;
+	struct peers* peers = arg;
+
+	peers->clients = realloc(peers->clients,
+		sizeof(struct peer*) * (peers->clients_count+1));
+	peers->clients[peers->clients_count] = 
+		make_peer(peers, peers->clients_count, (struct sockaddr_in*)addr);
+	
+	peer = peers->clients[peers->clients_count];
+	bufferevent_setfd(peer->bev, fd);
+	bufferevent_setcb(peer->bev, on_read, NULL, on_client_event, peer);
+	bufferevent_enable(peer->bev, EV_READ|EV_WRITE);
+	
+	paxos_log_info("Accepted connection from %s:%d",
+		inet_ntoa(((struct sockaddr_in*)addr)->sin_addr),
+		ntohs(((struct sockaddr_in*)addr)->sin_port));
+	
+	peers->clients_count++;
 }
 
 static void
@@ -166,25 +271,32 @@ connect_peer(struct peer* p)
 }
 
 static struct peer*
-make_peer(struct event_base* base, int id, 
-	struct sockaddr_in* addr,  peer_cb cb, void* arg)
+make_peer(struct peers* peers, int id, struct sockaddr_in* addr)
 {
 	struct peer* p = malloc(sizeof(struct peer));
 	p->id = id;
 	p->addr = *addr;
-	p->reconnect_ev = evtimer_new(base, on_connection_timeout, p);
-	p->bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);
-	bufferevent_setcb(p->bev, on_read, NULL, on_socket_event, p);
-	p->callback = cb;
-	p->arg = arg;
-	connect_peer(p);	
+	p->bev = bufferevent_socket_new(peers->base, -1, BEV_OPT_CLOSE_ON_FREE);
+	p->peers = peers;
+	p->reconnect_ev = NULL;
 	return p;
+}
+
+static void
+free_all_peers(struct peer** p, int count)
+{
+	int i;
+	for (i = 0; i < count; i++)
+		free_peer(p[i]);
+	if (count > 0)
+		free(p);
 }
 
 static void
 free_peer(struct peer* p)
 {
 	bufferevent_free(p->bev);
-	event_free(p->reconnect_ev);
+	if (p->reconnect_ev != NULL)
+		event_free(p->reconnect_ev);
 	free(p);
 }

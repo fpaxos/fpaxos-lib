@@ -27,39 +27,42 @@
 
 
 #include "evpaxos.h"
+#include "peers.h"
 #include "config.h"
-#include "tcp_receiver.h"
 #include "acceptor.h"
 #include "message.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <event2/event.h>
-#include <event2/util.h>
-#include <event2/event_struct.h>
-#include <event2/buffer.h>
 
 struct evacceptor
 {
 	int acceptor_id;
 	struct acceptor* state;
 	struct event_base* base;
-	struct tcp_receiver* receiver;
+	struct peers* peers;
 	struct evpaxos_config* conf;
 };
 
+
+static void
+peer_send_accepted(struct peer* p, void* arg)
+{
+	send_paxos_accepted(peer_get_buffer(p), arg);
+}
 
 /*
 	Received a prepare request (phase 1a).
 */
 static void 
 evacceptor_handle_prepare(struct evacceptor* a, 
-	struct bufferevent* bev, paxos_prepare* m)
+	struct peer* p, paxos_prepare* m)
 {
 	paxos_promise promise;
 	paxos_log_debug("Handle prepare for iid %d ballot %d", m->iid, m->ballot);
 	acceptor_receive_prepare(a->state, m, &promise);
-	send_paxos_promise(bev, &promise);
+	send_paxos_promise(peer_get_buffer(p), &promise);
 	paxos_promise_destroy(&promise);
 }
 
@@ -67,33 +70,30 @@ evacceptor_handle_prepare(struct evacceptor* a,
 	Received a accept request (phase 2a).
 */
 static void 
-evacceptor_handle_accept(struct evacceptor* a,
-	struct bufferevent* bev, paxos_accept* accept)
+evacceptor_handle_accept(struct evacceptor* a, struct peer* p, 
+	paxos_accept* accept)
 {	
-	int i;
 	paxos_accepted accepted;
-	struct carray* bevs = tcp_receiver_get_events(a->receiver);
 	paxos_log_debug("Handle accept for iid %d bal %d", 
 		accept->iid, accept->ballot);
 	acceptor_receive_accept(a->state, accept, &accepted);
 	if (accept->ballot == accepted.ballot) // accepted!
-		for (i = 0; i < carray_count(bevs); i++)
-			send_paxos_accepted(carray_at(bevs, i), &accepted);
-	else
-		send_paxos_accepted(bev, &accepted); // send nack
+		peers_foreach_client(a->peers, peer_send_accepted, &accepted);
+	else // send nack
+		send_paxos_accepted(peer_get_buffer(p), &accepted);
 	paxos_accepted_destroy(&accepted);
 }
 
 static void
 evacceptor_handle_repeat(struct evacceptor* a,
-	struct bufferevent* bev, paxos_repeat* repeat)
+	struct peer* p, paxos_repeat* repeat)
 {	
 	iid_t iid;
 	paxos_accepted accepted;
 	paxos_log_debug("Handle repeat for iids %d-%d", repeat->from, repeat->to);
 	for (iid = repeat->from; iid <= repeat->to; ++iid) {
 		if (acceptor_receive_repeat(a->state, iid, &accepted)) {
-			send_paxos_accepted(bev, &accepted);
+			send_paxos_accepted(peer_get_buffer(p), &accepted);
 			paxos_accepted_destroy(&accepted);
 		}
 	}
@@ -103,18 +103,18 @@ evacceptor_handle_repeat(struct evacceptor* a,
 	This function is invoked when a new paxos message has been received.
 */
 static void 
-evacceptor_handle_msg(struct bufferevent* bev, paxos_message* msg, void* arg)
+evacceptor_handle_msg(struct peer* p, paxos_message* msg, void* arg)
 {
 	struct evacceptor* a = (struct evacceptor*)arg;
 	switch (msg->type) {
 		case PAXOS_PREPARE:
-			evacceptor_handle_prepare(a, bev, &msg->u.prepare);
+			evacceptor_handle_prepare(a, p, &msg->u.prepare);
 			break;
 		case PAXOS_ACCEPT:
-			evacceptor_handle_accept(a, bev, &msg->u.accept);
+			evacceptor_handle_accept(a, p, &msg->u.accept);
 			break;
 		case PAXOS_REPEAT:
-			evacceptor_handle_repeat(a, bev, &msg->u.repeat);
+			evacceptor_handle_repeat(a, p, &msg->u.repeat);
 			break;
 		default:
 			paxos_log_error("Unknow msg type %d not handled", msg->type);
@@ -147,8 +147,10 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 	
     a->acceptor_id = id;
 	a->base = b;
-	a->receiver = tcp_receiver_new(a->base, port, evacceptor_handle_msg, a);
+	a->peers = peers_new(a->base, a->conf, evacceptor_handle_msg, a);
 	a->state = acceptor_new(id);
+	
+	peers_listen(a->peers, port);
 
     return a;
 }
@@ -157,7 +159,7 @@ int
 evacceptor_free(struct evacceptor* a)
 {
 	acceptor_free(a->state);
-	tcp_receiver_free(a->receiver);
+	peers_free(a->peers);
 	evpaxos_config_free(a->conf);
 	free(a);
 	return 0;

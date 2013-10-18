@@ -30,46 +30,33 @@
 #include "peers.h"
 #include "config.h"
 #include "message.h"
-#include "tcp_receiver.h"
 #include "proposer.h"
 #include <string.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
 #include <event2/event.h>
-#include <event2/buffer.h>
-#include <event2/bufferevent.h>
 
 struct evproposer
 {
 	int id;
 	int preexec_window;
-	struct tcp_receiver* receiver;
 	struct event_base* base;
 	struct proposer* state;
-	struct peers* acceptors;
+	struct peers* peers;
 	struct timeval tv;
 	struct event* timeout_ev;
 };
 
 
 static void
-send_prepares(struct evproposer* p, paxos_prepare* pr)
+peer_send_prepare(struct peer* p, void* arg)
 {
-	int i;
-	for (i = 0; i < peers_count(p->acceptors); i++) {
-		struct bufferevent* bev = peers_get_buffer(p->acceptors, i);
-		send_paxos_prepare(bev, pr);
-	}
+	send_paxos_prepare(peer_get_buffer(p), arg);
 }
 
 static void
-send_accepts(struct evproposer* p, paxos_accept* ar)
+peer_send_accept(struct peer* p, void* arg)
 {
-	int i;
-	for (i = 0; i < peers_count(p->acceptors); i++) {
-		struct bufferevent* bev = peers_get_buffer(p->acceptors, i);
-    	send_paxos_accept(bev, ar);
-	}
+	send_paxos_accept(peer_get_buffer(p), arg);
 }
 
 static void
@@ -81,7 +68,7 @@ proposer_preexecute(struct evproposer* p)
 	if (count <= 0) return;
 	for (i = 0; i < count; i++) {
 		proposer_prepare(p->state, &pr);
-		send_prepares(p, &pr);
+		peers_foreach_acceptor(p->peers, peer_send_prepare, &pr);
 	}
 	paxos_log_debug("Opened %d new instances", count);
 }
@@ -91,30 +78,28 @@ try_accept(struct evproposer* p)
 {
 	paxos_accept accept;
 	while (proposer_accept(p->state, &accept))
-		send_accepts(p, &accept);
+		peers_foreach_acceptor(p->peers, peer_send_accept, &accept);
 	proposer_preexecute(p);
 }
 
 static void
-evproposer_handle_promise(struct evproposer* p, paxos_promise* promise,
-	int from)
+evproposer_handle_promise(struct evproposer* p, paxos_promise* pro, int from)
 {
 	int preempted;
 	paxos_prepare prepare;
-	preempted = proposer_receive_promise(p->state, promise, from, &prepare);
+	preempted = proposer_receive_promise(p->state, pro, from, &prepare);
 	if (preempted)
-		send_prepares(p, &prepare);
+		peers_foreach_acceptor(p->peers, peer_send_prepare, &prepare);
 }
 
 static void
-evproposer_handle_accepted(struct evproposer* p, paxos_accepted* accepted,
-	 int from)
+evproposer_handle_accepted(struct evproposer* p, paxos_accepted* acc, int from)
 {
 	int preempted;
 	paxos_prepare prepare;
-	preempted = proposer_receive_accepted(p->state, accepted, from, &prepare);
+	preempted = proposer_receive_accepted(p->state, acc, from, &prepare);
 	if (preempted)
-		send_prepares(p, &prepare);
+		peers_foreach_acceptor(p->peers, peer_send_prepare, &prepare);
 }
 
 static void
@@ -126,38 +111,24 @@ evproposer_handle_client_value(struct evproposer* p, paxos_client_value* v)
 }
 
 static void
-evproposer_handle_acceptor_msg(paxos_message* msg, int from, void* arg)
+evproposer_handle_msg(struct peer* p, paxos_message* msg, void* arg)
 {
-	struct evproposer* p = arg;
+	struct evproposer* pro = arg;
 	switch (msg->type) {
 		case PAXOS_PROMISE:
-			evproposer_handle_promise(p, &msg->u.promise, from);
+			evproposer_handle_promise(pro, &msg->u.promise, peer_get_id(p));
 			break;
 		case PAXOS_ACCEPTED:
-			evproposer_handle_accepted(p, &msg->u.accepted, from);
+			evproposer_handle_accepted(pro, &msg->u.accepted, peer_get_id(p));
 			break;
-		default:
-			paxos_log_error("Unknow msg type %d not handled", msg->type);
-			return;
-	}
-	try_accept(p);
-}
-
-static void
-evproposer_handle_client_msg(struct bufferevent* bev, paxos_message* msg,
-	void* arg)
-{
-	struct evproposer* p = arg;
-	switch (msg->type) {
 		case PAXOS_CLIENT_VALUE:
-			evproposer_handle_client_value(p, 	
-				&msg->u.client_value);
+			evproposer_handle_client_value(pro, &msg->u.client_value);
 			break;
 		default:
 			paxos_log_error("Unknow msg type %d not handled", msg->type);
 			return;
 	}
-	try_accept(p);
+	try_accept(pro);
 }
 
 static void
@@ -169,13 +140,13 @@ evproposer_check_timeouts(evutil_socket_t fd, short event, void *arg)
 	paxos_prepare pr;	
 	while (timeout_iterator_prepare(iter, &pr)) {
 		paxos_log_info("Instance %d timed out.", pr.iid);
-		send_prepares(p, &pr);
+		peers_foreach_acceptor(p->peers, peer_send_prepare, &pr);
 	}
 	
 	paxos_accept ar;
 	while (timeout_iterator_accept(iter, &ar)) {
 		paxos_log_info("Instance %d timed out.", ar.iid);
-		send_accepts(p, &ar);
+		peers_foreach_acceptor(p->peers, peer_send_accept, &ar);
 	}
 	
 	timeout_iterator_free(iter);
@@ -207,12 +178,10 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 	p->base = b;
 	p->preexec_window = paxos_config.proposer_preexec_window;
 		
-	// Setup client listener
-	p->receiver = tcp_receiver_new(b, port, evproposer_handle_client_msg, p);
-	
-	// Setup connections to acceptors
-	p->acceptors = peers_new(b, conf);
-	peers_connect_to_acceptors(p->acceptors, evproposer_handle_acceptor_msg, p);
+	// Setup connections
+	p->peers = peers_new(b, conf, evproposer_handle_msg, p);
+	peers_connect_to_acceptors(p->peers);
+	peers_listen(p->peers, port);
 	
 	// Setup timeout
 	p->tv.tv_sec = paxos_config.proposer_timeout;
@@ -231,8 +200,7 @@ evproposer_init(int id, const char* config_file, struct event_base* b)
 void
 evproposer_free(struct evproposer* p)
 {
-	peers_free(p->acceptors);
-	tcp_receiver_free(p->receiver);
+	peers_free(p->peers);
 	event_free(p->timeout_ev);
 	proposer_free(p->state);
 	free(p);
