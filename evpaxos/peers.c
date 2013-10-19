@@ -80,6 +80,7 @@ peers_new(struct event_base* base, struct evpaxos_config* conf,
 	p->clients_count = 0;
 	p->peers = NULL;
 	p->clients = NULL;
+	p->listener = NULL;
 	p->base = base;
 	p->config = conf;
 	p->cb = cb;
@@ -92,6 +93,8 @@ peers_free(struct peers* p)
 {
 	free_all_peers(p->peers, p->peers_count);
 	free_all_peers(p->clients, p->clients_count);
+	if (p->listener != NULL)
+		evconnlistener_free(p->listener);
 	free(p);
 }
 
