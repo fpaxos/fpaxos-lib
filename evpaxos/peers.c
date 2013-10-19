@@ -207,10 +207,10 @@ on_peer_event(struct bufferevent* bev, short ev, void *arg)
 }
 
 static void
-on_client_event(struct bufferevent* bev, short events, void *arg)
+on_client_event(struct bufferevent* bev, short ev, void *arg)
 {
 	struct peer* p = (struct peer*)arg;
-	if (events & (BEV_EVENT_EOF)) {
+	if (ev & BEV_EVENT_EOF || ev & BEV_EVENT_ERROR) {
 		struct peer** clients = p->peers->clients;
 		for (size_t i = p->id; i < p->peers->clients_count-1; ++i) {
 			clients[i] = clients[p->id+1];
@@ -220,6 +220,8 @@ on_client_event(struct bufferevent* bev, short events, void *arg)
 		p->peers->clients = realloc(p->peers->clients, 
 			sizeof(struct peer*) * (p->peers->clients_count));
 		free_peer(p);
+	} else {
+		paxos_log_error("Event %d not handled", ev);
 	}
 }
 
