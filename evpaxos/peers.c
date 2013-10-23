@@ -211,8 +211,9 @@ on_client_event(struct bufferevent* bev, short ev, void *arg)
 {
 	struct peer* p = (struct peer*)arg;
 	if (ev & BEV_EVENT_EOF || ev & BEV_EVENT_ERROR) {
+		int i;
 		struct peer** clients = p->peers->clients;
-		for (size_t i = p->id; i < p->peers->clients_count-1; ++i) {
+		for (i = p->id; i < p->peers->clients_count-1; ++i) {
 			clients[i] = clients[p->id+1];
 			clients[i]->id = i;
 		}
