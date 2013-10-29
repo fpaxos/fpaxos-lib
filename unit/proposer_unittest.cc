@@ -27,7 +27,7 @@
 
 
 #include "proposer.h"
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 #define CHECK_ACCEPT(r, i, b, v, s) {         \
 	ASSERT_EQ(r.iid, i);                      \

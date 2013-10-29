@@ -1,0 +1,1 @@
+add_library(gtest-all STATIC gtest-all.cc)

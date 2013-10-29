@@ -41,7 +41,6 @@ You pass options to cmake as follows: ```cmake -DOPTION=VALUE```
 - ```LIBEVENT_ROOT=PATH``` -  point it to your installation of Libevent
 - ```MSGPACK_ROOT=PATH``` - point it to your installation of MessagePack
 - ```USE_MEM_STORE=ON``` - enables in-memory storage, instead of Berkeley DB
-- ```BUILD_UNIT=ON``` -  enables unit tests - see section below
 
 ## Running the examples
 
@@ -58,13 +57,9 @@ See ```paxos.conf``` for a sample configuration file.
 
 ##  Unit tests
 
-Unit tests depend on the [Google Test][4] library. To enable unit tests run
-
-	cmake -DBUILD_UNIT=ON ..
-	make
-
-Execute the tests using ```make test```, or, run ```./unit/gtest``` for 
-detailed output.
+Unit tests depend on the [Google Test][4] library. Execute the tests using 
+```make test``` in your build directory, or run ```./unit/gtest``` for detailed 
+output.
 
 ## Feedback
 

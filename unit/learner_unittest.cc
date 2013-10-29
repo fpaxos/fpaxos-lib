@@ -27,7 +27,7 @@
 
 
 #include "learner.h"
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 class LearnerTest : public testing::Test {
 protected:
