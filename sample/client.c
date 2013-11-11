@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 #include <event2/event.h>
 
 #define MAX_VALUE_SIZE 8192
