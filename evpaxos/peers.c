@@ -4,7 +4,7 @@
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
-    	* Redistributions of source code must retain the above copyright
+		* Redistributions of source code must retain the above copyright
 		  notice, this list of conditions and the following disclaimer.
 		* Redistributions in binary form must reproduce the above copyright
 		  notice, this list of conditions and the following disclaimer in the
@@ -71,6 +71,7 @@ static void on_listener_error(struct evconnlistener* l, void* arg);
 static void on_accept(struct evconnlistener *l, evutil_socket_t fd,
 	struct sockaddr* addr, int socklen, void *arg);
 
+
 struct peers*
 peers_new(struct event_base* base, struct evpaxos_config* conf,
 	peer_cb cb, void* arg)
@@ -101,7 +102,6 @@ peers_free(struct peers* p)
 static void
 peers_connect(struct peers* p, int id, struct sockaddr_in* addr)
 {
-
 	p->peers = realloc(p->peers, sizeof(struct peer*) * (p->peers_count+1));
 	p->peers[p->peers_count] = make_peer(p, id, addr);
 	
@@ -151,7 +151,7 @@ peer_get_id(struct peer* p)
 	return p->id;
 }
 
-void
+int
 peers_listen(struct peers* p, int port)
 {
 	struct sockaddr_in addr;
@@ -167,8 +167,13 @@ peers_listen(struct peers* p, int port)
 	
 	p->listener = evconnlistener_new_bind(p->base, on_accept, p, flags, -1,
 		(struct sockaddr*)&addr, sizeof(addr));
+	if (p->listener == NULL) {
+		paxos_log_error("Failed to bind on port %d", port);
+		return 0;
+	}
 	evconnlistener_set_error_cb(p->listener, on_listener_error);
 	paxos_log_info("Listening on port %d", port);
+	return 1;
 }
 
 static void

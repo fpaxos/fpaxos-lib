@@ -4,7 +4,7 @@
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
-    	* Redistributions of source code must retain the above copyright
+		* Redistributions of source code must retain the above copyright
 		  notice, this list of conditions and the following disclaimer.
 		* Redistributions in binary form must reproduce the above copyright
 		  notice, this list of conditions and the following disclaimer in the
@@ -150,7 +150,9 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 	a->peers = peers_new(a->base, a->conf, evacceptor_handle_msg, a);
 	a->state = acceptor_new(id);
 	
-	peers_listen(a->peers, port);
+	int rv = peers_listen(a->peers, port);
+	if (rv == 0)
+		return NULL;
 
     return a;
 }

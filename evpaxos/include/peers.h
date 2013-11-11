@@ -4,7 +4,7 @@
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
-    	* Redistributions of source code must retain the above copyright
+		* Redistributions of source code must retain the above copyright
 		  notice, this list of conditions and the following disclaimer.
 		* Redistributions in binary form must reproduce the above copyright
 		  notice, this list of conditions and the following disclaimer in the
@@ -42,7 +42,7 @@ typedef void (*peer_iter_cb)(struct peer* p, void* arg);
 struct peers* peers_new(struct event_base* base, struct evpaxos_config* conf, peer_cb cb, void* arg);
 void peers_free(struct peers* p);
 void peers_connect_to_acceptors(struct peers* p);
-void peers_listen(struct peers* p, int port);
+int peers_listen(struct peers* p, int port);
 void peers_foreach_acceptor(struct peers* p, peer_iter_cb cb, void* arg);
 void peers_foreach_client(struct peers* p, peer_iter_cb cb, void* arg);
 int peer_get_id(struct peer* p);
