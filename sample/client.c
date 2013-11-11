@@ -27,73 +27,171 @@
 
 
 #include <evpaxos.h>
+#include <config.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <event2/event.h>
 
+#define MAX_VALUE_SIZE 8192
+
+struct stats
+{
+	int delivered;
+};
+
+struct client
+{
+	int value_size;
+	int outstanding;
+	struct stats stats;
+	struct event_base* base;
+	struct bufferevent* bev;
+	struct event* stats_ev;
+	struct timeval stats_interval;
+	struct event* sig;
+	struct evlearner* learner;
+};
 
 static void
-event_callback(struct bufferevent* bev, short events, void* arg)
+handle_sigint(int sig, short ev, void* arg)
 {
-    if (events & BEV_EVENT_CONNECTED) {
-		printf("Connected\n");
-    } else if (events & BEV_EVENT_ERROR) {
-        printf("%s\n", evutil_socket_error_to_string(EVUTIL_SOCKET_ERROR()));
-    }
+	struct event_base* base = arg;
+	printf("Caught signal %d\n", sig);
+	event_base_loopexit(base, NULL);
+}
+
+static void
+random_string(char *s, const int len)
+{
+	int i;
+	static const char alphanum[] =
+		"0123456789abcdefghijklmnopqrstuvwxyz";
+	for (i = 0; i < len-1; ++i)
+		s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
+	s[len-1] = 0;
+}
+
+static void
+client_submit_value(struct client* c)
+{
+	char value[MAX_VALUE_SIZE];
+	random_string(value, c->value_size);
+	paxos_submit(c->bev, value, c->value_size);
+}
+
+static void
+on_deliver(char* value, size_t size, void* arg)
+{
+	struct client* c = arg;
+	c->stats.delivered++;
+	client_submit_value(c);
+}
+
+static void
+on_stats(evutil_socket_t fd, short event, void *arg)
+{
+	struct client* c = arg;
+	printf("%d value/sec, %.2f Mbps/sec\n", 
+		c->stats.delivered,
+		(double)(c->stats.delivered*c->value_size*8) / (1024*1024));
+	c->stats.delivered = 0;
+	event_add(c->stats_ev, &c->stats_interval);
+}
+
+static void
+on_connect(struct bufferevent* bev, short events, void* arg)
+{
+	int i;
+	struct client* c = arg;
+	if (events & BEV_EVENT_CONNECTED) {
+		printf("Connected to proposer\n");
+		for (i = 0; i < c->outstanding; ++i)
+			client_submit_value(c);
+	} else {
+		printf("%s\n", evutil_socket_error_to_string(EVUTIL_SOCKET_ERROR()));
+	}
 }
 
 static struct bufferevent* 
-connect_to_proposer(struct event_base* b, struct sockaddr* addr)
+connect_to_proposer(struct client* c, const char* config)
 {
 	struct bufferevent* bev;
-	
-	bev = bufferevent_socket_new(b, -1, BEV_OPT_CLOSE_ON_FREE);
-	bufferevent_setcb(bev, NULL, NULL, event_callback, NULL);
-	if (bufferevent_socket_connect(bev, addr, sizeof(struct sockaddr)) < 0) {
-		bufferevent_free(bev);
-		return NULL;
-	}
-	event_base_dispatch(b);
+	struct evpaxos_config* conf = evpaxos_config_read(config);
+	struct sockaddr_in addr = evpaxos_proposer_address(conf, 0);
+	bev = bufferevent_socket_new(c->base, -1, BEV_OPT_CLOSE_ON_FREE);
+	bufferevent_setcb(bev, NULL, NULL, on_connect, c);
+	bufferevent_enable(bev, EV_READ|EV_WRITE);
+	bufferevent_socket_connect(bev, (struct sockaddr*)&addr, sizeof(addr));
 	return bev;
 }
 
-void
-usage(const char* progname)
+static struct client*
+make_client(const char* config, int outstanding, int value_size)
 {
-	printf("Usage: %s address:port rate\n", progname);
+	struct client* c;
+	c = malloc(sizeof(struct client));
+	c->base = event_base_new();
+	
+	memset(&c->stats, 0, sizeof(struct stats));
+	c->bev = connect_to_proposer(c, config);
+	if (c->bev == NULL)
+		exit(1);
+	
+	c->value_size = value_size;
+	c->outstanding = outstanding;
+	
+	c->stats_interval = (struct timeval){1, 0};
+	c->stats_ev = evtimer_new(c->base, on_stats, c);
+	event_add(c->stats_ev, &c->stats_interval);
+	
+	c->learner = evlearner_init(config, on_deliver, c, c->base);
+	
+	c->sig = evsignal_new(c->base, SIGINT, handle_sigint, c->base);
+	evsignal_add(c->sig, NULL);
+	
+	return c;
+}
+
+static void
+client_free(struct client* c)
+{
+	bufferevent_free(c->bev);
+	event_free(c->stats_ev);
+	event_free(c->sig);
+	event_base_free(c->base);
+	free(c);
+}
+
+static void
+usage(const char* name)
+{
+	printf("Usage: %s config [# outstanding values] [value size]\n", name);
 	exit(1);
 }
 
 int
-main (int argc, char const *argv[])
+main(int argc, char const *argv[])
 {
-	int rate;
-	struct event_base* base;
-	struct bufferevent* bev;
-	struct sockaddr address;
-	int address_len = sizeof(struct sockaddr);
+	struct client* client;
+	struct sockaddr addr;
+	int addr_len = sizeof(addr);
+	int outstanding = 1;
+	int value_size = 64;
 	
-	if (argc != 3)
+	if (argc < 2 || argc > 4)
 		usage(argv[0]);
-
-	if (evutil_parse_sockaddr_port(argv[1], &address, &address_len) == -1)
-		usage(argv[0]);
-	rate = atoi(argv[2]);
+	if (argc >= 3)
+		outstanding = atoi(argv[2]);
+	if (argc == 4)
+		value_size = atoi(argv[3]);
 	
-	base = event_base_new();    
-	bev = connect_to_proposer(base, &address);
+	srand(time(NULL));
+	client = make_client(argv[1], outstanding, value_size);
 	
-	char value[] = "hello!";
-	int len = strlen(value) + 1;
+	event_base_dispatch(client->base);
+	client_free(client);
 	
-	while(1) {
-		int i;
-		for (i = 0; i < rate; ++i) {
-			paxos_submit(bev, value, len);
-			event_base_dispatch(base);
-		}
-		sleep(1);
-	}
 	return 0;
 }
