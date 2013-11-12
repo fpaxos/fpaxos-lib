@@ -174,8 +174,8 @@ static int
 parse_boolean(char* str, int* boolean)
 {
 	if (str == NULL) return 0;
-    if (strcasecmp(str, "yes") == 0) {
-    	*boolean = 1;
+	if (strcasecmp(str, "yes") == 0) {
+		*boolean = 1;
 		return 1;
 	}
 	if (strcasecmp(str, "no") == 0) {
@@ -305,7 +305,8 @@ address_free(struct address* a)
 }
 
 static struct sockaddr_in
-address_to_sockaddr(struct address* a) {
+address_to_sockaddr(struct address* a)
+{
 	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
