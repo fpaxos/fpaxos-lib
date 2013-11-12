@@ -249,16 +249,9 @@ instance_has_quorum(struct instance* inst, int acceptors)
 		if (curr_ack->ballot == inst->last_update_ballot) {
 			count++;
 			a_valid_index = i;
-			
-			// Special case: an acceptor is telling that
-			// this value is -final-, it can be delivered immediately.
-			// if (curr_ack->is_final) {
-				// count += acceptors; // For sure >= quorum...
-				// break;
-			// }
 		}
 	}
-    
+
 	if (count >= paxos_quorum(acceptors)) {
 		paxos_log_debug("Reached quorum, iid: %u is closed!", inst->iid);
 		inst->final_value = inst->acks[a_valid_index];
