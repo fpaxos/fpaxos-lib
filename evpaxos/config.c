@@ -30,6 +30,7 @@
 #include "paxos.h"
 #include <stdio.h>
 #include <ctype.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
@@ -53,7 +54,8 @@ enum option_type
 	option_boolean,
 	option_integer,
 	option_string,
-	option_verbosity
+	option_verbosity,
+	option_bytes
 };
 
 struct option
@@ -70,7 +72,7 @@ struct option options[] =
 	{ "proposer-timeout", &paxos_config.proposer_timeout, option_integer },
 	{ "proposer-preexec-window", &paxos_config.proposer_preexec_window, option_integer },
 	{ "bdb-sync", &paxos_config.bdb_sync, option_boolean },
-	{ "bdb-cachesize", &paxos_config.bdb_cachesize, option_integer },
+	{ "bdb-cachesize", &paxos_config.bdb_cachesize, option_bytes },
 	{ "bdb-env-path", &paxos_config.bdb_env_path, option_string },
 	{ "bdb-db-filename", &paxos_config.bdb_db_filename, option_string },
 	{ "bdb-trash-files", &paxos_config.bdb_trash_files, option_boolean },
@@ -88,7 +90,7 @@ evpaxos_config_read(const char* path)
 {
 	FILE* f;
 	char line[512];
-	int linenumber = 0;
+	int linenumber = 1;
 	struct evpaxos_config* c;
 
 	if ((f = fopen(path, "r")) == NULL) {
@@ -168,6 +170,23 @@ strtrim(char* string)
 		t--;
 	*++t = '\0';
 	return s;
+}
+
+static int
+parse_bytes(char* str, int* bytes)
+{
+	char* end;
+	errno = 0; /* To distinguish strtoll's return value 0 */
+	*bytes = strtol(str, &end, 10);
+	if (errno != 0) return 0;
+	while (isspace(*end)) end++;
+	if (*end != '\0') {
+		if (strcasecmp(end, "kb") == 0) *bytes *= 1024;
+		else if (strcasecmp(end, "mb") == 0) *bytes *= 1024 * 1024;
+		else if (strcasecmp(end, "gb") == 0) *bytes *= 1024 * 1024 * 1024;
+		else return 0;
+	}
+	return 1;
 }
 
 static int
@@ -286,8 +305,11 @@ parse_line(struct evpaxos_config* c, char* line)
 			rv = parse_verbosity(line, opt->value);
 			if (rv == 0) printf("Expected quiet, error, info, or debug\n");
 			break;
+		case option_bytes:
+			rv = parse_bytes(line, opt->value);
+			if (rv == 0) printf("Expected number of bytes.\n");
 	}
-		
+	
 	return rv;
 }
 
