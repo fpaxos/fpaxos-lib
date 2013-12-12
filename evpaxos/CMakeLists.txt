@@ -15,4 +15,3 @@ set_target_properties(evpaxos PROPERTIES
 
 INSTALL(TARGETS evpaxos DESTINATION lib)
 INSTALL(FILES include/evpaxos.h DESTINATION include)
-INSTALL(DIRECTORY include/ DESTINATION include/evpaxos)
