@@ -33,7 +33,7 @@
 
 struct acceptor
 {
-	struct storage* store;
+	struct storage store;
 };
 
 static void paxos_accepted_to_promise(paxos_accepted* acc, paxos_promise* out);
@@ -43,21 +43,21 @@ static void paxos_accept_to_accepted(paxos_accept* acc, paxos_accepted* out);
 struct acceptor*
 acceptor_new(int id)
 {
-	struct acceptor* s;
-	s = malloc(sizeof(struct acceptor));
-	s->store = storage_open(id);
-	if (s->store == NULL) {
-		free(s);
+	struct acceptor* a;
+	a = malloc(sizeof(struct acceptor));
+	storage_init(&a->store, id);
+	if (storage_open(&a->store) < 0) {
+		free(a);
 		return NULL;
 	}
-	return s;
+	return a;
 }
 
 int
 acceptor_free(struct acceptor* a) 
 {
 	int rv;
-	rv = storage_close(a->store);
+	rv = storage_close(&a->store);
 	free(a);
 	return rv;
 }
@@ -68,15 +68,15 @@ acceptor_receive_prepare(struct acceptor* a,
 {
 	paxos_accepted acc;
 	memset(&acc, 0, sizeof(paxos_accepted));
-	storage_tx_begin(a->store);
-	int found = storage_get_record(a->store, req->iid, &acc);
+	storage_tx_begin(&a->store);
+	int found = storage_get_record(&a->store, req->iid, &acc);
 	if (!found || acc.ballot <= req->ballot) {
 		paxos_log_debug("Preparing iid: %u, ballot: %u", req->iid, req->ballot);
 		acc.iid = req->iid;
 		acc.ballot = req->ballot;
-		storage_put_record(a->store, &acc);
+		storage_put_record(&a->store, &acc);
 	}
-	storage_tx_commit(a->store);	
+	storage_tx_commit(&a->store);
 	paxos_accepted_to_promise(&acc, out);
 	return 1;
 }
@@ -86,15 +86,15 @@ acceptor_receive_accept(struct acceptor* a,
 	paxos_accept* req, paxos_accepted* out)
 {
 	memset(out, 0, sizeof(paxos_accepted));
-	storage_tx_begin(a->store);
-	int found = storage_get_record(a->store, req->iid, out);
+	storage_tx_begin(&a->store);
+	int found = storage_get_record(&a->store, req->iid, out);
 	if (!found || out->ballot <= req->ballot) {
 		paxos_log_debug("Accepting iid: %u, ballot: %u", req->iid, req->ballot);
 		paxos_accepted_destroy(out);
 		paxos_accept_to_accepted(req, out);
-		storage_put_record(a->store, out);
+		storage_put_record(&a->store, out);
 	}
-	storage_tx_commit(a->store);
+	storage_tx_commit(&a->store);
 	return 1;
 }
 
@@ -102,9 +102,9 @@ int
 acceptor_receive_repeat(struct acceptor* a, iid_t iid, paxos_accepted* out)
 {
 	memset(out, 0, sizeof(paxos_accepted));
-	storage_tx_begin(a->store);
-	int found = storage_get_record(a->store, iid, out);
-	storage_tx_commit(a->store);
+	storage_tx_begin(&a->store);
+	int found = storage_get_record(&a->store, iid, out);
+	storage_tx_commit(&a->store);
 	return found;
 }
 

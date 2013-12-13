@@ -1,18 +1,16 @@
-include_directories(${CMAKE_SOURCE_DIR}/paxos/include)
-include_directories(${BDB_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/paxos/include)
 
-SET(LOCAL_SOURCES paxos.c acceptor.c learner.c proposer.c carray.c quorum.c)
+SET(SRCS paxos.c acceptor.c learner.c proposer.c carray.c quorum.c
+	storage_mem.c)
 
-if (USE_MEM_STORE)
-	LIST(APPEND LOCAL_SOURCES storage_mem.c)
-else()
-	LIST(APPEND LOCAL_SOURCES storage_bdb.c)
-endif()
+IF (BDB_FOUND)
+	LIST(APPEND SRCS storage_bdb.c)
+ENDIF ()
 
-add_library(paxos STATIC ${LOCAL_SOURCES})
+ADD_LIBRARY(paxos STATIC ${SRCS})
+TARGET_LINK_LIBRARIES(paxos ${LIBPAXOS_LINKER_LIBS})
 
-target_link_libraries(paxos ${LIBPAXOS_LINKER_LIBS})
-
-if (NOT USE_MEM_STORE)
-	target_link_libraries(paxos ${BDB_LIBRARIES})
-endif()
+IF (BDB_FOUND)
+	INCLUDE_DIRECTORIES(${BDB_INCLUDE_DIRS})
+	TARGET_LINK_LIBRARIES(paxos ${BDB_LIBRARIES})
+ENDIF ()

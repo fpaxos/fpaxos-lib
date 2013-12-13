@@ -40,6 +40,7 @@ struct paxos_config paxos_config =
 	1,                 /* learner_catchup */
 	1,                 /* proposer_timeout */
 	128,               /* proposer_preexec_window */
+	PAXOS_MEM_STORAGE, /* storage_backend */
 	0,                 /* bdb_sync */
 	32*1024*1024,      /* bdb_cachesize */
 	"/tmp/acceptor",   /* bdb_env_path */

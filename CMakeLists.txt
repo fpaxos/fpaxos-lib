@@ -2,13 +2,13 @@ cmake_minimum_required(VERSION 2.6)
 project(libpaxos)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-option(USE_MEM_STORE "Use in-memory storage for acceptors." OFF)
-
-if (NOT USE_MEM_STORE)
-	find_package(BDB REQUIRED)
-endif()
 find_package(LIBEVENT REQUIRED)
 find_package(MSGPACK REQUIRED)
+find_package(BDB)
+
+if (BDB_FOUND)
+	add_definitions(-DHAS_BDB)
+endif()
 
 if (NOT APPLE)
 	set(LIBPAXOS_LINKER_LIBS ${LIBPAXOS_LINKER_LIBS} m rt)

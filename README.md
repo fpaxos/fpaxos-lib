@@ -40,7 +40,6 @@ You pass options to cmake as follows: ```cmake -DOPTION=VALUE```
 - ```BDB_ROOT=PATH```  - point it to your installation of Berkeley DB
 - ```LIBEVENT_ROOT=PATH``` -  point it to your installation of Libevent
 - ```MSGPACK_ROOT=PATH``` - point it to your installation of MessagePack
-- ```USE_MEM_STORE=ON``` - enables in-memory storage, instead of Berkeley DB
 
 ## Running the examples
 

@@ -55,6 +55,7 @@ enum option_type
 	option_integer,
 	option_string,
 	option_verbosity,
+	option_backend,
 	option_bytes
 };
 
@@ -71,6 +72,7 @@ struct option options[] =
 	{ "learner-catch-up", &paxos_config.learner_catch_up, option_boolean },
 	{ "proposer-timeout", &paxos_config.proposer_timeout, option_integer },
 	{ "proposer-preexec-window", &paxos_config.proposer_preexec_window, option_integer },
+	{ "storage-backend", &paxos_config.storage_backend, option_backend },
 	{ "bdb-sync", &paxos_config.bdb_sync, option_boolean },
 	{ "bdb-cachesize", &paxos_config.bdb_cachesize, option_bytes },
 	{ "bdb-env-path", &paxos_config.bdb_env_path, option_string },
@@ -250,6 +252,15 @@ parse_verbosity(char* str, int* verbosity)
 	return 1;
 }
 
+static int
+parse_backend(char* str, int* verbosity)
+{
+	if (strcasecmp(str, "memory") == 0) *verbosity = PAXOS_MEM_STORAGE;
+	else if (strcasecmp(str, "bdb") == 0) *verbosity = PAXOS_BDB_STORAGE;
+	else return 0;
+	return 1;
+}
+
 static struct option*
 lookup_option(char* opt)
 {
@@ -304,6 +315,10 @@ parse_line(struct evpaxos_config* c, char* line)
 		case option_verbosity:
 			rv = parse_verbosity(line, opt->value);
 			if (rv == 0) printf("Expected quiet, error, info, or debug\n");
+			break;
+		case option_backend:
+			rv = parse_backend(line, opt->value);
+			if (rv == 0) printf("Expected memory, or bdb\n");
 			break;
 		case option_bytes:
 			rv = parse_bytes(line, opt->value);

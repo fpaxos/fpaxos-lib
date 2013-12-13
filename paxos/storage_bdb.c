@@ -35,8 +35,7 @@
 #include <sys/stat.h>
 #include <assert.h>
 
-
-struct storage
+struct bdb_storage
 {
 	DB* db;
 	DB_ENV* env;
@@ -45,8 +44,21 @@ struct storage
 	char buffer[PAXOS_MAX_VALUE_SIZE];
 };
 
-static int 
-bdb_init_tx_handle(struct storage* s, char* db_env_path)
+static void bdb_storage_tx_begin(void* handle);
+static void bdb_storage_tx_commit(void* handle);
+
+
+static struct bdb_storage*
+bdb_storage_new(int acceptor_id)
+{
+	struct bdb_storage* s = malloc(sizeof(struct bdb_storage));
+	memset(s, 0, sizeof(struct bdb_storage));
+	s->acceptor_id = acceptor_id;
+	return s;
+}
+
+static int
+bdb_init_tx_handle(struct bdb_storage* s, char* db_env_path)
 {
 	int result;
 	DB_ENV* dbenv; 
@@ -108,7 +120,7 @@ bdb_init_tx_handle(struct storage* s, char* db_env_path)
 }
 
 static int
-bdb_init_db(struct storage* s, char* db_path)
+bdb_init_db(struct bdb_storage* s, char* db_path)
 {
 	int result;
 	DB* dbp;
@@ -126,7 +138,7 @@ bdb_init_db(struct storage* s, char* db_path)
 	// DB flags
 	int flags = DB_CREATE;          /*Create if not existing */
 
-	storage_tx_begin(s);
+	bdb_storage_tx_begin(s);
 
 	// Open the DB file
 	result = dbp->open(dbp,
@@ -137,7 +149,7 @@ bdb_init_db(struct storage* s, char* db_path)
 		flags,           /* Open flags */
 		0);              /* Default file permissions */
 
-	storage_tx_commit(s);
+	bdb_storage_tx_commit(s);
 
 	if (result != 0) {
 		paxos_log_error("Berkeley DB storage open failed: %s",
@@ -148,19 +160,14 @@ bdb_init_db(struct storage* s, char* db_path)
 	return 0;
 }
 
-struct storage*
-storage_open(int acceptor_id)
+static int
+bdb_storage_open(void* handle)
 {
-	struct storage* s;
-	
-	s = malloc(sizeof(struct storage));
-	memset(s, 0, sizeof(struct storage));
-	
-	s->acceptor_id = acceptor_id;
-	
+	struct bdb_storage* s = handle;
+
 	// Create path to db file in db dir
 	char* db_env_path;
-	asprintf(&db_env_path, "%s_%d", paxos_config.bdb_env_path, acceptor_id);
+	asprintf(&db_env_path, "%s_%d", paxos_config.bdb_env_path, s->acceptor_id);
 	char* db_filename = paxos_config.bdb_db_filename;
 	
 	struct stat sb;
@@ -171,7 +178,7 @@ storage_open(int acceptor_id)
 	if (!dir_exists && (mkdir(db_env_path, S_IRWXU) != 0)) {
 		paxos_log_error("Failed to create env dir %s: %s",
 			db_env_path, strerror(errno));
-		return NULL;
+		return -1;
 	} 
 	// Delete and recreate an empty dir if not recovering
 	if (paxos_config.bdb_trash_files && dir_exists) {
@@ -190,21 +197,22 @@ storage_open(int acceptor_id)
 	
 	if (ret != 0) {
 		paxos_log_error("Failed to open DB handle");
+		return -1;
 	}
 	
 	if (bdb_init_db(s, db_file) != 0) {
 		paxos_log_error("Failed to open DB file");
-		return NULL;
+		return -1;
 	}
 	
 	free(db_env_path);
-	
-	return s;
+	return 1;
 }
 
-int
-storage_close(struct storage* s)
-{	
+static int
+bdb_storage_close(void* handle)
+{
+	struct bdb_storage* s = handle;
 	int rv = 0;
 	if (s->db->close(s->db, 0) != 0) {
 		paxos_log_error("DB_ENV close failed");
@@ -220,25 +228,26 @@ storage_close(struct storage* s)
 	return rv;
 }
 
-void
-storage_tx_begin(struct storage* s)
+static void
+bdb_storage_tx_begin(void* handle)
 {
-	int result;
-	result = s->env->txn_begin(s->env, NULL, &s->txn, 0);
+	struct bdb_storage* s = handle;
+	int result = s->env->txn_begin(s->env, NULL, &s->txn, 0);
 	assert(result == 0);	
 }
 
-void
-storage_tx_commit(struct storage* s)
+static void
+bdb_storage_tx_commit(void* handle)
 {
-	int result;
-	result = s->txn->commit(s->txn, 0);
+	struct bdb_storage* s = handle;
+	int result = s->txn->commit(s->txn, 0);
 	assert(result == 0);
 }
 
-int
-storage_get_record(struct storage* s, iid_t iid, paxos_accepted* out)
+static int
+bdb_storage_get(void* handle, iid_t iid, paxos_accepted* out)
 {
+	struct bdb_storage* s = handle;
 	int flags, result;
 	DBT dbkey, dbdata;
 	DB* dbp = s->db;
@@ -280,10 +289,11 @@ storage_get_record(struct storage* s, iid_t iid, paxos_accepted* out)
 	return 1;
 }
 
-int
-storage_put_record(struct storage* s, paxos_accepted* acc)
+static int
+bdb_storage_put(void* handle, paxos_accepted* acc)
 {
 	DBT dbkey, dbdata;
+	struct bdb_storage* s = handle;
 	
 	memset(&dbkey, 0, sizeof(DBT));
 	memset(&dbdata, 0, sizeof(DBT));
@@ -313,4 +323,16 @@ storage_put_record(struct storage* s, paxos_accepted* acc)
 	}
 
 	return 0;
+}
+
+void
+storage_init_bdb(struct storage* s, int acceptor_id)
+{
+	s->handle = bdb_storage_new(acceptor_id);
+	s->api.open = bdb_storage_open;
+	s->api.close = bdb_storage_close;
+	s->api.tx_begin = bdb_storage_tx_begin;
+	s->api.tx_commit = bdb_storage_tx_commit;
+	s->api.get = bdb_storage_get;
+	s->api.put = bdb_storage_put;
 }

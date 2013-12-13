@@ -34,21 +34,20 @@
 
 #define MAX_RECORDS (4*1024)
 
-struct storage
+struct mem_storage
 {
 	int acceptor_id;
 	paxos_accepted *records[MAX_RECORDS];
 };
 
-void paxos_accepted_copy(paxos_accepted* dst, paxos_accepted* src);
+static void paxos_accepted_copy(paxos_accepted* dst, paxos_accepted* src);
 
-
-struct storage*
-storage_open(int acceptor_id)
+static struct mem_storage*
+mem_storage_new(int acceptor_id)
 {
 	int i;
-	struct storage* s = malloc(sizeof(struct storage));
-	memset(s, 0, sizeof(struct storage));
+	struct mem_storage* s = malloc(sizeof(struct mem_storage));
+	memset(s, 0, sizeof(struct mem_storage));
 	for (i = 0; i < MAX_RECORDS; ++i) {
 		s->records[i] = malloc(sizeof(paxos_accepted));
 		memset(s->records[i], 0, sizeof(paxos_accepted));
@@ -57,10 +56,17 @@ storage_open(int acceptor_id)
 	return s;
 }
 
-int
-storage_close(struct storage* s)
+static int
+mem_storage_open(void* handle)
+{
+	return 1;
+}
+
+static int
+mem_storage_close(void* handle)
 {
 	int i;
+	struct mem_storage* s = handle;
 	for (i = 0; i < MAX_RECORDS; ++i) {
 		if (s->records[i]->value.paxos_value_val != NULL)
 			free(s->records[i]->value.paxos_value_val);
@@ -70,21 +76,22 @@ storage_close(struct storage* s)
 	return 0;
 }
 
-void
-storage_tx_begin(struct storage* s)
+static void
+mem_storage_tx_begin(void* handle)
 {
 	return;
 }
 
-void
-storage_tx_commit(struct storage* s)
+static void
+mem_storage_tx_commit(void* handle)
 {
 	return;
 }
 
-int
-storage_get_record(struct storage* s, iid_t iid, paxos_accepted* out)
+static int
+mem_storage_get(void* handle, iid_t iid, paxos_accepted* out)
 {
+	struct mem_storage* s = handle;
 	paxos_accepted* record = s->records[iid % MAX_RECORDS];
 	if (iid < record->iid) {
 		paxos_log_error("Instance %d too old! Current is %d", iid, record->iid);
@@ -97,16 +104,17 @@ storage_get_record(struct storage* s, iid_t iid, paxos_accepted* out)
 	return 1;
 }
 
-int
-storage_put_record(struct storage* s, paxos_accepted* acc)
+static int
+mem_storage_put(void* handle, paxos_accepted* acc)
 {
+	struct mem_storage* s = handle;
 	paxos_accepted* record = s->records[acc->iid % MAX_RECORDS];
 	paxos_accepted_destroy(record);
 	paxos_accepted_copy(record, acc);
 	return 1;
 }
 
-void
+static void
 paxos_accepted_copy(paxos_accepted* dst, paxos_accepted* src)
 {
 	memcpy(dst, src, sizeof(paxos_accepted));
@@ -115,4 +123,16 @@ paxos_accepted_copy(paxos_accepted* dst, paxos_accepted* src)
 		memcpy(dst->value.paxos_value_val, src->value.paxos_value_val,
 			src->value.paxos_value_len);
 	}
+}
+
+void
+storage_init_mem(struct storage* s, int acceptor_id)
+{
+	s->handle = mem_storage_new(acceptor_id);
+	s->api.open = mem_storage_open;
+	s->api.close = mem_storage_close;
+	s->api.tx_begin = mem_storage_tx_begin;
+	s->api.tx_commit = mem_storage_tx_commit;
+	s->api.get = mem_storage_get;
+	s->api.put = mem_storage_put;
 }

@@ -54,6 +54,7 @@ struct paxos_config
 	int proposer_preexec_window;
 	
 	/* Acceptor */
+	int storage_backend;
 	
 	/* BDB storage configuration */
 	int bdb_sync;
@@ -93,5 +94,10 @@ void paxos_log_debug(const char* format, ...);
 	This number MUST be a power of 10.
 */
 #define MAX_N_OF_PROPOSERS 10
+
+
+/* Supported storage backends */
+#define PAXOS_MEM_STORAGE 0
+#define PAXOS_BDB_STORAGE 1
 
 #endif

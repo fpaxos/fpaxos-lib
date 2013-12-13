@@ -30,14 +30,78 @@
 #define _STORAGE_H_
 
 #include "paxos.h"
+#include <stdlib.h>
 
-struct storage;
+struct storage
+{
+	void* handle;
+	struct
+	{
+		int (*open) (void* handle);
+		int (*close) (void* handle);
+		void (*tx_begin) (void* handle);
+		void (*tx_commit) (void* handle);
+		int (*get) (void* handle, iid_t iid, paxos_accepted* out);
+		int (*put) (void* handle, paxos_accepted* acc);
+	} api;
+};
 
-struct storage* storage_open(int acceptor_id);
-int storage_close(struct storage* s);
-void storage_tx_begin(struct storage* s);
-void storage_tx_commit(struct storage* s);
-int storage_get_record(struct storage* s, iid_t iid, paxos_accepted* out);
-int storage_put_record(struct storage* s, paxos_accepted* acc);
+void storage_init_bdb(struct storage* s, int acceptor_id);
+void storage_init_mem(struct storage* s, int acceptor_id);
+
+
+static void
+storage_init(struct storage* store, int acceptor_id)
+{
+	switch(paxos_config.storage_backend) {
+		#ifdef HAS_BDB
+		case PAXOS_BDB_STORAGE:
+			storage_init_bdb(store, acceptor_id);
+			break;
+		#endif
+		case PAXOS_MEM_STORAGE:
+			storage_init_mem(store, acceptor_id);
+			break;
+		default:
+		paxos_log_error("Storage backend not available");
+		exit(0);
+	}
+}
+
+static int
+storage_open(struct storage* store)
+{
+	return store->api.open(store->handle);
+}
+
+static int
+storage_close(struct storage* store)
+{
+	return store->api.close(store->handle);
+}
+
+static void
+storage_tx_begin(struct storage* store)
+{
+	store->api.tx_begin(store->handle);
+}
+
+static void
+storage_tx_commit(struct storage* store)
+{
+	store->api.tx_commit(store->handle);
+}
+
+static int
+storage_get_record(struct storage* store, iid_t iid, paxos_accepted* out)
+{
+	return store->api.get(store->handle, iid, out);
+}
+
+static int
+storage_put_record(struct storage* store, paxos_accepted* acc)
+{
+	return store->api.put(store->handle, acc);
+}
 
 #endif
