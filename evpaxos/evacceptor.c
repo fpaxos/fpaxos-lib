@@ -157,12 +157,11 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
     return a;
 }
 
-int
+void
 evacceptor_free(struct evacceptor* a)
 {
 	acceptor_free(a->state);
 	peers_free(a->peers);
 	evpaxos_config_free(a->conf);
 	free(a);
-	return 0;
 }

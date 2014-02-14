@@ -55,7 +55,7 @@ struct evacceptor*
 evacceptor_init(int id, const char* config, struct event_base* b);
 
 /* Frees the memory allocated by the acceptor. This will also cleanly close the  * underlying storage. */
-int
+void
 evacceptor_free(struct evacceptor* a);
 
 /* Initializes a proposer with a given ID (which MUST be unique), 
