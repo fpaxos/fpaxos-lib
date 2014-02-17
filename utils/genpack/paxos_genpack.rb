@@ -1,4 +1,4 @@
-require "lib/genpack"
+require_relative "lib/genpack"
 
 # Generates paxos_type.h, paxos_type_pack.h, and paxos_type_pack.c
 

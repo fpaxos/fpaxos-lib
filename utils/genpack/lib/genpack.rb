@@ -24,7 +24,7 @@
 #	THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-require "lib/genpack/schema"
-require "lib/genpack/generator"
+require_relative "genpack/schema"
+require_relative "genpack/generator"
 
 module GenPack end
