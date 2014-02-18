@@ -87,6 +87,7 @@ on_deliver(char* value, size_t size, void* arg)
 {
 	struct client* c = arg;
 	c->stats.delivered++;
+	exit(0);
 	client_submit_value(c);
 }
 
@@ -120,7 +121,7 @@ connect_to_proposer(struct client* c, const char* config)
 {
 	struct bufferevent* bev;
 	struct evpaxos_config* conf = evpaxos_config_read(config);
-	struct sockaddr_in addr = evpaxos_proposer_address(conf, 0);
+	struct sockaddr_in addr = evpaxos_acceptor_address(conf, 0);
 	bev = bufferevent_socket_new(c->base, -1, BEV_OPT_CLOSE_ON_FREE);
 	bufferevent_setcb(bev, NULL, NULL, on_connect, c);
 	bufferevent_enable(bev, EV_READ|EV_WRITE);

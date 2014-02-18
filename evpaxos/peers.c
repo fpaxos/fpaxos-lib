@@ -45,6 +45,13 @@ struct peer
 	struct peers* peers;
 };
 
+struct subscription
+{
+	paxos_message_type type;
+	peer_cb callback;
+	void* arg;
+};
+
 struct peers
 {
 	int peers_count, clients_count;
@@ -53,8 +60,8 @@ struct peers
 	struct evconnlistener* listener;
 	struct event_base* base;
 	struct evpaxos_config* config;
-	peer_cb cb;
-	void* arg;
+	int subs_count;
+	struct subscription subs[32];
 };
 
 static struct timeval reconnect_timeout = {2,0};
@@ -73,19 +80,17 @@ static void on_accept(struct evconnlistener *l, evutil_socket_t fd,
 
 
 struct peers*
-peers_new(struct event_base* base, struct evpaxos_config* conf,
-	peer_cb cb, void* arg)
+peers_new(struct event_base* base, struct evpaxos_config* config)
 {
 	struct peers* p = malloc(sizeof(struct peers));
 	p->peers_count = 0;
 	p->clients_count = 0;
+	p->subs_count = 0;
 	p->peers = NULL;
 	p->clients = NULL;
 	p->listener = NULL;
 	p->base = base;
-	p->config = conf;
-	p->cb = cb;
-	p->arg = arg;
+	p->config = config;
 	return p;
 }
 
@@ -176,14 +181,42 @@ peers_listen(struct peers* p, int port)
 	return 1;
 }
 
+void
+peers_subscribe(struct peers* p, paxos_message_type type, peer_cb cb, void* arg)
+{
+	struct subscription* sub = &p->subs[p->subs_count];
+	sub->type = type;
+	sub->callback = cb;
+	sub->arg = arg;
+	p->subs_count++;
+}
+
+struct event_base*
+peers_get_event_base(struct peers* p)
+{
+	return p->base;
+}
+
+static void
+dispatch_message(struct peer* p, paxos_message* msg)
+{
+	int i;
+	for (i = 0; i < p->peers->subs_count; ++i) {
+		struct subscription* sub = &p->peers->subs[i];
+		if (sub->type == msg->type)
+			sub->callback(p, msg, sub->arg);
+	}
+}
+
 static void
 on_read(struct bufferevent* bev, void* arg)
 {
+	int i;
 	paxos_message msg;
 	struct peer* p = (struct peer*)arg;
 	struct evbuffer* in = bufferevent_get_input(bev);
 	while (recv_paxos_message(in, &msg)) {
-		p->peers->cb(p, &msg, p->peers->arg);
+		dispatch_message(p, &msg);
 		paxos_message_destroy(&msg);
 	}
 }
