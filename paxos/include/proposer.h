@@ -50,8 +50,9 @@ int proposer_receive_promise(struct proposer* p, paxos_promise* ack,
 
 // phase 2
 int proposer_accept(struct proposer* p, paxos_accept* out);
-int proposer_receive_accepted(struct proposer* p, paxos_accepted* ack,
-	int from_id, paxos_prepare* out);
+int proposer_receive_accepted(struct proposer* p, paxos_accepted* ack, int id);
+int proposer_receive_preempted(struct proposer* p, paxos_preempted* ack, 
+	paxos_prepare* out);
 
 // timeouts
 struct timeout_iterator* proposer_timeout_iterator(struct proposer* p);

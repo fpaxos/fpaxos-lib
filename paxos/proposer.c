@@ -217,8 +217,7 @@ proposer_accept(struct proposer* p, paxos_accept* out)
 }
 
 int
-proposer_receive_accepted(struct proposer* p, paxos_accepted* ack,
-	int from_id, paxos_prepare* out)
+proposer_receive_accepted(struct proposer* p, paxos_accepted* ack, int from_id)
 {
 	khiter_t k = kh_get_instance(p->accept_instances, ack->iid);
 	
@@ -243,9 +242,26 @@ proposer_receive_accepted(struct proposer* p, paxos_accepted* ack,
 			instance_free(inst);
 		}
 		
-		return 0;
-		
+		return 1;
 	} else {
+		return 0;
+	}
+}
+
+int
+proposer_receive_preempted(struct proposer* p, paxos_preempted* ack,
+	paxos_prepare* out)
+{
+	khiter_t k = kh_get_instance(p->accept_instances, ack->iid);
+	
+	if (k == kh_end(p->accept_instances)) {
+		paxos_log_debug("Preempted dropped, iid: %u not pending", ack->iid);
+		return 0;
+	}
+	
+	struct instance* inst = kh_value(p->accept_instances, k);
+	
+	if (ack->ballot > inst->ballot) {
 		paxos_log_debug("Instance %u preempted: ballot %d ack ballot %d",
 			inst->iid, inst->ballot, ack->ballot);
 		carray_push_back(p->values, inst->value);
@@ -254,6 +270,8 @@ proposer_receive_accepted(struct proposer* p, paxos_accepted* ack,
 			inst);
 		proposer_preempt(p, inst, out);
 		return  1; 
+	} else {
+		return 0;
 	}
 }
 

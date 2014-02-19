@@ -85,6 +85,7 @@ int
 acceptor_receive_accept(struct acceptor* a,
 	paxos_accept* req, paxos_accepted* out)
 {
+	int accepted = 0;
 	memset(out, 0, sizeof(paxos_accepted));
 	storage_tx_begin(&a->store);
 	int found = storage_get_record(&a->store, req->iid, out);
@@ -93,9 +94,10 @@ acceptor_receive_accept(struct acceptor* a,
 		paxos_accepted_destroy(out);
 		paxos_accept_to_accepted(req, out);
 		storage_put_record(&a->store, out);
+		accepted = 1;
 	}
 	storage_tx_commit(&a->store);
-	return 1;
+	return accepted;
 }
 
 int

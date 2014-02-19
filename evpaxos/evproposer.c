@@ -98,12 +98,19 @@ evproposer_handle_promise(struct peer* p, paxos_message* msg, void* arg)
 static void
 evproposer_handle_accepted(struct peer* p, paxos_message* msg, void* arg)
 {
-	int id = peer_get_id(p);
 	struct evproposer* proposer = arg;
 	paxos_accepted* acc = &msg->u.accepted;
-	
+	proposer_receive_accepted(proposer->state, acc, peer_get_id(p));
+	try_accept(proposer);
+}
+
+static void
+evproposer_handle_preempted(struct peer* p, paxos_message* msg, void* arg)
+{
+	struct evproposer* proposer = arg;
 	paxos_prepare prepare;
-	int preempted = proposer_receive_accepted(proposer->state, acc, id, &prepare);
+	int preempted = proposer_receive_preempted(proposer->state,
+		&msg->u.preempted, &prepare);
 	if (preempted)
 		peers_foreach_acceptor(proposer->peers, peer_send_prepare, &prepare);
 	try_accept(proposer);
@@ -156,6 +163,7 @@ evproposer_init_internal(int id, struct evpaxos_config* c, struct peers* peers)
 
 	peers_subscribe(peers, PAXOS_PROMISE, evproposer_handle_promise, p);
 	peers_subscribe(peers, PAXOS_ACCEPTED, evproposer_handle_accepted, p);
+	peers_subscribe(peers, PAXOS_PREEMPTED, evproposer_handle_preempted, p);
 	peers_subscribe(peers, PAXOS_CLIENT_VALUE, evproposer_handle_client_value, p);
 
 	// Setup timeout

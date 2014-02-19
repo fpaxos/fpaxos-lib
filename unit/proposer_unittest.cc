@@ -74,10 +74,9 @@ protected:
 	}
 	
 	void TestAcceptAckFromQuorum(iid_t iid, ballot_t bal) {
-		paxos_prepare pr;
 		for (size_t i = 0; i < quorum; ++i) {
 			paxos_accepted aa = (paxos_accepted) {iid, bal, bal};
-			ASSERT_EQ(0, proposer_receive_accepted(p, &aa, i, &pr));
+			ASSERT_EQ(1, proposer_receive_accepted(p, &aa, i));
 		}
 	}
 };
@@ -198,7 +197,7 @@ TEST_F(ProposerTest, PrepareAlreadyClosed) {
 	TestPrepareAckFromQuorum(pr.iid, pr.ballot);
 	
 	proposer_accept(p, &ar);
-	CHECK_ACCEPT(ar, pr.iid, pr.ballot, value, value_size)
+	CHECK_ACCEPT(ar, pr.iid, pr.ballot, value, value_size);
 }
 
 TEST_F(ProposerTest, PreparePreemptedWithTwoValues) {
@@ -236,7 +235,7 @@ TEST_F(ProposerTest, PreparePreemptedWithTwoValues) {
 
 TEST_F(ProposerTest, AcceptPreempted) {
 	paxos_accept ar;
-	paxos_prepare pr, preempted;
+	paxos_prepare pr;
 	char value[] = "some value";
 	int value_size = strlen(value) + 1;
 	
@@ -246,20 +245,19 @@ TEST_F(ProposerTest, AcceptPreempted) {
 	
 	ASSERT_TRUE(proposer_accept(p, &ar));
 	
-	// preempt! proposer receives accept nack
-	paxos_accepted aa = (paxos_accepted) {ar.iid, ar.ballot+1, ar.ballot+1, 0, 0};
-	ASSERT_EQ(1, proposer_receive_accepted(p, &aa, 0, &preempted));
-	ASSERT_EQ(preempted.iid, pr.iid);
-	ASSERT_GT(preempted.ballot, ar.ballot);
+	// preempt! proposer receives
+	paxos_preempted preempted = (paxos_preempted) {ar.iid, ar.ballot+1};
+	ASSERT_EQ(1, proposer_receive_preempted(p, &preempted, &pr));
+	ASSERT_EQ(pr.iid, preempted.iid);
+	ASSERT_GT(pr.ballot, preempted.ballot);
 	
 	// check that proposer pushed the instance back to the prepare phase
 	ASSERT_EQ(proposer_prepared_count(p), 1);
 	
 	// close the instance
-	TestPrepareAckFromQuorum(preempted.iid, preempted.ballot, 
-		"preempt", aa.value_ballot);
+	TestPrepareAckFromQuorum(pr.iid, pr.ballot, "preempt", ar.ballot+1);
 	proposer_accept(p, &ar);
-	TestAcceptAckFromQuorum(preempted.iid, preempted.ballot);
+	TestAcceptAckFromQuorum(pr.iid, pr.ballot);
 	
 	// make sure our value did not disappear...
 	proposer_prepare(p, &pr);
