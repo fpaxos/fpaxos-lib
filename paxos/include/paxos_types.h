@@ -71,6 +71,13 @@ struct paxos_accepted
 };
 typedef struct paxos_accepted paxos_accepted;
 
+struct paxos_preempted
+{
+	uint32_t iid;
+	uint32_t ballot;
+};
+typedef struct paxos_preempted paxos_preempted;
+
 struct paxos_repeat
 {
 	uint32_t from;
@@ -90,6 +97,7 @@ enum paxos_message_type
 	PAXOS_PROMISE,
 	PAXOS_ACCEPT,
 	PAXOS_ACCEPTED,
+	PAXOS_PREEMPTED,
 	PAXOS_REPEAT,
 	PAXOS_CLIENT_VALUE
 };
@@ -104,6 +112,7 @@ struct paxos_message
 		paxos_promise promise;
 		paxos_accept accept;
 		paxos_accepted accepted;
+		paxos_preempted preempted;
 		paxos_repeat repeat;
 		paxos_client_value client_value;
 	} u;

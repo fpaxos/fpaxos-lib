@@ -40,6 +40,8 @@ void msgpack_pack_paxos_accept(msgpack_packer* p, paxos_accept* v);
 void msgpack_unpack_paxos_accept(msgpack_object* o, paxos_accept* v);
 void msgpack_pack_paxos_accepted(msgpack_packer* p, paxos_accepted* v);
 void msgpack_unpack_paxos_accepted(msgpack_object* o, paxos_accepted* v);
+void msgpack_pack_paxos_preempted(msgpack_packer* p, paxos_preempted* v);
+void msgpack_unpack_paxos_preempted(msgpack_object* o, paxos_preempted* v);
 void msgpack_pack_paxos_repeat(msgpack_packer* p, paxos_repeat* v);
 void msgpack_unpack_paxos_repeat(msgpack_object* o, paxos_repeat* v);
 void msgpack_pack_paxos_client_value(msgpack_packer* p, paxos_client_value* v);

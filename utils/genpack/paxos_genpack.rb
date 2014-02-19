@@ -27,6 +27,10 @@ schema = GenPack::Schema.define "paxos_types" do
     uint :value_ballot
     paxos_value :value
   }
+  message(:paxos_preempted) {
+    uint :iid
+    uint :ballot
+  }
   message(:paxos_repeat) {
     uint :from
     uint :to
@@ -39,6 +43,7 @@ schema = GenPack::Schema.define "paxos_types" do
     paxos_promise :promise
     paxos_accept :accept
     paxos_accepted :accepted
+    paxos_preempted :preempted
     paxos_repeat :repeat
     paxos_client_value :client_value
   }

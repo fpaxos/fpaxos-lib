@@ -90,6 +90,16 @@ send_paxos_accepted(struct bufferevent* bev, paxos_accepted* p)
 }
 
 void
+send_paxos_preempted(struct bufferevent* bev, paxos_preempted* p)
+{
+	paxos_message msg = {
+		.type = PAXOS_PREEMPTED,
+		.u.preempted = *p };
+	send_message(bev, &msg);
+	paxos_log_debug("Send preempted for inst %d ballot %d", p->iid, p->ballot);
+}
+
+void
 send_paxos_repeat(struct bufferevent* bev, paxos_repeat* p)
 {
 	paxos_message msg = {

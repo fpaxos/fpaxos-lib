@@ -76,12 +76,14 @@ evacceptor_handle_accept(struct evacceptor* a, struct peer* p,
 	paxos_accepted accepted;
 	paxos_log_debug("Handle accept for iid %d bal %d", 
 		accept->iid, accept->ballot);
-	acceptor_receive_accept(a->state, accept, &accepted);
-	if (accept->ballot == accepted.ballot) // accepted!
+	int has_accepted = acceptor_receive_accept(a->state, accept, &accepted);
+	if (has_accepted) {
 		peers_foreach_client(a->peers, peer_send_accepted, &accepted);
-	else // send nack
-		send_paxos_accepted(peer_get_buffer(p), &accepted);
-	paxos_accepted_destroy(&accepted);
+		paxos_accepted_destroy(&accepted);
+	} else {
+		paxos_preempted preempted = {accepted.iid, accepted.ballot};
+		send_paxos_preempted(peer_get_buffer(p), &preempted);
+	}
 }
 
 static void

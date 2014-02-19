@@ -140,6 +140,21 @@ void msgpack_unpack_paxos_accepted(msgpack_object* o, paxos_accepted* v)
 	msgpack_unpack_paxos_value_at(o, &v->value, &i);
 }
 
+void msgpack_pack_paxos_preempted(msgpack_packer* p, paxos_preempted* v)
+{
+	msgpack_pack_array(p, 3);
+	msgpack_pack_int32(p, PAXOS_PREEMPTED);
+	msgpack_pack_uint32(p, v->iid);
+	msgpack_pack_uint32(p, v->ballot);
+}
+
+void msgpack_unpack_paxos_preempted(msgpack_object* o, paxos_preempted* v)
+{
+	int i = 1;
+	msgpack_unpack_uint32_at(o, &v->iid, &i);
+	msgpack_unpack_uint32_at(o, &v->ballot, &i);
+}
+
 void msgpack_pack_paxos_repeat(msgpack_packer* p, paxos_repeat* v)
 {
 	msgpack_pack_array(p, 3);
@@ -183,6 +198,9 @@ void msgpack_pack_paxos_message(msgpack_packer* p, paxos_message* v)
 	case PAXOS_ACCEPTED:
 		msgpack_pack_paxos_accepted(p, &v->u.accepted);
 		break;
+	case PAXOS_PREEMPTED:
+		msgpack_pack_paxos_preempted(p, &v->u.preempted);
+		break;
 	case PAXOS_REPEAT:
 		msgpack_pack_paxos_repeat(p, &v->u.repeat);
 		break;
@@ -207,6 +225,9 @@ void msgpack_unpack_paxos_message(msgpack_object* o, paxos_message* v)
 		break;
 	case PAXOS_ACCEPTED:
 		msgpack_unpack_paxos_accepted(o, &v->u.accepted);
+		break;
+	case PAXOS_PREEMPTED:
+		msgpack_unpack_paxos_preempted(o, &v->u.preempted);
 		break;
 	case PAXOS_REPEAT:
 		msgpack_unpack_paxos_repeat(o, &v->u.repeat);

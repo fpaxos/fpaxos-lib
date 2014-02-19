@@ -95,9 +95,15 @@ evproposer_handle_promise(struct evproposer* p, paxos_promise* pro, int from)
 static void
 evproposer_handle_accepted(struct evproposer* p, paxos_accepted* acc, int from)
 {
+	proposer_receive_accepted(p->state, acc, from);
+}
+
+static void
+evproposer_handle_preempted(struct evproposer* p, paxos_preempted* pre)
+{
 	int preempted;
 	paxos_prepare prepare;
-	preempted = proposer_receive_accepted(p->state, acc, from, &prepare);
+	preempted = proposer_receive_preempted(p->state, pre, &prepare);
 	if (preempted)
 		peers_foreach_acceptor(p->peers, peer_send_prepare, &prepare);
 }
@@ -120,6 +126,9 @@ evproposer_handle_msg(struct peer* p, paxos_message* msg, void* arg)
 			break;
 		case PAXOS_ACCEPTED:
 			evproposer_handle_accepted(pro, &msg->u.accepted, peer_get_id(p));
+			break;
+		case PAXOS_PREEMPTED:
+			evproposer_handle_preempted(pro, &msg->u.preempted);
 			break;
 		case PAXOS_CLIENT_VALUE:
 			evproposer_handle_client_value(pro, &msg->u.client_value);
