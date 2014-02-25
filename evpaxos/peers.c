@@ -252,7 +252,7 @@ on_client_event(struct bufferevent* bev, short ev, void *arg)
 		int i;
 		struct peer** clients = p->peers->clients;
 		for (i = p->id; i < p->peers->clients_count-1; ++i) {
-			clients[i] = clients[p->id+1];
+			clients[i] = clients[i+1];
 			clients[i]->id = i;
 		}
 		p->peers->clients_count--;
