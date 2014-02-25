@@ -87,7 +87,6 @@ on_deliver(char* value, size_t size, void* arg)
 {
 	struct client* c = arg;
 	c->stats.delivered++;
-	exit(0);
 	client_submit_value(c);
 }
 
@@ -95,9 +94,8 @@ static void
 on_stats(evutil_socket_t fd, short event, void *arg)
 {
 	struct client* c = arg;
-	printf("%d value/sec, %.2f Mbps/sec\n", 
-		c->stats.delivered,
-		(double)(c->stats.delivered*c->value_size*8) / (1024*1024));
+	double mbps = (double)(c->stats.delivered*c->value_size*8) / (1024*1024);
+	printf("%d value/sec, %.2f Mbps\n", c->stats.delivered, mbps);
 	c->stats.delivered = 0;
 	event_add(c->stats_ev, &c->stats_interval);
 }
@@ -117,11 +115,11 @@ on_connect(struct bufferevent* bev, short events, void* arg)
 }
 
 static struct bufferevent* 
-connect_to_proposer(struct client* c, const char* config)
+connect_to_proposer(struct client* c, const char* config, int proposer_id)
 {
 	struct bufferevent* bev;
 	struct evpaxos_config* conf = evpaxos_config_read(config);
-	struct sockaddr_in addr = evpaxos_acceptor_address(conf, 0);
+	struct sockaddr_in addr = evpaxos_proposer_address(conf, proposer_id);
 	bev = bufferevent_socket_new(c->base, -1, BEV_OPT_CLOSE_ON_FREE);
 	bufferevent_setcb(bev, NULL, NULL, on_connect, c);
 	bufferevent_enable(bev, EV_READ|EV_WRITE);
@@ -130,14 +128,14 @@ connect_to_proposer(struct client* c, const char* config)
 }
 
 static struct client*
-make_client(const char* config, int outstanding, int value_size)
+make_client(const char* config, int proposer_id, int outstanding, int value_size)
 {
 	struct client* c;
 	c = malloc(sizeof(struct client));
 	c->base = event_base_new();
 	
 	memset(&c->stats, 0, sizeof(struct stats));
-	c->bev = connect_to_proposer(c, config);
+	c->bev = connect_to_proposer(c, config, proposer_id);
 	if (c->bev == NULL)
 		exit(1);
 	
@@ -169,7 +167,8 @@ client_free(struct client* c)
 static void
 usage(const char* name)
 {
-	printf("Usage: %s config [# outstanding values] [value size]\n", name);
+	char* opts = "config [proposer id] [# outstanding values] [value size]";
+	printf("Usage: %s %s\n", name, opts);
 	exit(1);
 }
 
@@ -179,18 +178,21 @@ main(int argc, char const *argv[])
 	struct client* client;
 	struct sockaddr addr;
 	int addr_len = sizeof(addr);
+	int proposer_id = 0;
 	int outstanding = 1;
 	int value_size = 64;
 	
-	if (argc < 2 || argc > 4)
+	if (argc < 2 || argc > 5)
 		usage(argv[0]);
-	if (argc >= 3)
-		outstanding = atoi(argv[2]);
-	if (argc == 4)
-		value_size = atoi(argv[3]);
+	if (argc == 3)
+		proposer_id = atoi(argv[2]);
+	if (argc >= 4)
+		outstanding = atoi(argv[3]);
+	if (argc == 5)
+		value_size = atoi(argv[4]);
 	
 	srand(time(NULL));
-	client = make_client(argv[1], outstanding, value_size);
+	client = make_client(argv[1], proposer_id, outstanding, value_size);
 	
 	event_base_dispatch(client->base);
 	client_free(client);
