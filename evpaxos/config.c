@@ -84,6 +84,7 @@ struct option options[] =
 static int parse_line(struct evpaxos_config* c, char* line);
 static void address_init(struct address* a, char* addr, int port);
 static void address_free(struct address* a);
+static void address_copy(struct address* src, struct address* dst);
 static struct sockaddr_in address_to_sockaddr(struct address* a);
 
 
@@ -284,14 +285,22 @@ parse_line(struct evpaxos_config* c, char* line)
 	line = strtrim(line);
 	tok = strsep(&line, sep);
 	
-	if (strcasecmp(tok, "a") == 0) {
+	if (strcasecmp(tok, "a") == 0 || strcasecmp(tok, "acceptor") == 0) {
 		struct address* addr = &c->acceptors[c->acceptors_count++];
 		return parse_address(line, addr);
 	}
 	
-	if (strcasecmp(tok, "p") == 0) {
+	if (strcasecmp(tok, "p") == 0 || strcasecmp(tok, "proposer") == 0) {
 		struct address* addr = &c->proposers[c->proposers_count++];
 		return parse_address(line, addr);
+	}
+	
+	if (strcasecmp(tok, "r") == 0 || strcasecmp(tok, "replica") == 0) {
+		struct address* pro_addr = &c->proposers[c->proposers_count++];
+		struct address* acc_addr = &c->acceptors[c->acceptors_count++];
+		int rv = parse_address(line, pro_addr);
+		address_copy(pro_addr, acc_addr);
+		return rv;
 	}
 	
 	line = strtrim(line);
@@ -339,6 +348,12 @@ static void
 address_free(struct address* a)
 {
 	free(a->addr);
+}
+
+static void
+address_copy(struct address* src, struct address* dst)
+{
+	address_init(dst, src->addr, src->port);
 }
 
 static struct sockaddr_in

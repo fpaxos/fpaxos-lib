@@ -159,8 +159,6 @@ evproposer_init_internal(int id, struct evpaxos_config* c, struct peers* peers)
 	p->id = id;
 	p->preexec_window = paxos_config.proposer_preexec_window;
 
-	peers_connect_to_acceptors(peers);
-
 	peers_subscribe(peers, PAXOS_PROMISE, evproposer_handle_promise, p);
 	peers_subscribe(peers, PAXOS_ACCEPTED, evproposer_handle_accepted, p);
 	peers_subscribe(peers, PAXOS_PREEMPTED, evproposer_handle_preempted, p);
@@ -195,6 +193,7 @@ evproposer_init(int id, const char* config_file, struct event_base* base)
 	}
 	
 	struct peers* peers = peers_new(base, config);
+	peers_connect_to_acceptors(peers);
 	int port = evpaxos_proposer_listen_port(config, id);
 	int rv = peers_listen(peers, port);
 	if (rv == 0)

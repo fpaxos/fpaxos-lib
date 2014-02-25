@@ -49,6 +49,7 @@ evpaxos_replica_init(int id, const char* config_file, deliver_function f,
 	config = evpaxos_config_read(config_file);
 	
 	r->peers = peers_new(base, config);
+	peers_connect_to_acceptors(r->peers);
 	int port = evpaxos_acceptor_listen_port(config, id);
 	if (peers_listen(r->peers, port) == 0)
 		return NULL;
@@ -64,9 +65,9 @@ evpaxos_replica_init(int id, const char* config_file, deliver_function f,
 void
 evpaxos_replica_free(struct evpaxos_replica* r)
 {
-	peers_free(r->peers);
 	evlearner_free_internal(r->learner);
 	evproposer_free_internal(r->proposer);
 	evacceptor_free_internal(r->acceptor);
+	peers_free(r->peers);
 	free(r);
 }
