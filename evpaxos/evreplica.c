@@ -26,28 +26,48 @@
 */
 
 
-#ifndef _PEERS_H_
-#define _PEERS_H_
+#include "evpaxos_internal.h"
+#include <stdlib.h>
 
-#include "paxos.h"
-#include "config.h"
-#include <event2/bufferevent.h>
+struct evpaxos_replica
+{
+	struct peers* peers;
+	struct evlearner* learner;
+	struct evproposer* proposer;
+	struct evacceptor* acceptor;
+};
 
-struct peer;
-struct peers;
 
-typedef void (*peer_cb)(struct peer* p, paxos_message* m, void* arg);
-typedef void (*peer_iter_cb)(struct peer* p, void* arg);
+struct evpaxos_replica*
+evpaxos_replica_init(int id, const char* config_file, deliver_function f,
+	void* arg, struct event_base* base)
+{
+	struct evpaxos_replica* r;
+	struct evpaxos_config* config;
+	r = malloc(sizeof(struct evpaxos_replica));
 	
-struct peers* peers_new(struct event_base* base, struct evpaxos_config* config);
-void peers_free(struct peers* p);
-void peers_connect_to_acceptors(struct peers* p);
-int peers_listen(struct peers* p, int port);
-void peers_subscribe(struct peers* p, paxos_message_type t, peer_cb cb, void*);
-void peers_foreach_acceptor(struct peers* p, peer_iter_cb cb, void* arg);
-void peers_foreach_client(struct peers* p, peer_iter_cb cb, void* arg);
-struct event_base* peers_get_event_base(struct peers* p);
-int peer_get_id(struct peer* p);
-struct bufferevent* peer_get_buffer(struct peer* p);
+	config = evpaxos_config_read(config_file);
+	
+	r->peers = peers_new(base, config);
+	peers_connect_to_acceptors(r->peers);
+	int port = evpaxos_acceptor_listen_port(config, id);
+	if (peers_listen(r->peers, port) == 0)
+		return NULL;
+	
+	r->acceptor = evacceptor_init_internal(id, config, r->peers);
+	r->proposer = evproposer_init_internal(id, config, r->peers);
+	r->learner = evlearner_init_internal(config, r->peers, f, arg);
+	
+	evpaxos_config_free(config);
+	return r;
+}
 
-#endif
+void
+evpaxos_replica_free(struct evpaxos_replica* r)
+{
+	evlearner_free_internal(r->learner);
+	evproposer_free_internal(r->proposer);
+	evacceptor_free_internal(r->acceptor);
+	peers_free(r->peers);
+	free(r);
+}

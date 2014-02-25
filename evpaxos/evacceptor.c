@@ -38,11 +38,8 @@
 
 struct evacceptor
 {
-	int acceptor_id;
-	struct acceptor* state;
-	struct event_base* base;
 	struct peers* peers;
-	struct evpaxos_config* conf;
+	struct acceptor* state;
 };
 
 
@@ -56,12 +53,14 @@ peer_send_accepted(struct peer* p, void* arg)
 	Received a prepare request (phase 1a).
 */
 static void 
-evacceptor_handle_prepare(struct evacceptor* a, 
-	struct peer* p, paxos_prepare* m)
+evacceptor_handle_prepare(struct peer* p, paxos_message* msg, void* arg)
 {
 	paxos_promise promise;
-	paxos_log_debug("Handle prepare for iid %d ballot %d", m->iid, m->ballot);
-	acceptor_receive_prepare(a->state, m, &promise);
+	paxos_prepare* prepare = &msg->u.prepare;
+	struct evacceptor* a = (struct evacceptor*)arg;
+	paxos_log_debug("Handle prepare for iid %d ballot %d",
+		prepare->iid, prepare->ballot);
+	acceptor_receive_prepare(a->state, prepare, &promise);
 	send_paxos_promise(peer_get_buffer(p), &promise);
 	paxos_promise_destroy(&promise);
 }
@@ -70,10 +69,11 @@ evacceptor_handle_prepare(struct evacceptor* a,
 	Received a accept request (phase 2a).
 */
 static void 
-evacceptor_handle_accept(struct evacceptor* a, struct peer* p, 
-	paxos_accept* accept)
+evacceptor_handle_accept(struct peer* p, paxos_message* msg, void* arg)
 {	
 	paxos_accepted accepted;
+	paxos_accept* accept = &msg->u.accept;
+	struct evacceptor* a = (struct evacceptor*)arg;
 	paxos_log_debug("Handle accept for iid %d bal %d", 
 		accept->iid, accept->ballot);
 	int has_accepted = acceptor_receive_accept(a->state, accept, &accepted);
@@ -87,11 +87,12 @@ evacceptor_handle_accept(struct evacceptor* a, struct peer* p,
 }
 
 static void
-evacceptor_handle_repeat(struct evacceptor* a,
-	struct peer* p, paxos_repeat* repeat)
-{	
+evacceptor_handle_repeat(struct peer* p, paxos_message* msg, void* arg)
+{
 	iid_t iid;
 	paxos_accepted accepted;
+	paxos_repeat* repeat = &msg->u.repeat;
+	struct evacceptor* a = (struct evacceptor*)arg;
 	paxos_log_debug("Handle repeat for iids %d-%d", repeat->from, repeat->to);
 	for (iid = repeat->from; iid <= repeat->to; ++iid) {
 		if (acceptor_receive_repeat(a->state, iid, &accepted)) {
@@ -101,69 +102,56 @@ evacceptor_handle_repeat(struct evacceptor* a,
 	}
 }
 
-/*
-	This function is invoked when a new paxos message has been received.
-*/
-static void 
-evacceptor_handle_msg(struct peer* p, paxos_message* msg, void* arg)
+struct evacceptor*
+evacceptor_init_internal(int id, struct evpaxos_config* c, struct peers* p)
 {
-	struct evacceptor* a = (struct evacceptor*)arg;
-	switch (msg->type) {
-		case PAXOS_PREPARE:
-			evacceptor_handle_prepare(a, p, &msg->u.prepare);
-			break;
-		case PAXOS_ACCEPT:
-			evacceptor_handle_accept(a, p, &msg->u.accept);
-			break;
-		case PAXOS_REPEAT:
-			evacceptor_handle_repeat(a, p, &msg->u.repeat);
-			break;
-		default:
-			paxos_log_error("Unknow msg type %d not handled", msg->type);
-	}
+	struct evacceptor* acceptor;
+	
+	acceptor = calloc(1, sizeof(struct evacceptor));
+	acceptor->state = acceptor_new(id);
+	acceptor->peers = p;
+	
+	peers_subscribe(p, PAXOS_PREPARE, evacceptor_handle_prepare, acceptor);
+	peers_subscribe(p, PAXOS_ACCEPT, evacceptor_handle_accept, acceptor);
+	peers_subscribe(p, PAXOS_REPEAT, evacceptor_handle_repeat, acceptor);
+
+	return acceptor;
 }
 
-struct evacceptor* 
-evacceptor_init(int id, const char* config_file, struct event_base* b)
+struct evacceptor*
+evacceptor_init(int id, const char* config_file, struct event_base* base)
 {
-	int port;
-	int acceptor_count;
-	struct evacceptor* a;
-	
-	a = malloc(sizeof(struct evacceptor));
-
-	a->conf = evpaxos_config_read(config_file);
-	if (a->conf == NULL) {
-		free(a);
+	struct evpaxos_config* config = evpaxos_config_read(config_file);
+	if (config  == NULL)
 		return NULL;
-	}
 	
-	port = evpaxos_acceptor_listen_port(a->conf, id);
-	acceptor_count = evpaxos_acceptor_count(a->conf);
-	
+	int acceptor_count = evpaxos_acceptor_count(config);
 	if (id < 0 || id >= acceptor_count) {
 		paxos_log_error("Invalid acceptor id: %d.", id);
 		paxos_log_error("Should be between 0 and %d", acceptor_count);
+		evpaxos_config_free(config);
 		return NULL;
 	}
-	
-    a->acceptor_id = id;
-	a->base = b;
-	a->peers = peers_new(a->base, a->conf, evacceptor_handle_msg, a);
-	a->state = acceptor_new(id);
-	
-	int rv = peers_listen(a->peers, port);
-	if (rv == 0)
-		return NULL;
 
-    return a;
+	struct peers* peers = peers_new(base, config);
+	int port = evpaxos_acceptor_listen_port(config, id);
+	if (peers_listen(peers, port) == 0)
+		return NULL;
+	struct evacceptor* acceptor = evacceptor_init_internal(id, config, peers);
+	evpaxos_config_free(config);
+	return acceptor;
+}
+
+void
+evacceptor_free_internal(struct evacceptor* a)
+{
+	acceptor_free(a->state);
+	free(a);
 }
 
 void
 evacceptor_free(struct evacceptor* a)
 {
-	acceptor_free(a->state);
 	peers_free(a->peers);
-	evpaxos_config_free(a->conf);
-	free(a);
+	evacceptor_free(a);
 }

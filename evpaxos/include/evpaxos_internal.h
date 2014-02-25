@@ -4,7 +4,7 @@
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
-		* Redistributions of source code must retain the above copyright
+    	* Redistributions of source code must retain the above copyright
 		  notice, this list of conditions and the following disclaimer.
 		* Redistributions in binary form must reproduce the above copyright
 		  notice, this list of conditions and the following disclaimer in the
@@ -26,28 +26,25 @@
 */
 
 
-#ifndef _PEERS_H_
-#define _PEERS_H_
+#ifndef _EVPAXOS_INTERNAL_H_
+#define _EVPAXOS_INTERNAL_H_
 
-#include "paxos.h"
-#include "config.h"
-#include <event2/bufferevent.h>
+#include "peers.h"
+#include "evpaxos.h"
 
-struct peer;
-struct peers;
+struct evlearner* evlearner_init_internal(struct evpaxos_config* config,
+	struct peers* peers, deliver_function f, void* arg);
 
-typedef void (*peer_cb)(struct peer* p, paxos_message* m, void* arg);
-typedef void (*peer_iter_cb)(struct peer* p, void* arg);
+void evlearner_free_internal(struct evlearner* l);
+		
+struct evacceptor* evacceptor_init_internal(int id,
+	struct evpaxos_config* config, struct peers* peers);
 	
-struct peers* peers_new(struct event_base* base, struct evpaxos_config* config);
-void peers_free(struct peers* p);
-void peers_connect_to_acceptors(struct peers* p);
-int peers_listen(struct peers* p, int port);
-void peers_subscribe(struct peers* p, paxos_message_type t, peer_cb cb, void*);
-void peers_foreach_acceptor(struct peers* p, peer_iter_cb cb, void* arg);
-void peers_foreach_client(struct peers* p, peer_iter_cb cb, void* arg);
-struct event_base* peers_get_event_base(struct peers* p);
-int peer_get_id(struct peer* p);
-struct bufferevent* peer_get_buffer(struct peer* p);
+void evacceptor_free_internal(struct evacceptor* a);
+
+struct evproposer* evproposer_init_internal(int id,
+	struct evpaxos_config* config, struct peers* peers);
+
+void evproposer_free_internal(struct evproposer* p);
 
 #endif

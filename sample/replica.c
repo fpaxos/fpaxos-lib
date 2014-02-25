@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2013, University of Lugano
+	Copyright (c) 2014, University of Lugano
 	All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
@@ -26,28 +26,56 @@
 */
 
 
-#ifndef _PEERS_H_
-#define _PEERS_H_
+#include <stdlib.h>
+#include <stdio.h>
+#include <evpaxos.h>
+#include <signal.h>
 
-#include "paxos.h"
-#include "config.h"
-#include <event2/bufferevent.h>
+void
+handle_sigint(int sig, short ev, void* arg)
+{
+	struct event_base* base = arg;
+	printf("Caught signal %d\n", sig);
+	event_base_loopexit(base, NULL);
+}
 
-struct peer;
-struct peers;
+static void
+deliver(char* value, size_t size, void* arg)
+{
+	printf("Delivered value: %s\n", value);
+}
 
-typedef void (*peer_cb)(struct peer* p, paxos_message* m, void* arg);
-typedef void (*peer_iter_cb)(struct peer* p, void* arg);
+int
+main(int argc, char const *argv[])
+{
+	struct event* sig;
+	struct event_base* base;
+	struct evpaxos_replica* replica;
+
+	if (argc != 3) {
+		printf("Usage: %s id config\n", argv[0]);
+		exit(1);
+	}
 	
-struct peers* peers_new(struct event_base* base, struct evpaxos_config* config);
-void peers_free(struct peers* p);
-void peers_connect_to_acceptors(struct peers* p);
-int peers_listen(struct peers* p, int port);
-void peers_subscribe(struct peers* p, paxos_message_type t, peer_cb cb, void*);
-void peers_foreach_acceptor(struct peers* p, peer_iter_cb cb, void* arg);
-void peers_foreach_client(struct peers* p, peer_iter_cb cb, void* arg);
-struct event_base* peers_get_event_base(struct peers* p);
-int peer_get_id(struct peer* p);
-struct bufferevent* peer_get_buffer(struct peer* p);
+	signal(SIGPIPE, SIG_IGN);
+	
+	int id = atoi(argv[1]);
+	base = event_base_new();
+	replica = evpaxos_replica_init(id, argv[2], deliver, NULL, base);
+	
+	if (replica == NULL) {
+		printf("Could not start the replica!\n");
+		exit(1);
+	}
+	
+	sig = evsignal_new(base, SIGINT, handle_sigint, base);
+	evsignal_add(sig, NULL);
+	
+	event_base_dispatch(base);
 
-#endif
+	event_free(sig);
+	evpaxos_replica_free(replica);
+	event_base_free(base);
+	
+	return 0;
+}

@@ -94,9 +94,8 @@ static void
 on_stats(evutil_socket_t fd, short event, void *arg)
 {
 	struct client* c = arg;
-	printf("%d value/sec, %.2f Mbps/sec\n", 
-		c->stats.delivered,
-		(double)(c->stats.delivered*c->value_size*8) / (1024*1024));
+	double mbps = (double)(c->stats.delivered*c->value_size*8) / (1024*1024);
+	printf("%d value/sec, %.2f Mbps\n", c->stats.delivered, mbps);
 	c->stats.delivered = 0;
 	event_add(c->stats_ev, &c->stats_interval);
 }
@@ -168,7 +167,8 @@ client_free(struct client* c)
 static void
 usage(const char* name)
 {
-	printf("Usage: %s config [proposer] [# outstanding values] [value size]\n", name);
+	char* opts = "config [proposer id] [# outstanding values] [value size]";
+	printf("Usage: %s %s\n", name, opts);
 	exit(1);
 }
 

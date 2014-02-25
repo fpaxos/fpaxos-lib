@@ -68,6 +68,12 @@ evproposer_init(int id, const char* config, struct event_base* b);
 void
 evproposer_free(struct evproposer* p);
 
+struct evpaxos_replica*
+evpaxos_replica_init(int id, const char* config_file, deliver_function f,
+	void* arg, struct event_base* base);
+
+void evpaxos_replica_free(struct evpaxos_replica* r);
+
 /* Used by clients to submit values to proposers. */
 void
 paxos_submit(struct bufferevent* bev, char* value, int size);
