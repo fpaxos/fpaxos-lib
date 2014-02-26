@@ -66,7 +66,8 @@ struct timeout_iterator
 static ballot_t proposer_next_ballot(struct proposer* p, ballot_t b);
 static void proposer_preempt(struct proposer* p, struct instance* inst, 
 	paxos_prepare* out);
-static void proposer_move_instance(struct proposer* p, khash_t(instance)* f, 	khash_t(instance)* t, struct instance* inst);
+static void proposer_move_instance(khash_t(instance)* f, khash_t(instance)* t,
+	struct instance* inst);
 static struct instance* instance_new(iid_t iid, ballot_t ballot, int acceptors);
 static void instance_free(struct instance* inst);
 static int instance_has_timedout(struct instance* inst, struct timeval* now);
@@ -209,7 +210,7 @@ proposer_accept(struct proposer* p, paxos_accept* out)
 	}
 	
 	// We have both a prepared instance and a value
-	proposer_move_instance(p, p->prepare_instances, p->accept_instances, inst);
+	proposer_move_instance(p->prepare_instances, p->accept_instances, inst);
 	instance_to_accept(inst, out);
 
 	return 1;
@@ -265,8 +266,7 @@ proposer_receive_preempted(struct proposer* p, paxos_preempted* ack,
 			inst->iid, inst->ballot, ack->ballot);
 		carray_push_back(p->values, inst->value);
 		inst->value = NULL;
-		proposer_move_instance(p, p->accept_instances, p->prepare_instances, 
-			inst);
+		proposer_move_instance(p->accept_instances, p->prepare_instances, inst);
 		proposer_preempt(p, inst, out);
 		return  1; 
 	} else {
@@ -352,7 +352,8 @@ proposer_preempt(struct proposer* p, struct instance* inst, paxos_prepare* out)
 }
 
 static void
-proposer_move_instance(struct proposer* p, khash_t(instance)* f, 	khash_t(instance)* t, struct instance* inst)
+proposer_move_instance(khash_t(instance)* f, khash_t(instance)* t,
+	struct instance* inst)
 {
 	int rv;
 	khiter_t k;
