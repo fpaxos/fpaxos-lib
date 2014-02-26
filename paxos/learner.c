@@ -39,7 +39,7 @@ struct instance
 	paxos_accepted** acks;
 	paxos_accepted* final_value;
 };
-KHASH_MAP_INIT_INT(instance, struct instance*);
+KHASH_MAP_INIT_INT(instance, struct instance*)
 
 struct learner
 {

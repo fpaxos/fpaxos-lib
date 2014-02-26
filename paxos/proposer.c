@@ -44,7 +44,7 @@ struct instance
 	struct quorum quorum;
 	struct timeval created_at;
 };
-KHASH_MAP_INIT_INT(instance, struct instance*);
+KHASH_MAP_INIT_INT(instance, struct instance*)
 
 struct proposer
 {
