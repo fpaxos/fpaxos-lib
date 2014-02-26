@@ -153,5 +153,5 @@ void
 evacceptor_free(struct evacceptor* a)
 {
 	peers_free(a->peers);
-	evacceptor_free(a);
+	evacceptor_free_internal(a);
 }
