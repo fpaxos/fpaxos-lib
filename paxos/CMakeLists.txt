@@ -1,7 +1,7 @@
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/paxos/include)
 
 SET(SRCS paxos.c acceptor.c learner.c proposer.c carray.c quorum.c
-	storage_mem.c)
+	storage.c storage_mem.c)
 
 IF (BDB_FOUND)
 	LIST(APPEND SRCS storage_bdb.c)

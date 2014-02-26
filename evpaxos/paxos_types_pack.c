@@ -37,12 +37,6 @@ static void msgpack_pack_string(msgpack_packer* p, char* buffer, int len)
 	msgpack_pack_raw_body(p, buffer, len);
 }
 
-static void msgpack_unpack_int32_at(msgpack_object* o, int32_t* v, int* i)
-{
-	*v = (int32_t)MSGPACK_OBJECT_AT(o,*i).u64;
-	(*i)++;
-}
-
 static void msgpack_unpack_uint32_at(msgpack_object* o, uint32_t* v, int* i)
 {
 	*v = (uint32_t)MSGPACK_OBJECT_AT(o,*i).u64;

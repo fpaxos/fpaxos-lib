@@ -175,9 +175,6 @@ usage(const char* name)
 int
 main(int argc, char const *argv[])
 {
-	struct client* client;
-	struct sockaddr addr;
-	int addr_len = sizeof(addr);
 	int proposer_id = 0;
 	int outstanding = 1;
 	int value_size = 64;
@@ -192,8 +189,9 @@ main(int argc, char const *argv[])
 		value_size = atoi(argv[4]);
 	
 	srand(time(NULL));
-	client = make_client(argv[1], proposer_id, outstanding, value_size);
 	
+	struct client* client;
+	client = make_client(argv[1], proposer_id, outstanding, value_size);	
 	event_base_dispatch(client->base);
 	client_free(client);
 	

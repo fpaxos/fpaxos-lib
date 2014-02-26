@@ -4,7 +4,7 @@
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
-    	* Redistributions of source code must retain the above copyright
+		* Redistributions of source code must retain the above copyright
 		  notice, this list of conditions and the following disclaimer.
 		* Redistributions in binary form must reproduce the above copyright
 		  notice, this list of conditions and the following disclaimer in the
@@ -26,34 +26,59 @@
 */
 
 
-#ifndef _STORAGE_H_
-#define _STORAGE_H_
+#include "storage.h"
+#include <stdlib.h>
 
-#include "paxos.h"
-
-struct storage
+void
+storage_init(struct storage* store, int acceptor_id)
 {
-	void* handle;
-	struct
-	{
-		int (*open) (void* handle);
-		int (*close) (void* handle);
-		void (*tx_begin) (void* handle);
-		void (*tx_commit) (void* handle);
-		int (*get) (void* handle, iid_t iid, paxos_accepted* out);
-		int (*put) (void* handle, paxos_accepted* acc);
-	} api;
-};
+	switch(paxos_config.storage_backend) {
+		#ifdef HAS_BDB
+		case PAXOS_BDB_STORAGE:
+			storage_init_bdb(store, acceptor_id);
+			break;
+		#endif
+		case PAXOS_MEM_STORAGE:
+			storage_init_mem(store, acceptor_id);
+			break;
+		default:
+		paxos_log_error("Storage backend not available");
+		exit(0);
+	}
+}
 
-void storage_init(struct storage* store, int acceptor_id);
-int storage_open(struct storage* store);
-int storage_close(struct storage* store);
-void storage_tx_begin(struct storage* store);
-void storage_tx_commit(struct storage* store);
-int storage_get_record(struct storage* store, iid_t iid, paxos_accepted* out);
-int storage_put_record(struct storage* store, paxos_accepted* acc);
+int
+storage_open(struct storage* store)
+{
+	return store->api.open(store->handle);
+}
 
-void storage_init_bdb(struct storage* s, int acceptor_id);
-void storage_init_mem(struct storage* s, int acceptor_id);
+int
+storage_close(struct storage* store)
+{
+	return store->api.close(store->handle);
+}
 
-#endif
+void
+storage_tx_begin(struct storage* store)
+{
+	store->api.tx_begin(store->handle);
+}
+
+void
+storage_tx_commit(struct storage* store)
+{
+	store->api.tx_commit(store->handle);
+}
+
+int
+storage_get_record(struct storage* store, iid_t iid, paxos_accepted* out)
+{
+	return store->api.get(store->handle, iid, out);
+}
+
+int
+storage_put_record(struct storage* store, paxos_accepted* acc)
+{
+	return store->api.put(store->handle, acc);
+}

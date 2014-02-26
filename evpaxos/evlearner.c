@@ -56,7 +56,7 @@ static void
 evlearner_check_holes(evutil_socket_t fd, short event, void *arg)
 {
 	paxos_repeat msg;
-	int i, chunks = 10;
+	int chunks = 10;
 	struct evlearner* l = arg;
 	if (learner_has_holes(l->state, &msg.from, &msg.to)) {
 		if ((msg.to - msg.from) > chunks)

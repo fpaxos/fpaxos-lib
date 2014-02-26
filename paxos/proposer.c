@@ -91,7 +91,6 @@ proposer_new(int id, int acceptors)
 void
 proposer_free(struct proposer* p)
 {
-	int i;
 	struct instance* inst;
 	kh_foreach_value(p->prepare_instances, inst, instance_free(inst));
 	kh_foreach_value(p->accept_instances, inst, instance_free(inst));

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 project(libpaxos)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -Wall")
 
 find_package(LIBEVENT REQUIRED)
 find_package(MSGPACK REQUIRED)

@@ -211,7 +211,6 @@ dispatch_message(struct peer* p, paxos_message* msg)
 static void
 on_read(struct bufferevent* bev, void* arg)
 {
-	int i;
 	paxos_message msg;
 	struct peer* p = (struct peer*)arg;
 	struct evbuffer* in = bufferevent_get_input(bev);
