@@ -264,7 +264,7 @@ proposer_timeout_iterator(struct proposer* p)
 	struct timeout_iterator* iter;
 	iter = malloc(sizeof(struct timeout_iterator));
 	iter->pi = kh_begin(p->prepare_instances);
-	iter->ai = kh_begin(p->accept_instnaces);
+	iter->ai = kh_begin(p->accept_instances);
 	iter->proposer = p;
 	gettimeofday(&iter->timeout, NULL);
 	return iter;
