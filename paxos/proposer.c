@@ -246,7 +246,10 @@ proposer_receive_accept_ack(struct proposer* p, accept_ack* ack,
 	} else {
 		paxos_log_debug("Instance %u preempted: ballot %d ack ballot %d",
 			inst->iid, inst->ballot, ack->ballot);
-		carray_push_back(p->values, inst->value);
+		if (inst->value_ballot == 0)
+			carray_push_back(p->values, inst->value);
+		else
+			free(inst->value);
 		inst->value = NULL;
 		proposer_move_instance(p, p->accept_instances, p->prepare_instances, 
 			inst);
@@ -329,6 +332,7 @@ static void
 proposer_preempt(struct proposer* p, struct instance* inst, prepare_req* out)
 {
 	inst->ballot = proposer_next_ballot(p, inst->ballot);
+	inst->value_ballot = 0;
 	quorum_clear(&inst->quorum);
 	*out = (prepare_req) {inst->iid, inst->ballot};
 	gettimeofday(&inst->created_at, NULL);
