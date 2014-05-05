@@ -264,7 +264,10 @@ proposer_receive_preempted(struct proposer* p, paxos_preempted* ack,
 	if (ack->ballot > inst->ballot) {
 		paxos_log_debug("Instance %u preempted: ballot %d ack ballot %d",
 			inst->iid, inst->ballot, ack->ballot);
-		carray_push_back(p->values, inst->value);
+		if (inst->value_ballot == 0)
+			carray_push_back(p->values, inst->value);
+		else
+			free(inst->value);
 		inst->value = NULL;
 		proposer_move_instance(p->accept_instances, p->prepare_instances, inst);
 		proposer_preempt(p, inst, out);
@@ -280,7 +283,7 @@ proposer_timeout_iterator(struct proposer* p)
 	struct timeout_iterator* iter;
 	iter = malloc(sizeof(struct timeout_iterator));
 	iter->pi = kh_begin(p->prepare_instances);
-	iter->ai = kh_begin(p->accept_instnaces);
+	iter->ai = kh_begin(p->accept_instances);
 	iter->proposer = p;
 	gettimeofday(&iter->timeout, NULL);
 	return iter;
@@ -346,6 +349,7 @@ static void
 proposer_preempt(struct proposer* p, struct instance* inst, paxos_prepare* out)
 {
 	inst->ballot = proposer_next_ballot(p, inst->ballot);
+	inst->value_ballot = 0;
 	quorum_clear(&inst->quorum);
 	*out = (paxos_prepare) {inst->iid, inst->ballot};
 	gettimeofday(&inst->created_at, NULL);
