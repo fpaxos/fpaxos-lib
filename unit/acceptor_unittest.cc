@@ -167,16 +167,28 @@ TEST_P(AcceptorTest, PrepareWithAcceptedValue) {
 }
 
 TEST_P(AcceptorTest, Repeat) {
-	int found;
 	paxos_accept ar = {10, 101, {10, (char*)"aaaaaaaaa"}};
 	paxos_accepted acc;
 	
 	acceptor_receive_accept(a, &ar, &acc);
 	paxos_accepted_destroy(&acc);
-	ASSERT_FALSE(acceptor_receive_repeat(a, 1, &acc));
-	paxos_accepted_destroy(&acc);
 	ASSERT_TRUE(acceptor_receive_repeat(a, 10, &acc));
 	paxos_accepted_destroy(&acc);
+}
+
+TEST_P(AcceptorTest, RepeatEmpty) {
+	paxos_accepted acc;
+	ASSERT_FALSE(acceptor_receive_repeat(a, 1, &acc));
+}
+
+TEST_P(AcceptorTest, RepeatPrepared) {
+	paxos_accepted acc;
+	paxos_prepare pre = {1, 101};
+	paxos_promise pro;
+	
+	acceptor_receive_prepare(a, &pre, &pro);
+	paxos_promise_destroy(&pro);
+	ASSERT_FALSE(acceptor_receive_repeat(a, 1, &acc));	
 }
 
 INSTANTIATE_TEST_CASE_P(StorageBackends, AcceptorTest,

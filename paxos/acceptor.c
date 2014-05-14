@@ -107,7 +107,7 @@ acceptor_receive_repeat(struct acceptor* a, iid_t iid, paxos_accepted* out)
 	storage_tx_begin(&a->store);
 	int found = storage_get_record(&a->store, iid, out);
 	storage_tx_commit(&a->store);
-	return found;
+	return found && (out->value.paxos_value_len > 0);
 }
 
 static void
