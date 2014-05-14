@@ -73,9 +73,18 @@ protected:
 		}
 	}
 	
-	void TestAcceptAckFromQuorum(iid_t iid, ballot_t bal) {
+	void TestAcceptAckFromQuorum(iid_t iid, ballot_t bal, int outcome=1) {
 		for (size_t i = 0; i < quorum; ++i) {
 			paxos_accepted aa = (paxos_accepted) {iid, bal, bal};
+			ASSERT_EQ(outcome, proposer_receive_accepted(p, &aa, i));
+		}
+	}
+	
+	void TestAcceptAckFromQuorum(iid_t iid, ballot_t bal,
+		const char* value, ballot_t vbal = 0) {
+		for (size_t i = 0; i < quorum; ++i) {
+			paxos_accepted aa = (paxos_accepted) {iid, bal, vbal,
+				{strlen(value)+1, (char*)value}};
 			ASSERT_EQ(1, proposer_receive_accepted(p, &aa, i));
 		}
 	}
@@ -177,20 +186,20 @@ TEST_F(ProposerTest, PrepareAlreadyClosed) {
 	proposer_propose(p, value, value_size);
 
 	// preempt! proposer receives a different ballot...
-	paxos_promise pa = (paxos_promise) {pr.iid, pr.ballot+1, 0,
+	paxos_promise pa = (paxos_promise) {pr.iid, pr.ballot+1, pr.ballot+1,
 		{strlen("foo bar baz")+1, (char*)"foo bar baz"}};
 	
 	ASSERT_EQ(1, proposer_receive_promise(p, &pa, 1, &preempted));
 	ASSERT_EQ(preempted.iid, pr.iid);
 	ASSERT_GT(preempted.ballot, pr.ballot);
-
+	
 	// acquire the instance
-	TestPrepareAckFromQuorum(preempted.iid, preempted.ballot, value);
-
+	TestPrepareAckFromQuorum(preempted.iid, preempted.ballot, (char*)"foo bar baz", pr.ballot+1);
+	
 	// proposer has majority with the same value, 
 	// we expect the instance to be closed
 	proposer_accept(p, &ar);
-	TestPrepareAckFromQuorum(ar.iid, ar.ballot);
+	TestAcceptAckFromQuorum(ar.iid, ar.ballot);
 	
 	// try to accept our value on instance 2
 	proposer_prepare(p, &pr);
@@ -226,6 +235,7 @@ TEST_F(ProposerTest, PreparePreemptedWithTwoValues) {
 	
 	proposer_accept(p, &ar);
 	CHECK_ACCEPT(ar, preempted.iid, preempted.ballot, "v3", 3);
+	TestAcceptAckFromQuorum(preempted.iid, preempted.ballot);
 	
 	proposer_prepare(p, &pr);
 	TestPrepareAckFromQuorum(pr.iid, pr.ballot);
@@ -387,4 +397,34 @@ TEST_F(ProposerTest, ShouldNotTimeoutTwice) {
 	iter = proposer_timeout_iterator(p);
 	ASSERT_FALSE(timeout_iterator_prepare(iter, &to));
 	timeout_iterator_free(iter);
+}
+
+TEST_F(ProposerTest, AvoidDuplicateProposals) {
+	paxos_prepare pre;
+	paxos_accept acc;
+	char* v = (char*)"foo";
+	
+	proposer_prepare(p, &pre);
+	proposer_propose(p, v, strlen(v)+1);
+	
+	TestPrepareAckFromQuorum(pre.iid, pre.ballot);
+
+	proposer_accept(p, &acc);
+	
+	// preempt! proposer receives
+	paxos_preempted preempted = (paxos_preempted) {acc.iid, acc.ballot+1};
+	proposer_receive_preempted(p, &preempted, &pre);
+	
+	// should drop subsequent paxos_accepted
+	TestAcceptAckFromQuorum(acc.iid, acc.ballot, 0);
+	
+	// prepare and accept again
+	TestPrepareAckFromQuorum(pre.iid, pre.ballot, v, pre.ballot);
+	proposer_accept(p, &acc);
+	TestAcceptAckFromQuorum(acc.iid, acc.ballot, acc.value.paxos_value_val, acc.ballot);
+
+	// and expect that the proposer consumed the value from its internal queue
+	proposer_prepare(p, &pre);
+	TestPrepareAckFromQuorum(pre.iid, pre.ballot);
+	ASSERT_FALSE(proposer_accept(p, &acc));
 }
