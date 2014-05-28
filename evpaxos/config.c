@@ -286,16 +286,32 @@ parse_line(struct evpaxos_config* c, char* line)
 	tok = strsep(&line, sep);
 	
 	if (strcasecmp(tok, "a") == 0 || strcasecmp(tok, "acceptor") == 0) {
+		if (c->acceptors_count >= MAX_N_OF_PROPOSERS) {
+			printf("Number of acceptors exceded maximum of: %d\n",
+				MAX_N_OF_PROPOSERS);
+			return 0;
+		}
 		struct address* addr = &c->acceptors[c->acceptors_count++];
 		return parse_address(line, addr);
 	}
 	
 	if (strcasecmp(tok, "p") == 0 || strcasecmp(tok, "proposer") == 0) {
+		if (c->proposers_count >= MAX_N_OF_PROPOSERS) {
+			printf("Number of proposers exceded maximum of: %d\n",
+				MAX_N_OF_PROPOSERS);
+			return 0;
+		}
 		struct address* addr = &c->proposers[c->proposers_count++];
 		return parse_address(line, addr);
 	}
 	
 	if (strcasecmp(tok, "r") == 0 || strcasecmp(tok, "replica") == 0) {
+		if (c->proposers_count >= MAX_N_OF_PROPOSERS ||
+			c->acceptors_count >= MAX_N_OF_PROPOSERS ) {
+				printf("Number of replicas exceded maximum of: %d\n",
+					MAX_N_OF_PROPOSERS);
+				return 0;
+		}
 		struct address* pro_addr = &c->proposers[c->proposers_count++];
 		struct address* acc_addr = &c->acceptors[c->acceptors_count++];
 		int rv = parse_address(line, pro_addr);
