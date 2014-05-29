@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <arpa/inet.h>
 
 struct address
@@ -91,17 +92,32 @@ static struct sockaddr_in address_to_sockaddr(struct address* a);
 struct evpaxos_config*
 evpaxos_config_read(const char* path)
 {
-	FILE* f;
+	struct stat sb;
+	FILE* f = NULL;
 	char line[512];
 	int linenumber = 1;
-	struct evpaxos_config* c;
-
+	struct evpaxos_config* c = NULL;
+	
 	if ((f = fopen(path, "r")) == NULL) {
-		printf("Error: can't open config file %s\n", path);
-		exit(1);
+		perror("fopen");
+		goto failure;
+	}
+	
+	if (stat(path, &sb) == -1) {
+		perror("stat");
+		goto failure;
+	}
+	
+	if (!S_ISREG(sb.st_mode)) {
+		printf("Error: %s is not a regular file\n", path);
+		goto failure;
 	}
 	
 	c = malloc(sizeof(struct evpaxos_config));
+	if (c == NULL) {
+		perror("malloc");
+		goto failure;
+	}
 	memset(c, 0, sizeof(struct evpaxos_config));
 	
 	while (fgets(line, sizeof(line), f) != NULL) {
@@ -109,14 +125,19 @@ evpaxos_config_read(const char* path)
 			if (parse_line(c, line) == 0) {
 				printf("Please, check line %d\n", linenumber);
 				printf("Error parsing config file %s\n", path);
-				exit(1);
+				goto failure;
 			}
 		}
 		linenumber++;
 	}
-	
+
 	fclose(f);
 	return c;
+
+failure:
+	free(c);
+	if (f != NULL) fclose(f);
+	return NULL;
 }
 
 void
