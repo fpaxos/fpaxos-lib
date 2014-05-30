@@ -57,8 +57,8 @@ See ```paxos.conf``` for a sample configuration file.
 ##  Unit tests
 
 Unit tests depend on the [Google Test][4] library. Execute the tests using 
-```make test``` in your build directory, or run ```./unit/runtest``` for 
-detailed output.
+```make test``` in your build directory, or run ```runtest``` from
+```build/unit``` for  detailed output.
 
 ## Feedback
 

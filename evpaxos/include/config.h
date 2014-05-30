@@ -29,6 +29,10 @@
 #ifndef _CONFIG_READER_H_
 #define _CONFIG_READER_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "evpaxos.h"
 
 struct evpaxos_config;
@@ -40,5 +44,9 @@ int evpaxos_proposer_listen_port(struct evpaxos_config* c, int i);
 int evpaxos_acceptor_count(struct evpaxos_config* config);
 struct sockaddr_in evpaxos_acceptor_address(struct evpaxos_config* c, int i);
 int evpaxos_acceptor_listen_port(struct evpaxos_config* c, int i);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

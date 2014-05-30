@@ -109,7 +109,7 @@ evpaxos_config_read(const char* path)
 	}
 	
 	if (!S_ISREG(sb.st_mode)) {
-		printf("Error: %s is not a regular file\n", path);
+		paxos_log_error("Error: %s is not a regular file\n", path);
 		goto failure;
 	}
 	
@@ -123,8 +123,8 @@ evpaxos_config_read(const char* path)
 	while (fgets(line, sizeof(line), f) != NULL) {
 		if (line[0] != '#' && line[0] != '\n') {
 			if (parse_line(c, line) == 0) {
-				printf("Please, check line %d\n", linenumber);
-				printf("Error parsing config file %s\n", path);
+				paxos_log_error("Please, check line %d\n", linenumber);
+				paxos_log_error("Error parsing config file %s\n", path);
 				goto failure;
 			}
 		}
@@ -308,7 +308,7 @@ parse_line(struct evpaxos_config* c, char* line)
 	
 	if (strcasecmp(tok, "a") == 0 || strcasecmp(tok, "acceptor") == 0) {
 		if (c->acceptors_count >= MAX_N_OF_PROPOSERS) {
-			printf("Number of acceptors exceded maximum of: %d\n",
+			paxos_log_error("Number of acceptors exceded maximum of: %d\n",
 				MAX_N_OF_PROPOSERS);
 			return 0;
 		}
@@ -318,7 +318,7 @@ parse_line(struct evpaxos_config* c, char* line)
 	
 	if (strcasecmp(tok, "p") == 0 || strcasecmp(tok, "proposer") == 0) {
 		if (c->proposers_count >= MAX_N_OF_PROPOSERS) {
-			printf("Number of proposers exceded maximum of: %d\n",
+			paxos_log_error("Number of proposers exceded maximum of: %d\n",
 				MAX_N_OF_PROPOSERS);
 			return 0;
 		}
@@ -329,7 +329,7 @@ parse_line(struct evpaxos_config* c, char* line)
 	if (strcasecmp(tok, "r") == 0 || strcasecmp(tok, "replica") == 0) {
 		if (c->proposers_count >= MAX_N_OF_PROPOSERS ||
 			c->acceptors_count >= MAX_N_OF_PROPOSERS ) {
-				printf("Number of replicas exceded maximum of: %d\n",
+				paxos_log_error("Number of replicas exceded maximum of: %d\n",
 					MAX_N_OF_PROPOSERS);
 				return 0;
 		}
@@ -348,27 +348,27 @@ parse_line(struct evpaxos_config* c, char* line)
 	switch (opt->type) {
 		case option_boolean:
 			rv = parse_boolean(line, opt->value);
-			if (rv == 0) printf("Expected 'yes' or 'no'\n");
+			if (rv == 0) paxos_log_error("Expected 'yes' or 'no'\n");
 			break;
 		case option_integer:
 			rv = parse_integer(line, opt->value);
-			if (rv == 0) printf("Expected number\n");
+			if (rv == 0) paxos_log_error("Expected number\n");
 			break;
 		case option_string:
 			rv = parse_string(line, opt->value);
-			if (rv == 0) printf("Expected string\n");
+			if (rv == 0) paxos_log_error("Expected string\n");
 			break;
 		case option_verbosity:
 			rv = parse_verbosity(line, opt->value);
-			if (rv == 0) printf("Expected quiet, error, info, or debug\n");
+			if (rv == 0) paxos_log_error("Expected quiet, error, info, or debug\n");
 			break;
 		case option_backend:
 			rv = parse_backend(line, opt->value);
-			if (rv == 0) printf("Expected memory, or bdb\n");
+			if (rv == 0) paxos_log_error("Expected memory, or bdb\n");
 			break;
 		case option_bytes:
 			rv = parse_bytes(line, opt->value);
-			if (rv == 0) printf("Expected number of bytes.\n");
+			if (rv == 0) paxos_log_error("Expected number of bytes.\n");
 	}
 	
 	return rv;
