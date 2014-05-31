@@ -191,5 +191,13 @@ TEST_P(AcceptorTest, RepeatPrepared) {
 	ASSERT_FALSE(acceptor_receive_repeat(a, 1, &acc));	
 }
 
-INSTANTIATE_TEST_CASE_P(StorageBackends, AcceptorTest,
-	testing::Values(PAXOS_MEM_STORAGE, PAXOS_BDB_STORAGE));
+
+const int backends[] = {
+	PAXOS_MEM_STORAGE,
+#if HAS_BDB
+	PAXOS_BDB_STORAGE,
+#endif
+};
+
+INSTANTIATE_TEST_CASE_P(StorageBackends, AcceptorTest, 
+	testing::ValuesIn(backends));
