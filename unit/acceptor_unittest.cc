@@ -56,18 +56,22 @@ TEST_F(AcceptorTest, Prepare) {
 	ASSERT_EQ(rec->is_final, 0);
 	ASSERT_EQ(rec->value_ballot, 0);
 	ASSERT_EQ(rec->value_size, 0);
+	acceptor_free_record(a, rec);
 }
 
 TEST_F(AcceptorTest, PrepareDuplicate) {
+
 	prepare_req p = {1, 101};
-	acceptor_receive_prepare(a, &p);
 	acceptor_record* rec = acceptor_receive_prepare(a, &p);
-	ASSERT_EQ(rec->acceptor_id, id);
-	ASSERT_EQ(rec->iid, 1);
-	ASSERT_EQ(rec->ballot, 101);
-	ASSERT_EQ(rec->is_final, 0);
-	ASSERT_EQ(rec->value_ballot, 0);
-	ASSERT_EQ(rec->value_size, 0);
+	acceptor_record* dup = acceptor_receive_prepare(a, &p);
+	ASSERT_EQ(dup->acceptor_id, id);
+	ASSERT_EQ(dup->iid, 1);
+	ASSERT_EQ(dup->ballot, 101);
+	ASSERT_EQ(dup->is_final, 0);
+	ASSERT_EQ(dup->value_ballot, 0);
+	ASSERT_EQ(dup->value_size, 0);
+	acceptor_free_record(a, dup);	
+	acceptor_free_record(a, rec);	
 }
 
 TEST_F(AcceptorTest, PrepareSmallerBallot) {
@@ -79,6 +83,7 @@ TEST_F(AcceptorTest, PrepareSmallerBallot) {
 		p = (prepare_req) {1, ballots[i]};
 		rec = acceptor_receive_prepare(a, &p);
 		ASSERT_EQ(rec->ballot, ballots[0]);
+		acceptor_free_record(a, rec);
 	}
 }
 
@@ -91,6 +96,7 @@ TEST_F(AcceptorTest, PrepareHigherBallot) {
 		p = (prepare_req) {1, ballots[i]};
 		rec = acceptor_receive_prepare(a, &p);
 		ASSERT_EQ(rec->ballot, ballots[i]);
+		acceptor_free_record(a, rec);
 	}
 }
 
@@ -104,6 +110,7 @@ TEST_F(AcceptorTest, Accept) {
 	ASSERT_EQ(rec->is_final, 0);
 	ASSERT_EQ(rec->value_ballot, 101);
 	ASSERT_EQ(rec->value_size, 0);
+	acceptor_free_record(a, rec);
 }
 
 TEST_F(AcceptorTest, AcceptPrepared) {
@@ -114,10 +121,13 @@ TEST_F(AcceptorTest, AcceptPrepared) {
 	rec = acceptor_receive_prepare(a, &pr);
 	ASSERT_EQ(rec->ballot, 101);
 	ASSERT_EQ(rec->value_ballot, 0);
+	acceptor_free_record(a, rec);
 	
 	rec = acceptor_receive_accept(a, &ar);
 	ASSERT_EQ(rec->ballot, 101);
 	ASSERT_EQ(rec->value_ballot, 101);
+	acceptor_free_record(a, rec);
+
 }
 
 TEST_F(AcceptorTest, AcceptHigherBallot) {
@@ -128,10 +138,13 @@ TEST_F(AcceptorTest, AcceptHigherBallot) {
 	rec = acceptor_receive_prepare(a, &pr);
 	ASSERT_EQ(rec->ballot, 101);
 	ASSERT_EQ(rec->value_ballot, 0);
+	acceptor_free_record(a, rec);
 	
 	rec = acceptor_receive_accept(a, &ar);
 	ASSERT_EQ(rec->ballot, 201);
 	ASSERT_EQ(rec->value_ballot, 201);
+	acceptor_free_record(a, rec);
+
 }
 
 TEST_F(AcceptorTest, AcceptSmallerBallot) {
@@ -142,10 +155,12 @@ TEST_F(AcceptorTest, AcceptSmallerBallot) {
 	rec = acceptor_receive_prepare(a, &pr);
 	ASSERT_EQ(rec->ballot, 201);
 	ASSERT_EQ(rec->value_ballot, 0);
+	acceptor_free_record(a, rec);
 	
 	rec = acceptor_receive_accept(a, &ar);
 	ASSERT_EQ(rec->ballot, 201);
 	ASSERT_EQ(rec->value_ballot, 0);
+	acceptor_free_record(a, rec);
 }
 
 TEST_F(AcceptorTest, PrepareWithAcceptedValue) {
@@ -153,11 +168,16 @@ TEST_F(AcceptorTest, PrepareWithAcceptedValue) {
 	prepare_req pr = {1, 101};
 	accept_req ar = {1, 101, 0};
 	
-	acceptor_receive_prepare(a, &pr);
-	acceptor_receive_accept(a, &ar);
+	rec = acceptor_receive_prepare(a, &pr);
+	acceptor_free_record(a, rec);
+
+	rec = acceptor_receive_accept(a, &ar);
+	acceptor_free_record(a, rec);
 	
 	pr = (prepare_req) {1, 201};
 	rec = acceptor_receive_prepare(a, &pr);
 	ASSERT_EQ(rec->ballot, 201);
 	ASSERT_EQ(rec->value_ballot, 101);
+	acceptor_free_record(a, rec);
+
 }

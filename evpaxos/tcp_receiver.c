@@ -41,7 +41,7 @@
 static void 
 set_sockaddr_in(struct sockaddr_in* sin, int port)
 {
-	memset(sin, 0, sizeof(sin));
+	memset(sin, 0, sizeof(struct sockaddr_in));
 	sin->sin_family = AF_INET;
 	/* Listen on 0.0.0.0 */
 	sin->sin_addr.s_addr = htonl(0);

@@ -63,9 +63,10 @@ handle_prepare_req(struct evacceptor* a,
 	paxos_log_debug("Handling prepare for instance %d ballot %d",
 		pr->iid, pr->ballot);
 	
-	acceptor_record * rec;
+	acceptor_record* rec;
 	rec = acceptor_receive_prepare(a->state, pr);
 	sendbuf_add_prepare_ack(bev, rec);
+	acceptor_free_record(a->state, rec);
 }
 
 /*
@@ -81,11 +82,13 @@ handle_accept_req(struct evacceptor* a,
 	int i;
 	struct carray* bevs = tcp_receiver_get_events(a->receiver);
 	acceptor_record* rec = acceptor_receive_accept(a->state, ar);
-	if (ar->ballot == rec->ballot) // accepted!
+	if (ar->ballot == rec->ballot) { // accepted!
 		for (i = 0; i < carray_count(bevs); i++)
 			sendbuf_add_accept_ack(carray_at(bevs, i), rec);
-	else
+	} else {
 		sendbuf_add_accept_ack(bev, rec); // send nack
+	}
+	acceptor_free_record(a->state, rec);
 }
 
 static void
@@ -93,8 +96,10 @@ handle_repeat_req(struct evacceptor* a, struct bufferevent* bev, iid_t iid)
 {
 	paxos_log_debug("Handling repeat for instance %d", iid);
 	acceptor_record* rec = acceptor_receive_repeat(a->state, iid);
-	if (rec != NULL)
+	if (rec != NULL) {
 		sendbuf_add_accept_ack(bev, rec);
+		acceptor_free_record(a->state, rec);
+	}
 }
 
 /*
@@ -105,18 +110,17 @@ handle_req(struct bufferevent* bev, void* arg)
 {
 	paxos_msg msg;
 	struct evbuffer* in;
-	char buffer[PAXOS_MAX_VALUE_SIZE];
+	char* buffer = NULL;
 	struct evacceptor* a = (struct evacceptor*)arg;
-	
+
 	in = bufferevent_get_input(bev);
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
-	if (msg.data_size > PAXOS_MAX_VALUE_SIZE) {
-		evbuffer_drain(in, msg.data_size);
-		paxos_log_error("Discarding message of size %ld. Maximum is %d",
-			msg.data_size, PAXOS_MAX_VALUE_SIZE);
-		return;
+
+	if(msg.data_size > 0) {
+		buffer = malloc(msg.data_size);
+		assert(buffer != NULL);
+		evbuffer_remove(in, buffer, msg.data_size);
 	}
-	evbuffer_remove(in, buffer, msg.data_size);
 	
 	switch (msg.type) {
 		case prepare_reqs:
@@ -131,6 +135,8 @@ handle_req(struct bufferevent* bev, void* arg)
 		default:
 			paxos_log_error("Unknow msg type %d not handled", msg.type);
 	}
+	if(buffer != NULL)
+		free(buffer);
 }
 
 struct evacceptor* 
@@ -157,12 +163,11 @@ evacceptor_init(int id, const char* config_file, struct event_base* b)
 		return NULL;
 	}
 	
-    a->acceptor_id = id;
+	a->acceptor_id = id;
 	a->base = b;
 	a->receiver = tcp_receiver_new(a->base, port, handle_req, a);
 	a->state = acceptor_new(id);
-
-    return a;
+	return a;
 }
 
 int

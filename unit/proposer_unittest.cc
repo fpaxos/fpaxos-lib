@@ -242,6 +242,9 @@ TEST_F(ProposerTest, PreparePreemptedWithTwoValues) {
 	TestPrepareAckFromQuorum(pr.iid, pr.ballot);
 	ar = proposer_accept(p);
 	CHECK_ACCEPT_REQ(ar, pr.iid, pr.ballot, "v1", 3);
+	free(pa1);
+	free(pa2);
+	free(ar);
 }
 
 TEST_F(ProposerTest, AcceptPreempted) {

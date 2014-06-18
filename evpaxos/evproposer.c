@@ -127,18 +127,16 @@ proposer_handle_msg(struct evproposer* p, struct bufferevent* bev)
 {
 	paxos_msg msg;
 	struct evbuffer* in;
-	char buffer[PAXOS_MAX_VALUE_SIZE];
+	char* buffer = NULL;
 
 	in = bufferevent_get_input(bev);
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
-	if (msg.data_size > PAXOS_MAX_VALUE_SIZE) {
-		evbuffer_drain(in, msg.data_size);
-		paxos_log_error("Discarding message of size %ld. Maximum is %d",
-			msg.data_size, PAXOS_MAX_VALUE_SIZE);
-		return;
+
+	if(msg.data_size > 0) {
+		buffer = malloc(msg.data_size);
+		evbuffer_remove(in, buffer, msg.data_size);
 	}
-	evbuffer_remove(in, buffer, msg.data_size);
-	
+
 	switch (msg.type) {
 		case prepare_acks:
 			proposer_handle_prepare_ack(p, (prepare_ack*)buffer);
@@ -155,6 +153,8 @@ proposer_handle_msg(struct evproposer* p, struct bufferevent* bev)
 	}
 	
 	try_accept(p);
+	if(buffer != NULL)
+		free(buffer);
 }
 
 static void

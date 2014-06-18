@@ -96,25 +96,25 @@ learner_handle_msg(struct evlearner* l, struct bufferevent* bev)
 {
 	paxos_msg msg;
 	struct evbuffer* in;
-	char buffer[PAXOS_MAX_VALUE_SIZE];
+	char* buffer = NULL;
 
 	in = bufferevent_get_input(bev);
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
-	if (msg.data_size > PAXOS_MAX_VALUE_SIZE) {
-		evbuffer_drain(in, msg.data_size);
-		paxos_log_error("Discarding message of size %ld. Maximum is %d",
-			msg.data_size, PAXOS_MAX_VALUE_SIZE);
-		return;
+
+	if(msg.data_size > 0) {
+		buffer = malloc(msg.data_size);
+		evbuffer_remove(in, buffer, msg.data_size);
 	}
-	evbuffer_remove(in, buffer, msg.data_size);
-	
+
 	switch (msg.type) {
 		case accept_acks:
 			learner_handle_accept_ack(l, (accept_ack*)buffer);
 			break;
 		default:
 			paxos_log_error("Unknow msg type %d not handled", msg.type);
-    }
+	}
+	if(buffer != NULL)
+		free(buffer);
 }
 
 static void

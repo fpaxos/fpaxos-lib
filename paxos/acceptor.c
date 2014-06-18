@@ -64,6 +64,12 @@ acceptor_free(struct acceptor* a)
 	return rv;
 }
 
+void
+acceptor_free_record(struct acceptor* a, acceptor_record* r)
+{
+	storage_free_record(a->store, r);
+}
+
 acceptor_record*
 acceptor_receive_prepare(struct acceptor* a, prepare_req* req)
 {
@@ -116,8 +122,12 @@ apply_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
 	// Record not found or smaller ballot, in both cases overwrite and store
 	paxos_log_debug("Preparing iid: %u, ballot: %u", pr->iid, pr->ballot);
 	
+	if(rec != NULL)	{
+		storage_free_record(s, rec);
+	}
+
 	// Store the updated record
-	return storage_save_prepare(s, pr, rec);
+	return storage_save_prepare(s, pr);
 }
 
 static acceptor_record*
@@ -133,6 +143,10 @@ apply_accept(struct storage* s, accept_req* ar, acceptor_record* rec)
 	// Record not found or smaller ballot, in both cases overwrite and store
 	paxos_log_debug("Accepting iid: %u, ballot: %u", ar->iid, ar->ballot);
 	
+	if(rec != NULL)	{
+		storage_free_record(s, rec);
+	}
+
 	// Store the updated record
 	return storage_save_accept(s, ar);
 }

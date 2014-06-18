@@ -98,5 +98,6 @@ typedef struct accept_ack_t {
 
 //Storage type
 typedef accept_ack acceptor_record;
+#define ACCEPT_RECORD_BUFF_SIZE(value_size) (value_size + sizeof(accept_ack))
 
 #endif

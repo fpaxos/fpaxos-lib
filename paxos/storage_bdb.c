@@ -41,7 +41,6 @@ struct storage
 	DB_ENV* env;
 	DB_TXN* txn;
 	int acceptor_id;
-	char record_buf[PAXOS_MAX_VALUE_SIZE];
 };
 
 static int 
@@ -249,6 +248,12 @@ storage_tx_commit(struct storage* s)
 	assert(result == 0);
 }
 
+void
+storage_free_record(struct storage* s, acceptor_record* r) 
+{
+	free(r);
+}
+
 acceptor_record* 
 storage_get_record(struct storage* s, iid_t iid)
 {
@@ -256,7 +261,7 @@ storage_get_record(struct storage* s, iid_t iid)
 	DBT dbkey, dbdata;
 	DB* dbp = s->db;
 	DB_TXN* txn = s->txn;
-	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
+	acceptor_record* record_buffer = NULL;
 
 	memset(&dbkey, 0, sizeof(DBT));
 	memset(&dbdata, 0, sizeof(DBT));
@@ -265,11 +270,8 @@ storage_get_record(struct storage* s, iid_t iid)
 	dbkey.data = &iid;
 	dbkey.size = sizeof(iid_t);
     
-	//Data is our buffer
-	dbdata.data = record_buffer;
-	dbdata.ulen = PAXOS_MAX_VALUE_SIZE;
 	//Force copy to the specified buffer
-	dbdata.flags = DB_DBT_USERMEM;
+	dbdata.flags = DB_DBT_MALLOC;
 
 	//Read the record
 	flags = 0;
@@ -287,21 +289,25 @@ storage_get_record(struct storage* s, iid_t iid)
 			iid, db_strerror(result));
 		return NULL;
 	}
-    
+	record_buffer = (acceptor_record*) dbdata.data;
+	assert(record_buffer != NULL);
 	//Record found
 	assert(iid == record_buffer->iid);
 	return record_buffer;
 }
 
 acceptor_record*
-storage_save_accept(struct storage* s, accept_req * ar)
+storage_save_accept(struct storage* s, accept_req* ar)
 {
 	int flags, result;
 	DBT dbkey, dbdata;
 	DB* dbp = s->db;
 	DB_TXN* txn = s->txn;
-	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
-    
+	acceptor_record* record_buffer;
+       	
+	record_buffer = malloc(ACCEPT_RECORD_BUFF_SIZE(ar->value_size));
+	assert(record_buffer != NULL);
+	    
 	//Store as acceptor_record (== accept_ack)
 	record_buffer->acceptor_id = s->acceptor_id;
 	record_buffer->iid = ar->iid;
@@ -335,28 +341,28 @@ storage_save_accept(struct storage* s, accept_req * ar)
 }
 
 acceptor_record*
-storage_save_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
+storage_save_prepare(struct storage* s, prepare_req* pr)
 {
 	int flags, result;
 	DBT dbkey, dbdata;
 	DB* dbp = s->db;
 	DB_TXN* txn = s->txn;
-	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
-	
-	//No previous record, create a new one
-	if (rec == NULL) {
-		//Record does not exist yet
-		rec = record_buffer;
-		rec->acceptor_id = s->acceptor_id;
-		rec->iid = pr->iid;
-		rec->ballot = pr->ballot;
-		rec->value_ballot = 0;
-		rec->is_final = 0;
-		rec->value_size = 0;
-	} else {
-		//Record exists, just update the ballot
-		rec->ballot = pr->ballot;
+
+	// Query the database, check if a previous record exists
+	acceptor_record* record_buffer = storage_get_record(s,pr->iid);
+	if(record_buffer == NULL) {
+		// No record exists, make a new one
+		record_buffer = malloc(ACCEPT_RECORD_BUFF_SIZE(0));
+		assert(record_buffer != NULL);
+
+		record_buffer->acceptor_id = s->acceptor_id;
+		record_buffer->iid = pr->iid;
+		record_buffer->value_ballot = 0;
+		record_buffer->is_final = 0;
+		record_buffer->value_size = 0;
 	}
+	// Always update the ballot
+	record_buffer->ballot = pr->ballot;
     
 	memset(&dbkey, 0, sizeof(DBT));
 	memset(&dbdata, 0, sizeof(DBT));
@@ -367,7 +373,7 @@ storage_save_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
         
 	//Data is our buffer
 	dbdata.data = record_buffer;
-	dbdata.size = ACCEPT_ACK_SIZE(record_buffer);
+	dbdata.size = ACCEPT_RECORD_BUFF_SIZE(record_buffer->value_size);
     
 	//Store permanently
 	flags = 0;
@@ -389,7 +395,10 @@ storage_save_final_value(struct storage* s, char* value, size_t size,
 	DBT dbkey, dbdata;
 	DB* dbp = s->db;
 	DB_TXN* txn = s->txn;
-	acceptor_record* record_buffer = (acceptor_record*)s->record_buf;
+	acceptor_record* record_buffer;
+	record_buffer = malloc(ACCEPT_RECORD_BUFF_SIZE(size));
+
+	assert(record_buffer != NULL);
 	
 	//Store as acceptor_record (== accept_ack)
 	record_buffer->iid = iid;
@@ -442,7 +451,8 @@ storage_get_max_iid(struct storage * s)
 		return (1);
 	}
 	
-	/* Re-initialize the key/data pair. */ memset(&key, 0, sizeof(key));
+	/* Re-initialize the key/data pair. */ 
+	memset(&key, 0, sizeof(key));
 	memset(&data, 0, sizeof(data));
 	
 	/* Walk through the database and print out the key/data pairs. */

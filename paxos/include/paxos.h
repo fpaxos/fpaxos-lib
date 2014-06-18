@@ -39,9 +39,6 @@
 #define PAXOS_LOG_INFO 2
 #define PAXOS_LOG_DEBUG 3
 
-/* The maximum messages size that paxos will accept */
-#define PAXOS_MAX_VALUE_SIZE (256*1000)
-
 /* Paxos instance ids and ballots */
 typedef uint32_t iid_t;
 typedef uint32_t ballot_t;
