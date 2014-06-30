@@ -57,7 +57,7 @@ storage_close(struct storage* s)
 {
 	int i;
 	for (i=0; i<MAX_RECORDS; ++i) {
-		if(s->records[i] != NULL) {
+		if (s->records[i] != NULL) {
 			free(s->records[i]);
 		}
 	}
@@ -89,7 +89,7 @@ acceptor_record*
 storage_get_record(struct storage* s, iid_t iid)
 {
 	acceptor_record* record_buffer = s->records[iid % MAX_RECORDS];
-	if(record_buffer == NULL) {
+	if (record_buffer == NULL) {
 		return NULL;
 	}
 
@@ -108,7 +108,7 @@ acceptor_record*
 storage_save_accept(struct storage* s, accept_req* ar)
 {
 	acceptor_record* record_buffer = s->records[ar->iid % MAX_RECORDS];
-	if(record_buffer == NULL) {
+	if (record_buffer == NULL) {
 		record_buffer = malloc(ACCEPT_RECORD_BUFF_SIZE(ar->value_size));
 		assert(record_buffer != NULL);
 		s->records[ar->iid % MAX_RECORDS] = record_buffer;
@@ -130,7 +130,7 @@ acceptor_record*
 storage_save_prepare(struct storage* s, prepare_req* pr)
 {
 	acceptor_record* record_buffer = s->records[pr->iid % MAX_RECORDS];
-	if(record_buffer == NULL) {
+	if (record_buffer == NULL) {
 		record_buffer = malloc(ACCEPT_RECORD_BUFF_SIZE(0));
 		assert(record_buffer != NULL);
 		s->records[pr->iid % MAX_RECORDS] = record_buffer;
@@ -153,7 +153,7 @@ storage_save_final_value(struct storage* s, char* value, size_t size,
 	iid_t iid, ballot_t b)
 {
 	acceptor_record* record_buffer = s->records[iid % MAX_RECORDS];
-	if(record_buffer == NULL) {
+	if (record_buffer == NULL) {
 		record_buffer = malloc(ACCEPT_RECORD_BUFF_SIZE(size));
 		assert(record_buffer != NULL);
 		s->records[iid % MAX_RECORDS] = record_buffer;

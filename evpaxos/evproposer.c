@@ -132,7 +132,7 @@ proposer_handle_msg(struct evproposer* p, struct bufferevent* bev)
 	in = bufferevent_get_input(bev);
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
 
-	if(msg.data_size > 0) {
+	if (msg.data_size > 0) {
 		buffer = malloc(msg.data_size);
 		evbuffer_remove(in, buffer, msg.data_size);
 	}
@@ -153,7 +153,7 @@ proposer_handle_msg(struct evproposer* p, struct bufferevent* bev)
 	}
 	
 	try_accept(p);
-	if(buffer != NULL)
+	if (buffer != NULL)
 		free(buffer);
 }
 

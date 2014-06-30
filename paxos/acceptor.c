@@ -122,7 +122,7 @@ apply_prepare(struct storage* s, prepare_req* pr, acceptor_record* rec)
 	// Record not found or smaller ballot, in both cases overwrite and store
 	paxos_log_debug("Preparing iid: %u, ballot: %u", pr->iid, pr->ballot);
 	
-	if(rec != NULL)	{
+	if (rec != NULL)	{
 		storage_free_record(s, rec);
 	}
 
@@ -143,7 +143,7 @@ apply_accept(struct storage* s, accept_req* ar, acceptor_record* rec)
 	// Record not found or smaller ballot, in both cases overwrite and store
 	paxos_log_debug("Accepting iid: %u, ballot: %u", ar->iid, ar->ballot);
 	
-	if(rec != NULL)	{
+	if (rec != NULL) {
 		storage_free_record(s, rec);
 	}
 

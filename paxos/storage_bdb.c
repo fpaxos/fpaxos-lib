@@ -215,7 +215,7 @@ storage_close(struct storage* s)
 	DB* dbp = s->db;
 	DB_ENV* dbenv = s->env;
 	
-	if(dbp->close(dbp, 0) != 0) {
+	if (dbp->close(dbp, 0) != 0) {
 		paxos_log_error("DB_ENV close failed");
 		result = -1;
 	}
@@ -350,7 +350,7 @@ storage_save_prepare(struct storage* s, prepare_req* pr)
 
 	// Query the database, check if a previous record exists
 	acceptor_record* record_buffer = storage_get_record(s,pr->iid);
-	if(record_buffer == NULL) {
+	if (record_buffer == NULL) {
 		// No record exists, make a new one
 		record_buffer = malloc(ACCEPT_RECORD_BUFF_SIZE(0));
 		assert(record_buffer != NULL);

@@ -116,7 +116,7 @@ handle_req(struct bufferevent* bev, void* arg)
 	in = bufferevent_get_input(bev);
 	evbuffer_remove(in, &msg, sizeof(paxos_msg));
 
-	if(msg.data_size > 0) {
+	if (msg.data_size > 0) {
 		buffer = malloc(msg.data_size);
 		assert(buffer != NULL);
 		evbuffer_remove(in, buffer, msg.data_size);
@@ -135,7 +135,7 @@ handle_req(struct bufferevent* bev, void* arg)
 		default:
 			paxos_log_error("Unknow msg type %d not handled", msg.type);
 	}
-	if(buffer != NULL)
+	if (buffer != NULL)
 		free(buffer);
 }
 
