@@ -33,10 +33,13 @@
 #include <sys/types.h>
 #include <paxos_types.h>
 
-/* The maximum message size that paxos will accept */
-#define PAXOS_MAX_VALUE_SIZE (256*1000)
+/* Logging and verbosity levels */
+#define PAXOS_LOG_QUIET 0
+#define PAXOS_LOG_ERROR 1
+#define PAXOS_LOG_INFO 2
+#define PAXOS_LOG_DEBUG 3
 
-/* Paxos types */
+/* Paxos instance ids and ballots */
 typedef uint32_t iid_t;
 typedef uint32_t ballot_t;
 
