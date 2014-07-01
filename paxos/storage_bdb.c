@@ -41,12 +41,12 @@ struct bdb_storage
 	DB_ENV* env;
 	DB_TXN* txn;
 	int acceptor_id;
-	char buffer[PAXOS_MAX_VALUE_SIZE];
 };
 
 static void bdb_storage_tx_begin(void* handle);
 static void bdb_storage_tx_commit(void* handle);
-
+static char* paxos_accepted_to_buffer(paxos_accepted* acc);
+static void paxos_accepted_from_buffer(char* buffer, paxos_accepted* out);
 
 static struct bdb_storage*
 bdb_storage_new(int acceptor_id)
@@ -259,15 +259,13 @@ bdb_storage_get(void* handle, iid_t iid, paxos_accepted* out)
 	// Key is iid
 	dbkey.data = &iid;
 	dbkey.size = sizeof(iid_t);
-    
-	// Data is copied to our buffer
-	dbdata.data = s->buffer;
-	dbdata.ulen = PAXOS_MAX_VALUE_SIZE;
-	dbdata.flags = DB_DBT_USERMEM;
+
+	// BDB allocates the memory for us.
+	dbdata.flags = DB_DBT_MALLOC;
 
 	flags = 0;
 	result = dbp->get(dbp, txn, &dbkey, &dbdata, flags);
-    
+
 	if (result == DB_NOTFOUND || result == DB_KEYEMPTY) {
 		paxos_log_debug("The record for iid: %d does not exist", iid);
 		return 0;
@@ -276,16 +274,11 @@ bdb_storage_get(void* handle, iid_t iid, paxos_accepted* out)
 			iid, db_strerror(result));
 		return 0;
 	}
-	
-	memcpy(out, s->buffer, sizeof(paxos_accepted));
-	if (out->value.paxos_value_len > 0) {
-		out->value.paxos_value_val = malloc(out->value.paxos_value_len);
-		memcpy(out->value.paxos_value_val, 
-			&s->buffer[sizeof(paxos_accepted)],
-			out->value.paxos_value_len);
-	}
-	
+
+	paxos_accepted_from_buffer(dbdata.data, out);
 	assert(iid == out->iid);
+	free(dbdata.data);
+	
 	return 1;
 }
 
@@ -294,26 +287,18 @@ bdb_storage_put(void* handle, paxos_accepted* acc)
 {
 	DBT dbkey, dbdata;
 	struct bdb_storage* s = handle;
+	char* buffer = paxos_accepted_to_buffer(acc);
 	
 	memset(&dbkey, 0, sizeof(DBT));
 	memset(&dbdata, 0, sizeof(DBT));
-	
-	int size = sizeof(paxos_accepted);
-	memcpy(s->buffer, acc, size);
-	if (acc->value.paxos_value_len > 0) {
-		memcpy(&s->buffer[size],
-			acc->value.paxos_value_val,
-			acc->value.paxos_value_len);
-		size += acc->value.paxos_value_len;
-	}
-	
+		
 	// Key is the iid
 	dbkey.data = &acc->iid;
 	dbkey.size = sizeof(iid_t);
-        
+	
 	// Data is the flat buffer
-	dbdata.data = &s->buffer;
-	dbdata.size = size;
+	dbdata.data = buffer;
+	dbdata.size = sizeof(paxos_accepted) + acc->value.paxos_value_len;
 	
 	// Store permanently
 	int rv = s->db->put(s->db, s->txn, &dbkey, &dbdata, 0);
@@ -323,6 +308,32 @@ bdb_storage_put(void* handle, paxos_accepted* acc)
 	}
 
 	return 0;
+}
+
+static char*
+paxos_accepted_to_buffer(paxos_accepted* acc)
+{
+	size_t len = acc->value.paxos_value_len;
+	char* buffer = malloc(sizeof(paxos_accepted) + len);
+	if (buffer == NULL)
+		return NULL;
+	memcpy(buffer, acc, sizeof(paxos_accepted));
+	if (len > 0) {
+		memcpy(&buffer[sizeof(paxos_accepted)], acc->value.paxos_value_val, len);
+	}
+	return buffer;
+}
+
+static void
+paxos_accepted_from_buffer(char* buffer, paxos_accepted* out)
+{
+	memcpy(out, buffer, sizeof(paxos_accepted));
+	if (out->value.paxos_value_len > 0) {
+		out->value.paxos_value_val = malloc(out->value.paxos_value_len);
+		memcpy(out->value.paxos_value_val, 
+			&buffer[sizeof(paxos_accepted)], 
+			out->value.paxos_value_len);
+	}
 }
 
 void
