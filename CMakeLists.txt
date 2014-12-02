@@ -4,11 +4,16 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 option(BUILD_UNIT "Build unit tests." OFF)
 option(USE_MEM_STORE "Use in-memory storage for acceptors." OFF)
+option(USE_LMDB_STORE "Use lmdb storage for acceptors." OFF)
 
-if (NOT USE_MEM_STORE)
+if ((NOT USE_MEM_STORE) AND (NOT USE_LMDB_STORE))
 	find_package(BDB REQUIRED)
 endif()
 find_package(LIBEVENT REQUIRED)
+
+if (USE_LMDB_STORE)
+	find_package(LMDB REQUIRED)
+endif()
 
 if (NOT APPLE)
 	set(LIBPAXOS_LINKER_LIBS ${LIBPAXOS_LINKER_LIBS} m rt)

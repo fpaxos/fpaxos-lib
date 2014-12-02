@@ -64,6 +64,10 @@ struct paxos_config
 	char* bdb_env_path;
 	char* bdb_db_filename;
 	int bdb_trash_files;
+
+	/* lmdb storage configuration */
+	int lmdb_sync;
+	char *lmdb_env_path;
 };
 
 extern struct paxos_config paxos_config;

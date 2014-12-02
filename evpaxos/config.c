@@ -73,6 +73,8 @@ struct option options[] =
 	{ "bdb-env-path", &paxos_config.bdb_env_path, option_string },
 	{ "bdb-db-filename", &paxos_config.bdb_db_filename, option_string },
 	{ "bdb-trash-files", &paxos_config.bdb_trash_files, option_boolean },
+	{ "lmdb-sync", &paxos_config.lmdb_sync, option_boolean },
+	{ "lmdb-env-path", &paxos_config.lmdb_env_path, option_string },
 	{ 0 }
 };
 
