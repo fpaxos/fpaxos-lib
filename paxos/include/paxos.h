@@ -65,6 +65,10 @@ struct paxos_config
 	char* bdb_env_path;
 	char* bdb_db_filename;
 	int bdb_trash_files;
+
+	/* lmdb storage configuration */
+	int lmdb_sync;
+	char *lmdb_env_path;
 };
 
 extern struct paxos_config paxos_config;
@@ -102,5 +106,6 @@ void paxos_log_debug(const char* format, ...);
 /* Supported storage backends */
 #define PAXOS_MEM_STORAGE 0
 #define PAXOS_BDB_STORAGE 1
+#define PAXOS_LMDB_STORAGE 2
 
 #endif

@@ -1,32 +1,33 @@
 /*
-	Copyright (c) 2013, University of Lugano
-	All rights reserved.
-
-	Redistribution and use in source and binary forms, with or without
-	modification, are permitted provided that the following conditions are met:
-    	* Redistributions of source code must retain the above copyright
-		  notice, this list of conditions and the following disclaimer.
-		* Redistributions in binary form must reproduce the above copyright
-		  notice, this list of conditions and the following disclaimer in the
-		  documentation and/or other materials provided with the distribution.
-		* Neither the name of the copyright holders nor the
-		  names of its contributors may be used to endorse or promote products
-		  derived from this software without specific prior written permission.
-
-	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-	AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-	IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
-	ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
-	DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-	(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-	LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-	ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF 
-	THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.	
-*/
+ * Copyright (c) 2013-2014, University of Lugano
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of the copyright holders nor the names of it
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 
 #include "storage.h"
+#include "storage_utils.h"
 #include <db.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,8 +46,6 @@ struct bdb_storage
 
 static void bdb_storage_tx_begin(void* handle);
 static void bdb_storage_tx_commit(void* handle);
-static char* paxos_accepted_to_buffer(paxos_accepted* acc);
-static void paxos_accepted_from_buffer(char* buffer, paxos_accepted* out);
 
 static struct bdb_storage*
 bdb_storage_new(int acceptor_id)
@@ -170,6 +169,13 @@ bdb_storage_open(void* handle)
 	asprintf(&db_env_path, "%s_%d", paxos_config.bdb_env_path, s->acceptor_id);
 	char* db_filename = paxos_config.bdb_db_filename;
 	
+	// Trash bdb files -- testing only
+	if (paxos_config.bdb_trash_files) {
+		char rm_command[600];
+		sprintf(rm_command, "rm -r %s", db_env_path);
+		system(rm_command);
+	}
+	
 	struct stat sb;
 	// Check if the environment dir and db file exists
 	int dir_exists = (stat(db_env_path, &sb) == 0);
@@ -179,17 +185,6 @@ bdb_storage_open(void* handle)
 		paxos_log_error("Failed to create env dir %s: %s",
 			db_env_path, strerror(errno));
 		return -1;
-	} 
-	// Delete and recreate an empty dir if not recovering
-	if (paxos_config.bdb_trash_files && dir_exists) {
-		char rm_command[600];
-		sprintf(rm_command, "rm -r %s", db_env_path);
-		
-		if ((system(rm_command) != 0) || 
-			(mkdir(db_env_path, S_IRWXU) != 0)) {
-			paxos_log_error("Failed to recreate empty env dir %s: %s",
-				db_env_path, strerror(errno));
-		}
 	}
 	
 	char * db_file = db_filename;
@@ -308,32 +303,6 @@ bdb_storage_put(void* handle, paxos_accepted* acc)
 	}
 
 	return 0;
-}
-
-static char*
-paxos_accepted_to_buffer(paxos_accepted* acc)
-{
-	size_t len = acc->value.paxos_value_len;
-	char* buffer = malloc(sizeof(paxos_accepted) + len);
-	if (buffer == NULL)
-		return NULL;
-	memcpy(buffer, acc, sizeof(paxos_accepted));
-	if (len > 0) {
-		memcpy(&buffer[sizeof(paxos_accepted)], acc->value.paxos_value_val, len);
-	}
-	return buffer;
-}
-
-static void
-paxos_accepted_from_buffer(char* buffer, paxos_accepted* out)
-{
-	memcpy(out, buffer, sizeof(paxos_accepted));
-	if (out->value.paxos_value_len > 0) {
-		out->value.paxos_value_val = malloc(out->value.paxos_value_len);
-		memcpy(out->value.paxos_value_val, 
-			&buffer[sizeof(paxos_accepted)], 
-			out->value.paxos_value_len);
-	}
 }
 
 void

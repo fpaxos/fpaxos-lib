@@ -46,6 +46,8 @@ struct paxos_config paxos_config =
 	"/tmp/acceptor",   /* bdb_env_path */
 	"acc.bdb",         /* bdb_db_filename */
 	0,                 /* bdb_delete_on_restart */
+	0,                 /* lmdb_sync */
+	"/tmp/acceptor",   /* lmdb_env_path */
 };
 
 

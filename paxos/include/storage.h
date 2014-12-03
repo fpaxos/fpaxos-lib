@@ -53,7 +53,8 @@ void storage_tx_commit(struct storage* store);
 int storage_get_record(struct storage* store, iid_t iid, paxos_accepted* out);
 int storage_put_record(struct storage* store, paxos_accepted* acc);
 
-void storage_init_bdb(struct storage* s, int acceptor_id);
 void storage_init_mem(struct storage* s, int acceptor_id);
+void storage_init_bdb(struct storage* s, int acceptor_id);
+void storage_init_lmdb(struct storage* s, int acceptor_id);
 
 #endif

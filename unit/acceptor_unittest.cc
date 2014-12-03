@@ -197,6 +197,9 @@ const int backends[] = {
 #if HAS_BDB
 	PAXOS_BDB_STORAGE,
 #endif
+#if HAS_LMDB
+	PAXOS_LMDB_STORAGE,
+#endif
 };
 
 INSTANTIATE_TEST_CASE_P(StorageBackends, AcceptorTest, 
