@@ -170,7 +170,7 @@ bdb_storage_open(void* handle)
 	char* db_filename = paxos_config.bdb_db_filename;
 	
 	// Trash bdb files -- testing only
-	if (paxos_config.bdb_trash_files) {
+	if (paxos_config.trash_files) {
 		char rm_command[600];
 		sprintf(rm_command, "rm -r %s", db_env_path);
 		system(rm_command);

@@ -140,7 +140,7 @@ lmdb_storage_open(void* handle)
 	  paxos_config.lmdb_env_path, s->acceptor_id);
 
 	// Trash bdb files -- testing only
-	if (paxos_config.bdb_trash_files) {
+	if (paxos_config.trash_files) {
 		char rm_command[600];
 		sprintf(rm_command, "rm -r %s", lmdb_env_path);
 		system(rm_command);

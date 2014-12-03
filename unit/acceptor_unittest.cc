@@ -39,7 +39,7 @@ protected:
 		id = 2;
 		paxos_config.verbosity = PAXOS_LOG_QUIET;
 		paxos_config.storage_backend = GetParam();
-		paxos_config.bdb_trash_files = 1;
+		paxos_config.trash_files = 1;
 		a = acceptor_new(id);
 	}
 	

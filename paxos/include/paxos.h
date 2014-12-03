@@ -58,13 +58,13 @@ struct paxos_config
 	
 	/* Acceptor */
 	int storage_backend;
+	int trash_files;
 	
 	/* BDB storage configuration */
 	int bdb_sync;
 	int bdb_cachesize;
 	char* bdb_env_path;
 	char* bdb_db_filename;
-	int bdb_trash_files;
 
 	/* lmdb storage configuration */
 	int lmdb_sync;
