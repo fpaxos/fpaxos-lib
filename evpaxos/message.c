@@ -32,7 +32,7 @@
 
 
 static int
-bufferevent_pack_data(void* data, const char* buf, unsigned int len)
+bufferevent_pack_data(void* data, const char* buf, size_t len)
 {
 	struct bufferevent* bev = (struct bufferevent*)data;
 	bufferevent_write(bev, buf, len);
