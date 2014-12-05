@@ -48,6 +48,7 @@ struct paxos_config paxos_config =
 	"acc.bdb",         /* bdb_db_filename */
 	0,                 /* lmdb_sync */
 	"/tmp/acceptor",   /* lmdb_env_path */
+	10*1024*1024       /* lmdb_mapsize */
 };
 
 

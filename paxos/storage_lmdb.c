@@ -72,6 +72,10 @@ static int
 		mdb_strerror(result));
 		goto error;
 	}
+	if ((result = mdb_env_set_mapsize(env, paxos_config.lmdb_mapsize)) != 0) {
+		paxos_log_error("Could not set lmdb map size. %s", mdb_strerror(result));
+		goto error;
+	}
 	if ((result = mdb_env_open(env, db_env_path,
 	!paxos_config.lmdb_sync ? MDB_NOSYNC : 0,
 	S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)) != 0) {

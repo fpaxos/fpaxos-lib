@@ -69,6 +69,7 @@ struct paxos_config
 	/* lmdb storage configuration */
 	int lmdb_sync;
 	char *lmdb_env_path;
+	int lmdb_mapsize;
 };
 
 extern struct paxos_config paxos_config;

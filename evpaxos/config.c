@@ -81,6 +81,7 @@ struct option options[] =
 	{ "bdb-db-filename", &paxos_config.bdb_db_filename, option_string },
 	{ "lmdb-sync", &paxos_config.lmdb_sync, option_boolean },
 	{ "lmdb-env-path", &paxos_config.lmdb_env_path, option_string },
+	{ "lmdb-mapsize", &paxos_config.lmdb_mapsize, option_bytes },
 	{ 0 }
 };
 
