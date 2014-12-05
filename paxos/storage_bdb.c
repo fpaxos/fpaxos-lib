@@ -82,7 +82,9 @@ bdb_init_tx_handle(struct bdb_storage* s, char* db_env_path)
 	dbenv->set_errfile(dbenv, stdout);
 
 	// Set the size of the memory cache
-	result = dbenv->set_cachesize(dbenv, 0, paxos_config.bdb_cachesize, 1);
+	size_t bytes = paxos_config.bdb_cachesize % (1024*1024*1024);
+	size_t gbytes = (paxos_config.bdb_cachesize - bytes) / (1024*1024*1024);
+	result = dbenv->set_cachesize(dbenv, gbytes, bytes, 1);
 	if (result != 0) {
 		paxos_log_error("DB_ENV set_cachesize failed: %s",
 			db_strerror(result));

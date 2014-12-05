@@ -62,14 +62,14 @@ struct paxos_config
 	
 	/* BDB storage configuration */
 	int bdb_sync;
-	int bdb_cachesize;
+	size_t bdb_cachesize;
 	char* bdb_env_path;
 	char* bdb_db_filename;
 
 	/* lmdb storage configuration */
 	int lmdb_sync;
 	char *lmdb_env_path;
-	int lmdb_mapsize;
+	size_t lmdb_mapsize;
 };
 
 extern struct paxos_config paxos_config;

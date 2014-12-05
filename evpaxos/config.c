@@ -200,11 +200,11 @@ strtrim(char* string)
 }
 
 static int
-parse_bytes(char* str, int* bytes)
+parse_bytes(char* str, size_t* bytes)
 {
 	char* end;
 	errno = 0; /* To distinguish strtoll's return value 0 */
-	*bytes = strtol(str, &end, 10);
+	*bytes = strtoull(str, &end, 10);
 	if (errno != 0) return 0;
 	while (isspace(*end)) end++;
 	if (*end != '\0') {
