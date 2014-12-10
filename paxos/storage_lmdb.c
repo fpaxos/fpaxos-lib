@@ -47,20 +47,9 @@ struct lmdb_storage
 
 static int lmdb_storage_close(void* handle);
 
-static int
-lmdb_compare_iid(const MDB_val* lhs, const MDB_val* rhs)
-{
-	iid_t lid;
-	iid_t rid;
-	assert(lhs->mv_size == sizeof(iid_t));
-	assert(rhs->mv_size == sizeof(iid_t));
-	lid = *((iid_t* ) lhs->mv_data);
-	rid = *((iid_t* ) rhs->mv_data);
-	return (lid == rid) ? 0 : (lid < rid) ? -1 : 1;
-}
 
 static int
-	lmdb_storage_init(struct lmdb_storage* s, char* db_env_path)
+lmdb_storage_init(struct lmdb_storage* s, char* db_env_path)
 {
 	int result;
 	MDB_env* env = NULL;
@@ -77,8 +66,8 @@ static int
 		goto error;
 	}
 	if ((result = mdb_env_open(env, db_env_path,
-	!paxos_config.lmdb_sync ? MDB_NOSYNC : 0,
-	S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)) != 0) {
+		!paxos_config.lmdb_sync ? MDB_NOSYNC : 0 | MDB_INTEGERKEY,
+		S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)) != 0) {
 		paxos_log_error("Could not open lmdb environment at %s. %s",
 		db_env_path, mdb_strerror(result));
 		goto error;
@@ -91,11 +80,6 @@ static int
 	if ((result = mdb_open(txn, NULL, 0, &dbi)) != 0) {
 		paxos_log_error("Could not open db on lmdb environment at %s. %s",
 		db_env_path, mdb_strerror(result));
-		goto error;
-	}
-	if ((result = mdb_set_compare(txn, dbi, lmdb_compare_iid)) != 0) {
-		paxos_log_error("Could setup compare function on lmdb "
-			"environment at %s. %s", db_env_path, mdb_strerror(result));
 		goto error;
 	}
 	if ((result = mdb_txn_commit(txn)) != 0) {
