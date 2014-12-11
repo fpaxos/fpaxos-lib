@@ -47,6 +47,17 @@ struct bdb_storage
 static void bdb_storage_tx_begin(void* handle);
 static void bdb_storage_tx_commit(void* handle);
 
+static int
+bdb_compare_iid(DB* db, const DBT* lhs, const DBT* rhs)
+{
+	iid_t lid, rid;
+	assert(lhs->size == sizeof(iid_t));
+	assert(rhs->size == sizeof(iid_t));
+	lid = *((iid_t* ) lhs->data);
+	rid = *((iid_t* ) rhs->data);
+	return (lid == rid) ? 0 : (lid < rid) ? -1 : 1;
+}
+
 static struct bdb_storage*
 bdb_storage_new(int acceptor_id)
 {
@@ -99,7 +110,7 @@ bdb_init_tx_handle(struct bdb_storage* s, char* db_env_path)
 		DB_INIT_LOCK    |  /* Initialize the locking subsystem */
 		DB_INIT_LOG     |  /* Initialize the logging subsystem */
 		DB_INIT_TXN     |  /* Initialize the transactional subsystem. */
-		DB_THREAD       |  /* Cause the environment to be free-threaded */  
+		// DB_THREAD       |  /* Cause the environment to be free-threaded */
 		DB_REGISTER 	|
 		DB_INIT_MPOOL;     /* Initialize the memory pool (in-memory cache) */
 
@@ -135,6 +146,7 @@ bdb_init_db(struct bdb_storage* s, char* db_path)
 	}
 	
 	dbp = s->db;
+	dbp->set_bt_compare(dbp, bdb_compare_iid);
     
 	// DB flags
 	int flags = DB_CREATE;          /*Create if not existing */
@@ -303,7 +315,120 @@ bdb_storage_put(void* handle, paxos_accepted* acc)
 		paxos_log_error("BDB->put() failed! %s", db_strerror(rv));
 		return rv;
 	}
+	free(buffer);
 
+	return 0;
+}
+
+static iid_t
+bdb_storage_get_trim_instance(void* handle)
+{
+	struct bdb_storage* s = handle;
+	int result;
+	iid_t iid = 1, k = 0;
+	DBT dbkey, dbdata;
+
+	memset(&dbkey, 0, sizeof(DBT));
+	memset(&dbdata, 0, sizeof(DBT));
+
+	dbkey.data = &k;
+	dbkey.size = sizeof(iid_t);
+
+	dbdata.data = &iid;
+	dbdata.ulen = sizeof(iid_t);
+	dbdata.flags = DB_DBT_USERMEM;
+
+	result = s->db->get(s->db, s->txn, &dbkey, &dbdata, 0);
+	if (result == DB_NOTFOUND || result == DB_KEYEMPTY) {
+		return iid;
+	} else if (result != 0) {
+		paxos_log_error("Error while reading trim instance: %s",
+			db_strerror(result));
+		return 0;
+	}
+
+	return iid;
+}
+
+static int
+bdb_storage_put_trim_instance(void* handle, iid_t iid)
+{
+	struct bdb_storage* s = handle;
+	iid_t k = 0;
+	int result;
+	DBT dbkey, dbdata;
+
+	memset(&dbkey, 0, sizeof(DBT));
+	memset(&dbdata, 0, sizeof(DBT));
+
+	dbkey.data = &k;
+	dbkey.size = sizeof(iid_t);
+
+	dbdata.data = &iid;
+	dbdata.size = sizeof(iid_t);
+
+	result = s->db->put(s->db, s->txn, &dbkey, &dbdata, 0);
+	if (result != 0) {
+		paxos_log_error("BDB->put() failed! %s", db_strerror(result));
+		return result;
+	}
+	return 0;
+}
+
+static int
+bdb_storage_trim(void* handle, iid_t iid)
+{
+	struct bdb_storage* s = handle;
+	int result;
+	iid_t min = 0;
+	DBT dbkey, dbdata;
+	DBC* cursor = NULL;
+
+	if (iid == 0)
+		return 0;
+
+	memset(&dbkey, 0, sizeof(DBT));
+	memset(&dbdata, 0, sizeof(DBT));
+
+	bdb_storage_put_trim_instance(handle, iid);
+
+	if ((result = s->db->cursor(s->db, s->txn, &cursor, 0)) != 0) {
+		paxos_log_error("Could not create cursor. %s", db_strerror(result));
+		goto cleanup_exit;
+	}
+
+	dbkey.data = &min;
+	dbkey.size = sizeof(iid_t);
+	dbdata.data = NULL;
+	dbdata.size = 0;
+	dbdata.flags = DB_DBT_REALLOC;
+
+	do {
+		result = cursor->c_get(cursor, &dbkey, &dbdata, DB_NEXT);
+		if (result == 0) {
+			min = *(iid_t*)dbkey.data;
+		} else {
+			paxos_log_error("Could not read next entry. %s",
+				db_strerror(result));
+			goto cleanup_exit;
+		}
+
+		if (min != 0 && min <= iid) {
+			if (cursor->c_del(cursor, 0) != 0) {
+				paxos_log_error("cursor->c_del failed. %s",
+					db_strerror(result));
+				goto cleanup_exit;
+			}
+		}
+	} while (min <= iid);
+
+cleanup_exit:
+	if (dbdata.data) {
+		free(dbdata.data);
+	}
+	if (cursor) {
+		cursor->c_close(cursor);
+	}
 	return 0;
 }
 
@@ -317,4 +442,6 @@ storage_init_bdb(struct storage* s, int acceptor_id)
 	s->api.tx_commit = bdb_storage_tx_commit;
 	s->api.get = bdb_storage_get;
 	s->api.put = bdb_storage_put;
+	s->api.trim = bdb_storage_trim;
+	s->api.get_trim_instance = bdb_storage_get_trim_instance;
 }

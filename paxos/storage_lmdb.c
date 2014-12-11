@@ -47,6 +47,16 @@ struct lmdb_storage
 
 static int lmdb_storage_close(void* handle);
 
+static int
+	lmdb_compare_iid(const MDB_val* lhs, const MDB_val* rhs)
+{
+	iid_t lid, rid;
+	assert(lhs->mv_size == sizeof(iid_t));
+	assert(rhs->mv_size == sizeof(iid_t));
+	lid = *((iid_t*) lhs->mv_data);
+	rid = *((iid_t*) rhs->mv_data);
+	return (lid == rid) ? 0 : (lid < rid) ? -1 : 1;
+}
 
 static int
 lmdb_storage_init(struct lmdb_storage* s, char* db_env_path)
@@ -80,6 +90,11 @@ lmdb_storage_init(struct lmdb_storage* s, char* db_env_path)
 	if ((result = mdb_open(txn, NULL, 0, &dbi)) != 0) {
 		paxos_log_error("Could not open db on lmdb environment at %s. %s",
 		db_env_path, mdb_strerror(result));
+		goto error;
+	}
+	if ((result = mdb_set_compare(txn, dbi, lmdb_compare_iid)) != 0) {
+		paxos_log_error("Could setup compare function on lmdb "
+			"environment at %s. %s", db_env_path, mdb_strerror(result));
 		goto error;
 	}
 	if ((result = mdb_txn_commit(txn)) != 0) {
@@ -247,7 +262,102 @@ lmdb_storage_put(void* handle, paxos_accepted* acc)
 
 	result = mdb_put(s->txn, s->dbi, &key, &data, 0);
 	assert(result == 0);
+	free(buffer);
+	return 0;
+}
 
+static iid_t
+lmdb_storage_get_trim_instance(void* handle)
+{
+	struct lmdb_storage* s = handle;
+	int result;
+	iid_t iid = 1, k = 0;
+	MDB_val key, data;
+
+	key.mv_data = &k;
+	key.mv_size = sizeof(iid_t);
+
+	if ((result = mdb_get(s->txn, s->dbi, &key, &data)) != 0) {
+		if (result != MDB_NOTFOUND) {
+			paxos_log_error("mdb_get failed: %s", mdb_strerror(result));
+			assert(result == 0);
+		} else {
+			iid = 1;
+		}
+	} else {
+		iid = *(iid_t*)data.mv_data;
+	}
+
+	return iid;
+}
+
+static int
+lmdb_storage_put_trim_instance(void* handle, iid_t iid)
+{
+	struct lmdb_storage* s = handle;
+	iid_t k = 0;
+	int result;
+	MDB_val key, data;
+
+	key.mv_data = &k;
+	key.mv_size = sizeof(iid_t);
+
+	data.mv_data = &iid;
+	data.mv_size = sizeof(iid_t);
+
+	result = mdb_put(s->txn, s->dbi, &key, &data, 0);
+	if (result != 0)
+		paxos_log_error("%s\n", mdb_strerror(result));
+	assert(result == 0);
+
+	return 0;
+}
+
+static int
+lmdb_storage_trim(void* handle, iid_t iid)
+{
+	struct lmdb_storage* s = handle;
+	int result;
+	iid_t min = 0;
+	MDB_cursor* cursor = NULL;
+	MDB_val key, data;
+
+	if (iid == 0)
+		return 0;
+
+	lmdb_storage_put_trim_instance(handle, iid);
+
+	if ((result = mdb_cursor_open(s->txn, s->dbi, &cursor)) != 0) {
+		paxos_log_error("Could not create cursor. %s", mdb_strerror(result));
+		goto cleanup_exit;
+	}
+
+	key.mv_data = &min;
+	key.mv_size = sizeof(iid_t);
+
+	do {
+		if ((result = mdb_cursor_get(cursor, &key, &data, MDB_NEXT)) == 0) {
+			assert(key.mv_size = sizeof(iid_t));
+			min = *(iid_t*)key.mv_data;
+		} else {
+			paxos_log_error("Could not read next entry. %s",
+			mdb_strerror(result));
+			goto cleanup_exit;
+		}
+
+		if (min != 0 && min <= iid) {
+			if (mdb_cursor_del(cursor, 0) != 0) {
+				paxos_log_error("mdb_cursor_del failed. %s",
+				mdb_strerror(result));
+				goto cleanup_exit;
+			}
+		}
+	} while (min <= iid);
+
+	cleanup_exit:
+	if (cursor) {
+		mdb_cursor_close(cursor);
+	}
 	return 0;
 }
 
@@ -261,4 +371,6 @@ storage_init_lmdb(struct storage* s, int acceptor_id)
 	s->api.tx_commit = lmdb_storage_tx_commit;
 	s->api.get = lmdb_storage_get;
 	s->api.put = lmdb_storage_put;
+	s->api.trim = lmdb_storage_trim;
+	s->api.get_trim_instance = lmdb_storage_get_trim_instance;
 }

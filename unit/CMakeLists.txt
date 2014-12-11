@@ -4,7 +4,7 @@ include_directories(${CMAKE_SOURCE_DIR}/evpaxos/include)
 add_subdirectory(gtest)
 
 add_executable(runtest runtest.cc acceptor_unittest.cc learner_unittest.cc 
-	proposer_unittest.cc config_unittest.cc)
+	proposer_unittest.cc config_unittest.cc storage_unittest.cc)
 target_link_libraries(runtest evpaxos pthread gtest-all)
 
 add_test(unit-tests runtest)

@@ -29,6 +29,10 @@
 #ifndef _STORAGE_H_
 #define _STORAGE_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "paxos.h"
 
 struct storage
@@ -42,6 +46,8 @@ struct storage
 		void (*tx_commit) (void* handle);
 		int (*get) (void* handle, iid_t iid, paxos_accepted* out);
 		int (*put) (void* handle, paxos_accepted* acc);
+		int (*trim) (void* handle, iid_t iid);
+		iid_t (*get_trim_instance) (void* handle);
 	} api;
 };
 
@@ -52,9 +58,15 @@ void storage_tx_begin(struct storage* store);
 void storage_tx_commit(struct storage* store);
 int storage_get_record(struct storage* store, iid_t iid, paxos_accepted* out);
 int storage_put_record(struct storage* store, paxos_accepted* acc);
+int storage_trim(struct storage* store, iid_t iid);
+iid_t storage_get_trim_instance(struct storage* store);
 
 void storage_init_mem(struct storage* s, int acceptor_id);
 void storage_init_bdb(struct storage* s, int acceptor_id);
 void storage_init_lmdb(struct storage* s, int acceptor_id);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

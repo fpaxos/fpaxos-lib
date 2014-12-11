@@ -114,6 +114,18 @@ mem_storage_put(void* handle, paxos_accepted* acc)
 	return 1;
 }
 
+static int
+mem_storage_trim(void* handle, iid_t iid)
+{
+	return 0;
+}
+
+static iid_t
+mem_storage_get_trim_instance(void* handle)
+{
+	return 1;
+}
+
 static void
 paxos_accepted_copy(paxos_accepted* dst, paxos_accepted* src)
 {
@@ -135,4 +147,6 @@ storage_init_mem(struct storage* s, int acceptor_id)
 	s->api.tx_commit = mem_storage_tx_commit;
 	s->api.get = mem_storage_get;
 	s->api.put = mem_storage_put;
+	s->api.trim = mem_storage_trim;
+	s->api.get_trim_instance = mem_storage_get_trim_instance;
 }

@@ -87,3 +87,15 @@ storage_put_record(struct storage* store, paxos_accepted* acc)
 {
 	return store->api.put(store->handle, acc);
 }
+
+int
+storage_trim(struct storage* store, iid_t iid)
+{
+	return store->api.trim(store->handle, iid);
+}
+
+iid_t
+storage_get_trim_instance(struct storage* store)
+{
+	return store->api.get_trim_instance(store->handle);
+}
