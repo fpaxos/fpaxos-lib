@@ -1,29 +1,29 @@
 /*
-	Copyright (c) 2013, University of Lugano
-	All rights reserved.
-
-	Redistribution and use in source and binary forms, with or without
-	modification, are permitted provided that the following conditions are met:
-    	* Redistributions of source code must retain the above copyright
-		  notice, this list of conditions and the following disclaimer.
-		* Redistributions in binary form must reproduce the above copyright
-		  notice, this list of conditions and the following disclaimer in the
-		  documentation and/or other materials provided with the distribution.
-		* Neither the name of the copyright holders nor the
-		  names of its contributors may be used to endorse or promote products
-		  derived from this software without specific prior written permission.
-
-	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-	AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-	IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
-	ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
-	DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-	(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-	LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-	ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF 
-	THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.	
-*/
+ * Copyright (c) 2013-2014, University of Lugano
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of the copyright holders nor the names of it
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 
 #include "proposer.h"
@@ -52,6 +52,7 @@ struct proposer
 	int id;
 	int acceptors;
 	struct carray* values;
+	iid_t max_trim_iid;
 	iid_t next_prepare_iid;
 	khash_t(instance)* prepare_instances; /* Waiting for prepare acks */
 	khash_t(instance)* accept_instances;  /* Waiting for accept acks */
@@ -69,6 +70,8 @@ static void proposer_preempt(struct proposer* p, struct instance* inst,
 	paxos_prepare* out);
 static void proposer_move_instance(khash_t(instance)* f, khash_t(instance)* t,
 	struct instance* inst);
+static void proposer_trim_instances(struct proposer* p, khash_t(instance)* h,
+	iid_t iid);
 static struct instance* instance_new(iid_t iid, ballot_t ballot, int acceptors);
 static void instance_free(struct instance* inst);
 static int instance_has_value(struct instance* inst);
@@ -86,6 +89,7 @@ proposer_new(int id, int acceptors)
 	p = malloc(sizeof(struct proposer));
 	p->id = id;
 	p->acceptors = acceptors;
+	p->max_trim_iid = 0;
 	p->next_prepare_iid = 0;
 	p->values = carray_new(128);
 	p->prepare_instances = kh_init(instance);
@@ -118,6 +122,12 @@ int
 proposer_prepared_count(struct proposer* p)
 {
 	return kh_size(p->prepare_instances);
+}
+
+void
+proposer_set_instance_id(struct proposer* p, iid_t iid)
+{
+	p->next_prepare_iid = iid;
 }
 
 void
@@ -280,6 +290,24 @@ proposer_receive_preempted(struct proposer* p, paxos_preempted* ack,
 	}
 }
 
+void
+proposer_receive_acceptor_state(struct proposer* p, paxos_acceptor_state* state)
+{
+	// ignore old trim messages
+	if (p->max_trim_iid > state->trim_iid)
+		return;
+	
+	p->max_trim_iid = state->trim_iid;
+
+	// advance next_prepare_iid
+	if (p->next_prepare_iid < state->trim_iid)
+		p->next_prepare_iid = state->trim_iid;
+	
+	// remove instances older than trim_iid
+	proposer_trim_instances(p, p->prepare_instances, state->trim_iid);
+	proposer_trim_instances(p, p->accept_instances, state->trim_iid);
+}
+
 struct timeout_iterator*
 proposer_timeout_iterator(struct proposer* p)
 {
@@ -372,6 +400,25 @@ proposer_move_instance(khash_t(instance)* f, khash_t(instance)* t,
 	assert(rv > 0);
 	kh_value(t, k) = inst;
 	quorum_clear(&inst->quorum);
+}
+
+static void
+proposer_trim_instances(struct proposer* p, khash_t(instance)* h, iid_t iid)
+{
+	khiter_t k;
+	for (k = kh_begin(h); k != kh_end(h); ++k) {
+		if (!kh_exist(h, k))
+			continue;
+		struct instance* inst = kh_value(h,k);
+		if (inst->iid <= iid) {
+			if (instance_has_value(inst)) {
+				carray_push_back(p->values, inst->value);
+				inst->value = NULL;
+			}
+			kh_del_instance(h, k);
+			instance_free(inst);
+		}
+	}
 }
 
 static struct instance*

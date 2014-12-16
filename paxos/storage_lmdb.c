@@ -48,7 +48,7 @@ struct lmdb_storage
 static int lmdb_storage_close(void* handle);
 
 static int
-	lmdb_compare_iid(const MDB_val* lhs, const MDB_val* rhs)
+lmdb_compare_iid(const MDB_val* lhs, const MDB_val* rhs)
 {
 	iid_t lid, rid;
 	assert(lhs->mv_size == sizeof(iid_t));
@@ -271,7 +271,7 @@ lmdb_storage_get_trim_instance(void* handle)
 {
 	struct lmdb_storage* s = handle;
 	int result;
-	iid_t iid = 1, k = 0;
+	iid_t iid = 0, k = 0;
 	MDB_val key, data;
 
 	key.mv_data = &k;
@@ -282,7 +282,7 @@ lmdb_storage_get_trim_instance(void* handle)
 			paxos_log_error("mdb_get failed: %s", mdb_strerror(result));
 			assert(result == 0);
 		} else {
-			iid = 1;
+			iid = 0;
 		}
 	} else {
 		iid = *(iid_t*)data.mv_data;
@@ -340,8 +340,6 @@ lmdb_storage_trim(void* handle, iid_t iid)
 			assert(key.mv_size = sizeof(iid_t));
 			min = *(iid_t*)key.mv_data;
 		} else {
-			paxos_log_error("Could not read next entry. %s",
-			mdb_strerror(result));
 			goto cleanup_exit;
 		}
 

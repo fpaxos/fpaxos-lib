@@ -81,7 +81,7 @@ TEST_P(StorageTest, GetInitialTrimInstance) {
 	storage_tx_begin(&store);
 	iid_t iid = storage_get_trim_instance(&store);
 	storage_tx_commit(&store);
-	ASSERT_EQ(iid, 1);
+	ASSERT_EQ(iid, 0);
 }
 
 TEST_P(StorageTest, TrimInstanceZero) {
@@ -98,7 +98,7 @@ TEST_P(StorageTest, TrimInstanceZero) {
 	storage_tx_begin(&store);
 	iid_t iid = storage_get_trim_instance(&store);
 	storage_tx_commit(&store);
-	ASSERT_EQ(iid, 1);
+	ASSERT_EQ(iid, 0);
 }
 
 TEST_P(StorageTest, TrimAccepted) {

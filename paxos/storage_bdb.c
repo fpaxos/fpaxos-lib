@@ -325,7 +325,7 @@ bdb_storage_get_trim_instance(void* handle)
 {
 	struct bdb_storage* s = handle;
 	int result;
-	iid_t iid = 1, k = 0;
+	iid_t iid = 0, k = 0;
 	DBT dbkey, dbdata;
 
 	memset(&dbkey, 0, sizeof(DBT));
@@ -408,8 +408,6 @@ bdb_storage_trim(void* handle, iid_t iid)
 		if (result == 0) {
 			min = *(iid_t*)dbkey.data;
 		} else {
-			paxos_log_error("Could not read next entry. %s",
-				db_strerror(result));
 			goto cleanup_exit;
 		}
 

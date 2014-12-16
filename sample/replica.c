@@ -40,7 +40,7 @@ handle_sigint(int sig, short ev, void* arg)
 }
 
 static void
-deliver(char* value, size_t size, void* arg)
+deliver(unsigned iid, char* value, size_t size, void* arg)
 {
 	printf("Delivered value: %s\n", value);
 }

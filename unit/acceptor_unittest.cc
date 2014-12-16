@@ -1,29 +1,29 @@
 /*
-	Copyright (c) 2013, University of Lugano
-	All rights reserved.
-
-	Redistribution and use in source and binary forms, with or without
-	modification, are permitted provided that the following conditions are met:
-    	* Redistributions of source code must retain the above copyright
-		  notice, this list of conditions and the following disclaimer.
-		* Redistributions in binary form must reproduce the above copyright
-		  notice, this list of conditions and the following disclaimer in the
-		  documentation and/or other materials provided with the distribution.
-		* Neither the name of the copyright holders nor the
-		  names of its contributors may be used to endorse or promote products
-		  derived from this software without specific prior written permission.
-
-	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-	AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-	IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
-	ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
-	DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-	(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-	LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-	ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF 
-	THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.	
-*/
+ * Copyright (c) 2013-2014, University of Lugano
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of the copyright holders nor the names of it
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 
 #include "acceptor.h"
@@ -48,130 +48,139 @@ protected:
 	}
 };
 
+#define CHECK_PROMISE(msg, id, bal, vbal, val) {            \
+	ASSERT_EQ(msg.type, PAXOS_PROMISE);                     \
+	ASSERT_EQ(msg.u.promise.iid, id);                       \
+	ASSERT_EQ(msg.u.promise.ballot, bal);                   \
+	ASSERT_EQ(msg.u.promise.value_ballot, vbal);            \
+	ASSERT_EQ(msg.u.promise.value.paxos_value_len,          \
+		val == NULL ? 0 : strlen(val)+1);                   \
+	ASSERT_STREQ(msg.u.promise.value.paxos_value_val, val); \
+}
+
+#define CHECK_ACCEPTED(msg, id, bal, vbal, val) {            \
+	ASSERT_EQ(msg.type, PAXOS_ACCEPTED);                     \
+	ASSERT_EQ(msg.u.accepted.iid, id);                       \
+	ASSERT_EQ(msg.u.accepted.ballot, bal);                   \
+	ASSERT_EQ(msg.u.accepted.value_ballot, vbal);            \
+	ASSERT_EQ(msg.u.accepted.value.paxos_value_len,          \
+		val == NULL ? 0 : strlen(val)+1);                    \
+	ASSERT_STREQ(msg.u.accepted.value.paxos_value_val, val); \
+}
+
+#define CHECK_PREEMPTED(msg, id, bal) {     \
+	ASSERT_EQ(msg.type, PAXOS_PREEMPTED);   \
+	ASSERT_EQ(msg.u.preempted.iid, id);     \
+	ASSERT_EQ(msg.u.preempted.ballot, bal); \
+}
+
+
 TEST_P(AcceptorTest, Prepare) {
+	paxos_message msg;
 	paxos_prepare pre = {1, 101};
-	paxos_promise pro;
-	acceptor_receive_prepare(a, &pre, &pro);
-	ASSERT_EQ(pro.iid, 1);
-	ASSERT_EQ(pro.ballot, 101);
-	ASSERT_EQ(pro.value.paxos_value_len, 0);
+	acceptor_receive_prepare(a, &pre, &msg);
+	CHECK_PROMISE(msg, 1, 101, 0, NULL);
 }
 
 TEST_P(AcceptorTest, PrepareDuplicate) {
+	paxos_message msg;
 	paxos_prepare pre = {1, 101};
-	paxos_promise pro;
-	acceptor_receive_prepare(a, &pre, &pro);
-	acceptor_receive_prepare(a, &pre, &pro);
-	ASSERT_EQ(pro.iid, 1);
-	ASSERT_EQ(pro.ballot, 101);
-	ASSERT_EQ(pro.value.paxos_value_len, 0);
+	acceptor_receive_prepare(a, &pre, &msg);
+	acceptor_receive_prepare(a, &pre, &msg);
+	CHECK_PROMISE(msg, 1, 101, 0, NULL);
 }
 
 TEST_P(AcceptorTest, PrepareSmallerBallot) {
 	paxos_prepare pre;
-	paxos_promise pro;
+	paxos_message msg;
 	int ballots[] = {11, 5, 9, 10, 2};
 	for (int i = 0; i < (sizeof(ballots)/sizeof(int)); ++i) {
 		pre = (paxos_prepare) {1, ballots[i]};
-		acceptor_receive_prepare(a, &pre, &pro);
-		ASSERT_EQ(pro.ballot, ballots[0]);
+		acceptor_receive_prepare(a, &pre, &msg);
+		CHECK_PROMISE(msg, 1, ballots[0], 0, NULL);
 	}
 }
 
 TEST_P(AcceptorTest, PrepareHigherBallot) {
 	paxos_prepare pre;
-	paxos_promise pro;
+	paxos_message msg;
 	int ballots[] = {0, 10, 11, 20, 33};
 	for (int i = 0; i < sizeof(ballots)/sizeof(int); ++i) {
 		pre = (paxos_prepare) {1, ballots[i]};
-		acceptor_receive_prepare(a, &pre, &pro);
-		ASSERT_EQ(pro.ballot, ballots[i]);
+		acceptor_receive_prepare(a, &pre, &msg);
+		CHECK_PROMISE(msg, 1, ballots[i], 0, NULL);
 	}
 }
 
 TEST_P(AcceptorTest, Accept) {
+	paxos_message msg;
 	paxos_accept ar = {1, 101, {4, (char*)"foo"}};
-	paxos_accepted acc;
-	acceptor_receive_accept(a, &ar, &acc);
-	ASSERT_EQ(acc.iid, 1);
-	ASSERT_EQ(acc.ballot, 101);
-	ASSERT_EQ(acc.value_ballot, 101);
-	ASSERT_EQ(acc.value.paxos_value_len, 4);
-	ASSERT_STREQ("foo", acc.value.paxos_value_val);
-	paxos_accepted_destroy(&acc);
+	acceptor_receive_accept(a, &ar, &msg);
+	CHECK_ACCEPTED(msg, 1, 101, 101, "foo");
+	paxos_message_destroy(&msg);
 }
 
 TEST_P(AcceptorTest, AcceptPrepared) {
 	paxos_prepare pr = {1, 101};
 	paxos_accept ar = {1, 101, {8 , (char*)"foo bar"}};
-	paxos_promise pro;
-	paxos_accepted acc;
-	
-	acceptor_receive_prepare(a, &pr, &pro);
-	ASSERT_EQ(pro.ballot, 101);
-	ASSERT_EQ(pro.value.paxos_value_len, 0);
-	
-	acceptor_receive_accept(a, &ar, &acc);
-	ASSERT_EQ(acc.ballot, 101);
-	ASSERT_EQ(acc.value_ballot, 101);
-	
-	paxos_accepted_destroy(&acc);
+	paxos_message msg;
+
+	acceptor_receive_prepare(a, &pr, &msg);
+	CHECK_PROMISE(msg, 1, 101, 0, NULL);
+
+	acceptor_receive_accept(a, &ar, &msg);
+	CHECK_ACCEPTED(msg, 1, 101, 101, "foo bar");
+	paxos_message_destroy(&msg);
 }
 
 TEST_P(AcceptorTest, AcceptHigherBallot) {
 	paxos_prepare pr = {1, 101};
 	paxos_accept ar = {1, 201, {4, (char*)"baz"}};
-	paxos_promise pro;
-	paxos_accepted acc;
-	
-	acceptor_receive_prepare(a, &pr, &pro);
-	ASSERT_EQ(pro.ballot, 101);
-	ASSERT_EQ(pro.value.paxos_value_len, 0);
-	
-	acceptor_receive_accept(a, &ar, &acc);
-	ASSERT_EQ(acc.ballot, 201);
-	ASSERT_EQ(acc.value_ballot, 201);
-	paxos_accepted_destroy(&acc);
+	paxos_message msg;
+
+	acceptor_receive_prepare(a, &pr, &msg);
+	CHECK_PROMISE(msg, 1, 101, 0, NULL);
+
+	acceptor_receive_accept(a, &ar, &msg);
+	CHECK_ACCEPTED(msg, 1, 201, 201, "baz");
+	paxos_message_destroy(&msg);
 }
 
 TEST_P(AcceptorTest, AcceptSmallerBallot) {
 	paxos_prepare pr = {1, 201};
 	paxos_accept ar = {1, 101, {4, (char*)"bar"}};
-	paxos_promise pro;
-	paxos_accepted acc;
-	
-	acceptor_receive_prepare(a, &pr, &pro);
-	ASSERT_EQ(pro.ballot, 201);
-	ASSERT_EQ(pro.value.paxos_value_len, 0);
-	
-	acceptor_receive_accept(a, &ar, &acc);
-	ASSERT_EQ(acc.ballot, 201);
-	ASSERT_EQ(acc.value_ballot, 0);
+	paxos_message msg;
+
+	acceptor_receive_prepare(a, &pr, &msg);
+	CHECK_PROMISE(msg, 1, 201, 0, NULL);
+
+	acceptor_receive_accept(a, &ar, &msg);
+	CHECK_PREEMPTED(msg, 1, 201);
+	paxos_message_destroy(&msg);
 }
 
 TEST_P(AcceptorTest, PrepareWithAcceptedValue) {
 	paxos_prepare pr = {1, 101};
 	paxos_accept ar = {1, 101, {4, (char*)"bar"}};
-	paxos_promise pro;
-	paxos_accepted acc;
-	
-	acceptor_receive_prepare(a, &pr, &pro);
-	acceptor_receive_accept(a, &ar, &acc);
-	paxos_accepted_destroy(&acc);
-	
+	paxos_message msg;
+
+	acceptor_receive_prepare(a, &pr, &msg);
+	acceptor_receive_accept(a, &ar, &msg);
+	paxos_message_destroy(&msg);
+
 	pr = (paxos_prepare) {1, 201};
-	acceptor_receive_prepare(a, &pr, &pro);
-	ASSERT_EQ(pro.ballot, 201);
-	ASSERT_EQ(pro.value_ballot, 101);
-	paxos_promise_destroy(&pro);
+	acceptor_receive_prepare(a, &pr, &msg);
+	CHECK_PROMISE(msg, 1, 201, 101, "bar");
+	paxos_message_destroy(&msg);
 }
 
 TEST_P(AcceptorTest, Repeat) {
-	paxos_accept ar = {10, 101, {10, (char*)"aaaaaaaaa"}};
+	paxos_message msg;
 	paxos_accepted acc;
-	
-	acceptor_receive_accept(a, &ar, &acc);
-	paxos_accepted_destroy(&acc);
+	paxos_accept ar = {10, 101, {10, (char*)"aaaaaaaaa"}};
+
+	acceptor_receive_accept(a, &ar, &msg);
+	paxos_message_destroy(&msg);
 	ASSERT_TRUE(acceptor_receive_repeat(a, 10, &acc));
 	paxos_accepted_destroy(&acc);
 }
@@ -184,11 +193,49 @@ TEST_P(AcceptorTest, RepeatEmpty) {
 TEST_P(AcceptorTest, RepeatPrepared) {
 	paxos_accepted acc;
 	paxos_prepare pre = {1, 101};
-	paxos_promise pro;
+	paxos_message msg;
+
+	acceptor_receive_prepare(a, &pre, &msg);
+	paxos_message_destroy(&msg);
+	ASSERT_FALSE(acceptor_receive_repeat(a, 1, &acc));
+}
+
+TEST_P(AcceptorTest, TrimmedInstances) {
+	paxos_message msg;
+
+	// in-memory storage does not support trimming
+	if (paxos_config.storage_backend == PAXOS_MEM_STORAGE)
+		return;
+
+	paxos_accept ar1 = {1, 101, {5, (char*)"1234"}};
+	acceptor_receive_accept(a, &ar1, &msg);
+	paxos_message_destroy(&msg);
 	
-	acceptor_receive_prepare(a, &pre, &pro);
-	paxos_promise_destroy(&pro);
-	ASSERT_FALSE(acceptor_receive_repeat(a, 1, &acc));	
+	paxos_accept ar2 = {10, 101, {5, (char*)"1234"}};
+	acceptor_receive_accept(a, &ar2, &msg);
+	paxos_message_destroy(&msg);
+	
+	
+	// acceptors should not prepare/accept/repeat trimmed instances
+	paxos_trim trim = {5};
+	acceptor_receive_trim(a, &trim);
+	
+	paxos_prepare pre;
+	for (int i = 1; i < 6; ++i) {
+		pre = (paxos_prepare){i, 101};
+		ASSERT_FALSE(acceptor_receive_prepare(a, &pre, &msg));
+	}
+	
+	paxos_accept acc;
+	for (int i = 1; i < 6; ++i) {
+		acc = (paxos_accept){i, 101, {5, (char*)"test"}};;
+		ASSERT_FALSE(acceptor_receive_accept(a, &acc, &msg));
+	}
+	
+	paxos_accepted accepted;
+	for (int i = 1; i < 6; ++i) {
+		ASSERT_FALSE(acceptor_receive_repeat(a, i, &accepted));
+	}
 }
 
 

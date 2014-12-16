@@ -26,6 +26,7 @@
 */
 
 
+#include <paxos.h>
 #include <evpaxos.h>
 #include <config.h>
 #include <errno.h>
@@ -83,7 +84,7 @@ client_submit_value(struct client* c)
 }
 
 static void
-on_deliver(char* value, size_t size, void* arg)
+on_deliver(unsigned iid, char* value, size_t size, void* arg)
 {
 	struct client* c = arg;
 	c->stats.delivered++;
@@ -146,6 +147,7 @@ make_client(const char* config, int proposer_id, int outstanding, int value_size
 	c->stats_ev = evtimer_new(c->base, on_stats, c);
 	event_add(c->stats_ev, &c->stats_interval);
 	
+	paxos_config.learner_catch_up = 0;
 	c->learner = evlearner_init(config, on_deliver, c, c->base);
 	
 	c->sig = evsignal_new(c->base, SIGINT, handle_sigint, c->base);
