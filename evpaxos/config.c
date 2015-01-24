@@ -26,8 +26,8 @@
 */
 
 
-#include "config.h"
 #include "paxos.h"
+#include "evpaxos.h"
 #include <stdio.h>
 #include <ctype.h>
 #include <errno.h>

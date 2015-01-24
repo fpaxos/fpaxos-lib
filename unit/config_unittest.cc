@@ -1,4 +1,4 @@
-#include "config.h"
+#include "evpaxos.h"
 #include "gtest/gtest.h"
 
 TEST(ConfigTest, TooManyProcesses) {

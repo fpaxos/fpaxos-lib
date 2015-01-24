@@ -26,21 +26,25 @@
  */
 
 
-#ifndef _TCP_SENDBUF_H_
-#define _TCP_SENDBUF_H_
+#ifndef _CONFIG_READER_H_
+#define _CONFIG_READER_H_
 
-#include "paxos_types.h"
-#include <event2/buffer.h>
-#include <event2/bufferevent.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void send_paxos_message(struct bufferevent* bev, paxos_message* msg);
-void send_paxos_prepare(struct bufferevent* bev, paxos_prepare* msg);
-void send_paxos_promise(struct bufferevent* bev, paxos_promise* msg);
-void send_paxos_accept(struct bufferevent* bev, paxos_accept* msg);
-void send_paxos_accepted(struct bufferevent* bev, paxos_accepted* msg);
-void send_paxos_preempted(struct bufferevent* bev, paxos_preempted* msg);
-void send_paxos_repeat(struct bufferevent* bev, paxos_repeat* msg);
-void send_paxos_trim(struct bufferevent* bev, paxos_trim* msg);
-int recv_paxos_message(struct evbuffer* in, paxos_message* out);
+struct evpaxos_config;
+
+struct evpaxos_config* evpaxos_config_read(const char* path);
+void evpaxos_config_free(struct evpaxos_config* config);
+struct sockaddr_in evpaxos_proposer_address(struct evpaxos_config* c, int i);
+int evpaxos_proposer_listen_port(struct evpaxos_config* c, int i);
+int evpaxos_acceptor_count(struct evpaxos_config* config);
+struct sockaddr_in evpaxos_acceptor_address(struct evpaxos_config* c, int i);
+int evpaxos_acceptor_listen_port(struct evpaxos_config* c, int i);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

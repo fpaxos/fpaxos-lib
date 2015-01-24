@@ -28,7 +28,6 @@
 
 #include "evpaxos.h"
 #include "peers.h"
-#include "config.h"
 #include "message.h"
 #include "proposer.h"
 #include <string.h>

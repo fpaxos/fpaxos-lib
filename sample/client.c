@@ -28,7 +28,6 @@
 
 #include <paxos.h>
 #include <evpaxos.h>
-#include <config.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <time.h>

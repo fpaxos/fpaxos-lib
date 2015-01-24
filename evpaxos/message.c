@@ -26,6 +26,7 @@
  */
 
 
+#include "paxos.h"
 #include "message.h"
 #include "paxos_types_pack.h"
 #include <string.h>

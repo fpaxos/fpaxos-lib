@@ -30,7 +30,8 @@
 #define _PEERS_H_
 
 #include "paxos.h"
-#include "config.h"
+#include "evpaxos.h"
+#include "paxos_types.h"
 #include <event2/bufferevent.h>
 
 struct peer;

@@ -28,7 +28,6 @@
 
 #include "evpaxos.h"
 #include "peers.h"
-#include "config.h"
 #include "acceptor.h"
 #include "message.h"
 #include <stdio.h>

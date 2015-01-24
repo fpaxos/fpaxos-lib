@@ -30,7 +30,6 @@
 #include "learner.h"
 #include "peers.h"
 #include "message.h"
-#include "config.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <event2/event.h>
