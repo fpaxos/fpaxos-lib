@@ -160,5 +160,7 @@ const int backends[] = {
 #endif
 };
 
+#if HAS_BDB || HAS_LMDB
 INSTANTIATE_TEST_CASE_P(StorageBackends, StorageTest, 
 	testing::ValuesIn(backends));
+#endif
