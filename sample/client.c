@@ -37,9 +37,20 @@
 
 #define MAX_VALUE_SIZE 8192
 
+
+struct client_value
+{
+  struct timeval t;
+  size_t size;
+  char value[MAX_VALUE_SIZE];
+};
+
 struct stats
 {
 	int delivered;
+	long min_latency;
+	long max_latency;
+	long avg_latency;
 };
 
 struct client
@@ -77,16 +88,46 @@ random_string(char *s, const int len)
 static void
 client_submit_value(struct client* c)
 {
-	char value[MAX_VALUE_SIZE];
-	random_string(value, c->value_size);
-	paxos_submit(c->bev, value, c->value_size);
+	struct client_value v;
+	gettimeofday(&v.t, NULL);
+	v.size = c->value_size;
+	random_string(v.value, v.size);
+	size_t size = sizeof(struct timeval) + sizeof(size_t) + v.size;
+	paxos_submit(c->bev, (char*)&v, size);
+}
+
+// Returns t2 - t1 in microseconds.
+long
+timeval_diff(struct timeval* t1, struct timeval* t2)
+{
+	long us;
+	us = (t2->tv_sec - t1->tv_sec) * 1e6;
+	if (us < 0) return 0;
+	us += (t2->tv_usec - t1->tv_usec);
+	return us;
+}
+
+static void
+update_stats(struct stats* stats, struct client_value* delivered)
+{
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	long lat = timeval_diff(&delivered->t, &tv);
+	stats->delivered++;
+	stats->avg_latency = stats->avg_latency + 
+		((lat - stats->avg_latency) / stats->delivered);
+	if (stats->min_latency == 0 || lat < stats->min_latency)
+		stats->min_latency = lat;
+	if (lat > stats->max_latency)
+		stats->max_latency = lat;
 }
 
 static void
 on_deliver(unsigned iid, char* value, size_t size, void* arg)
 {
 	struct client* c = arg;
-	c->stats.delivered++;
+	struct client_value* v = (struct client_value*)value;
+	update_stats(&c->stats, v);
 	client_submit_value(c);
 }
 
@@ -95,8 +136,10 @@ on_stats(evutil_socket_t fd, short event, void *arg)
 {
 	struct client* c = arg;
 	double mbps = (double)(c->stats.delivered*c->value_size*8) / (1024*1024);
-	printf("%d value/sec, %.2f Mbps\n", c->stats.delivered, mbps);
-	c->stats.delivered = 0;
+	printf("%d value/sec, %.2f Mbps, latency min %ld us max %ld us avg %ld us\n", 
+		c->stats.delivered, mbps, c->stats.min_latency, c->stats.max_latency,
+		c->stats.avg_latency);
+	memset(&c->stats, 0, sizeof(struct stats));
 	event_add(c->stats_ev, &c->stats_interval);
 }
 
