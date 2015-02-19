@@ -76,7 +76,7 @@ lmdb_storage_init(struct lmdb_storage* s, char* db_env_path)
 		goto error;
 	}
 	if ((result = mdb_env_open(env, db_env_path,
-		!paxos_config.lmdb_sync ? MDB_NOSYNC : 0 | MDB_INTEGERKEY,
+		!paxos_config.lmdb_sync ? MDB_NOSYNC : 0,
 		S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)) != 0) {
 		paxos_log_error("Could not open lmdb environment at %s. %s",
 		db_env_path, mdb_strerror(result));
@@ -87,7 +87,7 @@ lmdb_storage_init(struct lmdb_storage* s, char* db_env_path)
 		db_env_path, mdb_strerror(result));
 		goto error;
 	}
-	if ((result = mdb_open(txn, NULL, 0, &dbi)) != 0) {
+	if ((result = mdb_open(txn, NULL, MDB_INTEGERKEY, &dbi)) != 0) {
 		paxos_log_error("Could not open db on lmdb environment at %s. %s",
 		db_env_path, mdb_strerror(result));
 		goto error;
