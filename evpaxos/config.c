@@ -70,6 +70,7 @@ struct option
 struct option options[] =
 {
 	{ "verbosity", &paxos_config.verbosity, option_verbosity },
+	{ "tcp-nodelay", &paxos_config.tcp_nodelay, option_boolean },
 	{ "learner-catch-up", &paxos_config.learner_catch_up, option_boolean },
 	{ "proposer-timeout", &paxos_config.proposer_timeout, option_integer },
 	{ "proposer-preexec-window", &paxos_config.proposer_preexec_window, option_integer },

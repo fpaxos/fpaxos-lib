@@ -34,6 +34,7 @@
 #include <string.h>
 #include <signal.h>
 #include <event2/event.h>
+#include <netinet/tcp.h>
 
 #define MAX_VALUE_SIZE 8192
 
@@ -97,7 +98,7 @@ client_submit_value(struct client* c)
 }
 
 // Returns t2 - t1 in microseconds.
-long
+static long
 timeval_diff(struct timeval* t1, struct timeval* t2)
 {
 	long us;
@@ -167,6 +168,8 @@ connect_to_proposer(struct client* c, const char* config, int proposer_id)
 	bufferevent_setcb(bev, NULL, NULL, on_connect, c);
 	bufferevent_enable(bev, EV_READ|EV_WRITE);
 	bufferevent_socket_connect(bev, (struct sockaddr*)&addr, sizeof(addr));
+	int flag = 1;
+	setsockopt(bufferevent_getfd(bev), IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
 	return bev;
 }
 
