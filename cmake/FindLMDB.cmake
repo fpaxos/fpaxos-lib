@@ -13,8 +13,6 @@ find_library(LMDB_LIBRARY lmdb HINTS "${LMDB_ROOT}/lib")
 set(LMDB_LIBRARIES ${LMDB_LIBRARY})
 set(LMDB_INCLUDE_DIRS ${LMDB_INCLUDE_DIR})
 
-MESSAGE(STATUS ${LMDB_INCLUDE_DIRS})
-
 include(FindPackageHandleStandardArgs)
 
 # handle the QUIETLY and REQUIRED arguments and set LMDB_FOUND to TRUE
