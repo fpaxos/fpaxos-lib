@@ -208,8 +208,13 @@ module GenPack
 
 static void msgpack_pack_string(msgpack_packer* p, char* buffer, int len)
 {
+\t#if MSGPACK_VERSION_MAJOR > 0
+\tmsgpack_pack_bin(p, len);
+\tmsgpack_pack_bin_body(p, buffer, len);
+\t#else
 \tmsgpack_pack_raw(p, len);
 \tmsgpack_pack_raw_body(p, buffer, len);
+\t#endif
 }
 
 static void msgpack_unpack_int32_at(msgpack_object* o, int32_t* v, int* i)
@@ -227,10 +232,16 @@ static void msgpack_unpack_uint32_at(msgpack_object* o, uint32_t* v, int* i)
 static void msgpack_unpack_string_at(msgpack_object* o, char** buffer, int* len, int* i)
 {
 \t*buffer = NULL;
+\t#if MSGPACK_VERSION_MAJOR > 0
+\t*len = MSGPACK_OBJECT_AT(o,*i).bin.size;
+\tconst char* obj = MSGPACK_OBJECT_AT(o,*i).bin.ptr;
+\t#else
 \t*len = MSGPACK_OBJECT_AT(o,*i).raw.size;
+\tconst char* obj = MSGPACK_OBJECT_AT(o,*i).raw.ptr;
+\t#endif
 \tif (*len > 0) {
 \t\t*buffer = malloc(*len);
-\t\tmemcpy(*buffer, MSGPACK_OBJECT_AT(o,*i).raw.ptr, *len);
+\t\tmemcpy(*buffer, obj, *len);
 \t}
 \t(*i)++;
 }
