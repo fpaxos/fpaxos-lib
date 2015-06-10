@@ -36,11 +36,6 @@ storage_init(struct storage* store, int acceptor_id)
 		case PAXOS_MEM_STORAGE:
 			storage_init_mem(store, acceptor_id);
 			break;
-		#ifdef HAS_BDB
-		case PAXOS_BDB_STORAGE:
-			storage_init_bdb(store, acceptor_id);
-			break;
-		#endif
 		#ifdef HAS_LMDB
 		case PAXOS_LMDB_STORAGE:
 			storage_init_lmdb(store, acceptor_id);

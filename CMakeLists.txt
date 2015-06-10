@@ -7,12 +7,7 @@ set(CMAKE_MACOSX_RPATH 1)
 
 find_package(LIBEVENT REQUIRED)
 find_package(MSGPACK REQUIRED)
-find_package(BDB)
 find_package(LMDB)
-
-if (BDB_FOUND)
-	add_definitions(-DHAS_BDB)
-endif()
 
 if (LMDB_FOUND)
 	add_definitions(-DHAS_LMDB)

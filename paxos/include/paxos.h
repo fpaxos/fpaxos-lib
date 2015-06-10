@@ -59,12 +59,6 @@ struct paxos_config
 	/* Acceptor */
 	int storage_backend;
 	int trash_files;
-	
-	/* BDB storage configuration */
-	int bdb_sync;
-	size_t bdb_cachesize;
-	char* bdb_env_path;
-	char* bdb_db_filename;
 
 	/* lmdb storage configuration */
 	int lmdb_sync;
@@ -106,7 +100,6 @@ void paxos_log_debug(const char* format, ...);
 
 /* Supported storage backends */
 #define PAXOS_MEM_STORAGE 0
-#define PAXOS_BDB_STORAGE 1
-#define PAXOS_LMDB_STORAGE 2
+#define PAXOS_LMDB_STORAGE 1
 
 #endif

@@ -62,7 +62,6 @@ int storage_trim(struct storage* store, iid_t iid);
 iid_t storage_get_trim_instance(struct storage* store);
 
 void storage_init_mem(struct storage* s, int acceptor_id);
-void storage_init_bdb(struct storage* s, int acceptor_id);
 void storage_init_lmdb(struct storage* s, int acceptor_id);
 
 #ifdef __cplusplus

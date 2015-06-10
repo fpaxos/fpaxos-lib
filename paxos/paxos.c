@@ -42,10 +42,6 @@ struct paxos_config paxos_config =
 	128,               /* proposer_preexec_window */
 	PAXOS_MEM_STORAGE, /* storage_backend */
 	0,                 /* trash_files */
-	0,                 /* bdb_sync */
-	32*1024*1024,      /* bdb_cachesize */
-	"/tmp/acceptor",   /* bdb_env_path */
-	"acc.bdb",         /* bdb_db_filename */
 	0,                 /* lmdb_sync */
 	"/tmp/acceptor",   /* lmdb_env_path */
 	10*1024*1024       /* lmdb_mapsize */

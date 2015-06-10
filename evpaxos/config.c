@@ -75,11 +75,7 @@ struct option options[] =
 	{ "proposer-timeout", &paxos_config.proposer_timeout, option_integer },
 	{ "proposer-preexec-window", &paxos_config.proposer_preexec_window, option_integer },
 	{ "storage-backend", &paxos_config.storage_backend, option_backend },
-	{ "bdb-sync", &paxos_config.bdb_sync, option_boolean },
 	{ "acceptor-trash-files", &paxos_config.trash_files, option_boolean },
-	{ "bdb-cachesize", &paxos_config.bdb_cachesize, option_bytes },
-	{ "bdb-env-path", &paxos_config.bdb_env_path, option_string },
-	{ "bdb-db-filename", &paxos_config.bdb_db_filename, option_string },
 	{ "lmdb-sync", &paxos_config.lmdb_sync, option_boolean },
 	{ "lmdb-env-path", &paxos_config.lmdb_env_path, option_string },
 	{ "lmdb-mapsize", &paxos_config.lmdb_mapsize, option_bytes },
@@ -282,7 +278,6 @@ static int
 parse_backend(char* str, int* verbosity)
 {
 	if (strcasecmp(str, "memory") == 0) *verbosity = PAXOS_MEM_STORAGE;
-	else if (strcasecmp(str, "bdb") == 0) *verbosity = PAXOS_BDB_STORAGE;
 	else if (strcasecmp(str, "lmdb") == 0) *verbosity = PAXOS_LMDB_STORAGE;
 	else return 0;
 	return 1;
@@ -369,7 +364,7 @@ parse_line(struct evpaxos_config* c, char* line)
 			break;
 		case option_backend:
 			rv = parse_backend(line, opt->value);
-			if (rv == 0) paxos_log_error("Expected memory, bdb or lmdb\n");
+			if (rv == 0) paxos_log_error("Expected memory or lmdb\n");
 			break;
 		case option_bytes:
 			rv = parse_bytes(line, opt->value);

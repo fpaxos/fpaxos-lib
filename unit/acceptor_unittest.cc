@@ -241,9 +241,6 @@ TEST_P(AcceptorTest, TrimmedInstances) {
 
 const int backends[] = {
 	PAXOS_MEM_STORAGE,
-#if HAS_BDB
-	PAXOS_BDB_STORAGE,
-#endif
 #if HAS_LMDB
 	PAXOS_LMDB_STORAGE,
 #endif

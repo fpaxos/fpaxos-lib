@@ -152,15 +152,12 @@ TEST_P(StorageTest, TrimWithHoles) {
 }
 
 const int backends[] = {
-#if HAS_BDB
-	PAXOS_BDB_STORAGE,
-#endif
 #if HAS_LMDB
 	PAXOS_LMDB_STORAGE,
 #endif
 };
 
-#if HAS_BDB || HAS_LMDB
+#if HAS_LMDB
 INSTANTIATE_TEST_CASE_P(StorageBackends, StorageTest, 
 	testing::ValuesIn(backends));
 #endif

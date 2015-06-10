@@ -28,8 +28,8 @@ These are the basic steps required to get and compile LibPaxos3
 	make
 
 LibPaxos3 depends on [libevent][2] and [msgpack][9]. By default, LibPaxos3 uses
-an in-memory storage, with support for storage backends based on 
-[Berkeley DB][3], and [LMDB][10] (see ```paxos.conf``` and build options below).
+an in-memory storage, with support for a storage backend based on [LMDB][10]
+(see ```paxos.conf``` and build options below).
 
 LibPaxos3 should compile on Linux and OS X.
 
@@ -37,7 +37,6 @@ LibPaxos3 should compile on Linux and OS X.
 
 You pass options to cmake as follows: ```cmake -DOPTION=VALUE```
 
-- ```BDB_ROOT=PATH```  - point it to your installation of Berkeley DB
 - ```LMDB_ROOT=PATH```  - point it to your installation of LMDB
 - ```LIBEVENT_ROOT=PATH``` -  point it to your installation of Libevent
 - ```MSGPACK_ROOT=PATH``` - point it to your installation of MessagePack
@@ -77,7 +76,6 @@ by [Daniele Sciascia][8].
 
 [1]: http://libpaxos.sourceforge.net
 [2]: http://www.libevent.org
-[3]: http://www.oracle.com/technetwork/products/berkeleydb
 [4]: http://code.google.com/p/googletest/
 [5]: https://bitbucket.org/sciascid/libpaxos
 [6]: https://lists.sourceforge.net/lists/listinfo/libpaxos-general
