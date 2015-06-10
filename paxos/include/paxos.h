@@ -50,7 +50,6 @@ struct paxos_config
 	int tcp_nodelay;
 	
 	/* Learner */
-	int learner_instances;
 	int learner_catch_up;
 	
 	/* Proposer */
