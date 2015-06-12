@@ -59,10 +59,10 @@ mem_storage_new(int acceptor_id)
 static int
 mem_storage_open(void* handle)
 {
-	return 1;
+	return 0;
 }
 
-static int
+static void
 mem_storage_close(void* handle)
 {
 	int i;
@@ -73,20 +73,22 @@ mem_storage_close(void* handle)
 		free(s->records[i]);
 	}
 	free(s);
+}
+
+static int
+mem_storage_tx_begin(void* handle)
+{
+	return 0;
+}
+
+static int
+mem_storage_tx_commit(void* handle)
+{
 	return 0;
 }
 
 static void
-mem_storage_tx_begin(void* handle)
-{
-	return;
-}
-
-static void
-mem_storage_tx_commit(void* handle)
-{
-	return;
-}
+mem_storage_tx_abort(void* handle) { }
 
 static int
 mem_storage_get(void* handle, iid_t iid, paxos_accepted* out)
@@ -111,7 +113,7 @@ mem_storage_put(void* handle, paxos_accepted* acc)
 	paxos_accepted* record = s->records[acc->iid % MAX_RECORDS];
 	paxos_accepted_destroy(record);
 	paxos_accepted_copy(record, acc);
-	return 1;
+	return 0;
 }
 
 static int
@@ -145,6 +147,7 @@ storage_init_mem(struct storage* s, int acceptor_id)
 	s->api.close = mem_storage_close;
 	s->api.tx_begin = mem_storage_tx_begin;
 	s->api.tx_commit = mem_storage_tx_commit;
+	s->api.tx_abort = mem_storage_tx_abort;
 	s->api.get = mem_storage_get;
 	s->api.put = mem_storage_put;
 	s->api.trim = mem_storage_trim;

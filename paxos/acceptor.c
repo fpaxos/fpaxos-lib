@@ -48,23 +48,23 @@ acceptor_new(int id)
 	struct acceptor* a;
 	a = malloc(sizeof(struct acceptor));
 	storage_init(&a->store, id);
-	if (storage_open(&a->store) < 0) {
+	if (storage_open(&a->store) != 0) {
 		free(a);
 		return NULL;
 	}
-	storage_tx_begin(&a->store);
+	if (storage_tx_begin(&a->store) != 0)
+		return NULL;
 	a->trim_iid = storage_get_trim_instance(&a->store);
-	storage_tx_commit(&a->store);
+	if (storage_tx_commit(&a->store) != 0)
+		return NULL;
 	return a;
 }
 
-int
+void
 acceptor_free(struct acceptor* a) 
 {
-	int rv;
-	rv = storage_close(&a->store);
+	storage_close(&a->store);
 	free(a);
-	return rv;
 }
 
 int
@@ -75,15 +75,20 @@ acceptor_receive_prepare(struct acceptor* a,
 	if (req->iid <= a->trim_iid)
 		return 0;
 	memset(&acc, 0, sizeof(paxos_accepted));
-	storage_tx_begin(&a->store);
+	if (storage_tx_begin(&a->store) != 0)
+		return 0;
 	int found = storage_get_record(&a->store, req->iid, &acc);
 	if (!found || acc.ballot <= req->ballot) {
 		paxos_log_debug("Preparing iid: %u, ballot: %u", req->iid, req->ballot);
 		acc.iid = req->iid;
 		acc.ballot = req->ballot;
-		storage_put_record(&a->store, &acc);
+		if (storage_put_record(&a->store, &acc) != 0) {
+			storage_tx_abort(&a->store);
+			return 0;
+		}
 	}
-	storage_tx_commit(&a->store);
+	if (storage_tx_commit(&a->store) != 0)
+		return 0;
 	paxos_accepted_to_promise(&acc, out);
 	return 1;
 }
@@ -96,16 +101,21 @@ acceptor_receive_accept(struct acceptor* a,
 	if (req->iid <= a->trim_iid)
 		return 0;
 	memset(&acc, 0, sizeof(paxos_accepted));
-	storage_tx_begin(&a->store);
+	if (storage_tx_begin(&a->store) != 0)
+		return 0;
 	int found = storage_get_record(&a->store, req->iid, &acc);
 	if (!found || acc.ballot <= req->ballot) {
 		paxos_log_debug("Accepting iid: %u, ballot: %u", req->iid, req->ballot);
 		paxos_accept_to_accepted(req, out);
-		storage_put_record(&a->store, &(out->u.accepted));
+		if (storage_put_record(&a->store, &(out->u.accepted)) != 0) {
+			storage_tx_abort(&a->store);
+			return 0;
+		}
 	} else {
 		paxos_accepted_to_preempted(&acc, out);
 	}
-	storage_tx_commit(&a->store);
+	if (storage_tx_commit(&a->store) != 0)
+		return 0;
 	paxos_accepted_destroy(&acc);
 	return 1;
 }
@@ -114,9 +124,11 @@ int
 acceptor_receive_repeat(struct acceptor* a, iid_t iid, paxos_accepted* out)
 {
 	memset(out, 0, sizeof(paxos_accepted));
-	storage_tx_begin(&a->store);
+	if (storage_tx_begin(&a->store) != 0)
+		return 0;
 	int found = storage_get_record(&a->store, iid, out);
-	storage_tx_commit(&a->store);
+	if (storage_tx_commit(&a->store) != 0)
+		return 0;
 	return found && (out->value.paxos_value_len > 0);
 }
 
@@ -126,9 +138,11 @@ acceptor_receive_trim(struct acceptor* a, paxos_trim* trim)
 	if (trim->iid <= a->trim_iid)
 		return 0;
 	a->trim_iid = trim->iid;
-	storage_tx_begin(&a->store);
+	if (storage_tx_begin(&a->store) != 0)
+		return 0;
 	storage_trim(&a->store, trim->iid);
-	storage_tx_commit(&a->store);
+	if (storage_tx_commit(&a->store) != 0)
+		return 0;
 	return 1;
 }
 

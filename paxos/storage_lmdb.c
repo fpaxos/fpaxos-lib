@@ -45,7 +45,7 @@ struct lmdb_storage
 	int acceptor_id;
 };
 
-static int lmdb_storage_close(void* handle);
+static void lmdb_storage_close(void* handle);
 
 static int
 lmdb_compare_iid(const MDB_val* lhs, const MDB_val* rhs)
@@ -153,7 +153,8 @@ lmdb_storage_open(void* handle)
 
 	if (!dir_exists && (mkdir(lmdb_env_path, S_IRWXU) != 0)) {
 		paxos_log_error("Failed to create env dir %s: %s",
-		lmdb_env_path, strerror(errno));
+			lmdb_env_path, strerror(errno));
+		result = -1;
 		goto error;
 	}
 
@@ -168,17 +169,13 @@ error:
 	if (s) {
 		lmdb_storage_close(s);
 	}
-	return -1;
 
 cleanup_exit:
-	if (lmdb_env_path) {
-		free(lmdb_env_path);
-	}
-
-	return 0;
+	free(lmdb_env_path);
+	return result;
 }
 
-static int
+static void
 lmdb_storage_close(void* handle)
 {
 	struct lmdb_storage* s = handle;
@@ -191,23 +188,19 @@ lmdb_storage_close(void* handle)
 	if (s->env) {
 		mdb_env_close(s->env);
 	}
-
 	free(s);
 	paxos_log_info("lmdb storage closed successfully");
-	return 0;
 }
 
-static void
+static int
 lmdb_storage_tx_begin(void* handle)
 {
 	struct lmdb_storage* s = handle;
-	int result;
 	assert(s->txn == NULL);
-	result = mdb_txn_begin(s->env, NULL, 0, &s->txn);
-	assert(result == 0);
+	return mdb_txn_begin(s->env, NULL, 0, &s->txn);
 }
 
-static void
+static int
 lmdb_storage_tx_commit(void* handle)
 {
 	struct lmdb_storage* s = handle;
@@ -215,7 +208,17 @@ lmdb_storage_tx_commit(void* handle)
 	assert(s->txn);
 	result = mdb_txn_commit(s->txn);
 	s->txn = NULL;
-	assert(result == 0);
+	return result;
+}
+
+static void
+lmdb_storage_tx_abort(void* handle)
+{
+	struct lmdb_storage* s = handle;
+	if (s->txn) {
+		mdb_txn_abort(s->txn);
+		s->txn = NULL;
+	}
 }
 
 static int
@@ -261,9 +264,8 @@ lmdb_storage_put(void* handle, paxos_accepted* acc)
 	data.mv_size = sizeof(paxos_accepted) + acc->value.paxos_value_len;
 
 	result = mdb_put(s->txn, s->dbi, &key, &data, 0);
-	assert(result == 0);
 	free(buffer);
-	return 0;
+	return result;
 }
 
 static iid_t
@@ -367,6 +369,7 @@ storage_init_lmdb(struct storage* s, int acceptor_id)
 	s->api.close = lmdb_storage_close;
 	s->api.tx_begin = lmdb_storage_tx_begin;
 	s->api.tx_commit = lmdb_storage_tx_commit;
+	s->api.tx_abort = lmdb_storage_tx_abort;
 	s->api.get = lmdb_storage_get;
 	s->api.put = lmdb_storage_put;
 	s->api.trim = lmdb_storage_trim;
