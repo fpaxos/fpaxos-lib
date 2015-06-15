@@ -1,29 +1,29 @@
 /*
-	Copyright (c) 2013, University of Lugano
-	All rights reserved.
-
-	Redistribution and use in source and binary forms, with or without
-	modification, are permitted provided that the following conditions are met:
-    	* Redistributions of source code must retain the above copyright
-		  notice, this list of conditions and the following disclaimer.
-		* Redistributions in binary form must reproduce the above copyright
-		  notice, this list of conditions and the following disclaimer in the
-		  documentation and/or other materials provided with the distribution.
-		* Neither the name of the copyright holders nor the
-		  names of its contributors may be used to endorse or promote products
-		  derived from this software without specific prior written permission.
-
-	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-	AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-	IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
-	ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
-	DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-	(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-	LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-	ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF 
-	THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.	
-*/
+ * Copyright (c) 2013-2015, University of Lugano
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of the copyright holders nor the names of it
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 
 #include <paxos.h>
@@ -163,6 +163,10 @@ connect_to_proposer(struct client* c, const char* config, int proposer_id)
 {
 	struct bufferevent* bev;
 	struct evpaxos_config* conf = evpaxos_config_read(config);
+	if (conf == NULL) {
+		printf("Failed to read config file %s\n", config);
+		return NULL;
+	}
 	struct sockaddr_in addr = evpaxos_proposer_address(conf, proposer_id);
 	bev = bufferevent_socket_new(c->base, -1, BEV_OPT_CLOSE_ON_FREE);
 	bufferevent_setcb(bev, NULL, NULL, on_connect, c);
@@ -212,35 +216,55 @@ client_free(struct client* c)
 }
 
 static void
+start_client(const char* config, int proposer_id, int outstanding, int value_size)
+{
+	struct client* client;
+	client = make_client(config, proposer_id, outstanding, value_size);
+	event_base_dispatch(client->base);
+	client_free(client);
+}
+
+static void
 usage(const char* name)
 {
-	char* opts = "config [proposer id] [# outstanding values] [value size]";
-	printf("Usage: %s %s\n", name, opts);
+	printf("Usage: %s [path/to/paxos.conf] [-h] [-o] [-v] [-p]\n", name);
+	printf("  %-30s%s\n", "-h, --help", "Output this message and exit");
+	printf("  %-30s%s\n", "-o, --outstanding #", "Number of outstanding client values");
+	printf("  %-30s%s\n", "-v, --value-size #", "Size of client value (in bytes)");
+	printf("  %-30s%s\n", "-p, --proposer-id #", "d of the proposer to connect to");
 	exit(1);
 }
 
 int
 main(int argc, char const *argv[])
 {
+	int i = 1;
 	int proposer_id = 0;
 	int outstanding = 1;
 	int value_size = 64;
-	
-	if (argc < 2 || argc > 5)
-		usage(argv[0]);
-	if (argc == 3)
-		proposer_id = atoi(argv[2]);
-	if (argc >= 4)
-		outstanding = atoi(argv[3]);
-	if (argc == 5)
-		value_size = atoi(argv[4]);
+	const char* config = "../paxos.conf";
+
+	if (argc > 1 && argv[1][0] != '-') {
+		config = argv[1];
+		i++;
+	}
+
+	while (i != argc) {
+		if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
+			usage(argv[0]);
+		else if (strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--outstanding") == 0)
+			outstanding = atoi(argv[++i]);
+		else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--value-size") == 0)
+			value_size = atoi(argv[++i]);
+		else if (strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--proposer-id") == 0)
+			proposer_id = atoi(argv[++i]);
+		else
+			usage(argv[0]);
+		i++;
+	}
 	
 	srand(time(NULL));
-	
-	struct client* client;
-	client = make_client(argv[1], proposer_id, outstanding, value_size);	
-	event_base_dispatch(client->base);
-	client_free(client);
+	start_client(config, proposer_id, outstanding, value_size);
 	
 	return 0;
 }

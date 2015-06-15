@@ -51,7 +51,7 @@ struct counter_replica
 	struct evpaxos_replica* paxos_replica;
 };
 
-void
+static void
 handle_sigint(int sig, short ev, void* arg)
 {
 	struct event_base* base = arg;
@@ -182,15 +182,19 @@ int
 main(int argc, char const *argv[])
 {
 	int id;
-	signal(SIGPIPE, SIG_IGN);
+	const char* config = "../paxos.conf";
 	
-	if (argc != 3) {
-		printf("Usage: %s id config\n", argv[0]);
+	if (argc != 2 && argc != 3) {
+		printf("Usage: %s id [path/to/paxos.conf]\n", argv[0]);
 		exit(1);
 	}
 	
 	id = atoi(argv[1]);
-	start_replica(id, argv[2]);
+	if (argc >= 3)
+		config = argv[2];
 	
+	signal(SIGPIPE, SIG_IGN);
+	start_replica(id, config);
+
 	return 0;
 }

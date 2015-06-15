@@ -41,7 +41,7 @@ struct client_value
 
 static int verbose = 1;
 
-void
+static void
 handle_sigint(int sig, short ev, void* arg)
 {
 	struct event_base* base = arg;
@@ -87,30 +87,39 @@ start_replica(int id, const char* config)
 static void
 usage(const char* prog)
 {
-	printf("Usage: %s id config [-h] [-s]\n", prog);
-	printf(" -h, --help\tOutput this message\n");
-	printf(" -s, --silent\tDon't print delivered messages\n");
+	printf("Usage: %s id [path/to/paxos.conf] [-h] [-s]\n", prog);
+	printf("  %-30s%s\n", "-h, --help", "Output this message and exit");
+	printf("  %-30s%s\n", "-s, --silent", "Don't print delivered messages");
 	exit(1);
 }
 
 int
 main(int argc, char const *argv[])
 {
-	if (argc < 3)
+	int id;
+	int i = 2;
+	const char* config = "../paxos.conf";
+
+	if (argc < 2)
 		usage(argv[0]);
 
-	int i;
-	for (i = 3; i < argc; i++) {
+	id = atoi(argv[1]);
+	if (argc >= 3 && argv[2][0] != '-') {
+		config = argv[2];
+		i++;
+	}
+
+	while (i != argc) {
 		if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
 			usage(argv[0]);
 		else if (strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--silent") == 0)
 			verbose = 0;
 		else
 			usage(argv[0]);
+		i++;
 	}
-	
-	int id = atoi(argv[1]);
-	start_replica(id, argv[2]);
+
+	start_replica(id, config);
 	
 	return 0;
 }
