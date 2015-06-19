@@ -151,3 +151,16 @@ evlearner_set_instance_id(struct evlearner* l, unsigned iid)
 {
 	learner_set_instance_id(l->state, iid);
 }
+
+static void
+peer_send_trim(struct peer* p, void* arg)
+{
+	send_paxos_trim(peer_get_buffer(p), arg);
+}
+
+void
+evlearner_send_trim(struct evlearner* l, unsigned iid)
+{
+	paxos_trim trim = {iid};
+	peers_foreach_acceptor(l->acceptors, peer_send_trim, &trim);
+}

@@ -124,6 +124,14 @@ void evlearner_free(struct evlearner* l);
 void evlearner_set_instance_id(struct evlearner* l, unsigned iid);
 
 /**
+ * Send a trim message to all acceptors/replicas. Acceptors will trim their log
+ * up the the given instance id.
+ *
+ * @param iid trim instance id
+ */
+void evlearner_send_trim(struct evlearner* l, unsigned iid);
+
+/**
  * Initializes a acceptor with a given id (which MUST be unique),
  * a config file and a libevent event_base.
  */
