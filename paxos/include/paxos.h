@@ -33,21 +33,32 @@
 #include <sys/types.h>
 #include <paxos_types.h>
 
-/* Logging and verbosity levels */
-#define PAXOS_LOG_QUIET 0
-#define PAXOS_LOG_ERROR 1
-#define PAXOS_LOG_INFO 2
-#define PAXOS_LOG_DEBUG 3
-
 /* Paxos instance ids and ballots */
 typedef uint32_t iid_t;
 typedef uint32_t ballot_t;
 
+/* Logging and verbosity levels */
+typedef enum
+{
+	PAXOS_LOG_QUIET = 0,
+	PAXOS_LOG_ERROR = 1,
+	PAXOS_LOG_INFO  = 2,
+	PAXOS_LOG_DEBUG = 3
+} paxos_log_level;
+
+/* Supported storage backends */
+typedef enum
+{
+	PAXOS_MEM_STORAGE = 0,
+	PAXOS_LMDB_STORAGE = 1
+} paxos_storage_backend;
+
 /* Configuration */
 struct paxos_config
 { 
-	int verbosity;
+	/* General configuration */
 	int tcp_nodelay;
+	paxos_log_level verbosity;
 	
 	/* Learner */
 	int learner_catch_up;
@@ -57,7 +68,7 @@ struct paxos_config
 	int proposer_preexec_window;
 	
 	/* Acceptor */
-	int storage_backend;
+	paxos_storage_backend storage_backend;
 	int trash_files;
 
 	/* lmdb storage configuration */
@@ -67,12 +78,6 @@ struct paxos_config
 };
 
 extern struct paxos_config paxos_config;
-
-/* Logging and verbosity levels */
-#define PAXOS_LOG_QUIET 0
-#define PAXOS_LOG_ERROR 1
-#define PAXOS_LOG_INFO 2
-#define PAXOS_LOG_DEBUG 3
 
 /* Core functions */
 int paxos_quorum(int acceptors);
@@ -96,10 +101,5 @@ void paxos_log_debug(const char* format, ...);
 	This number MUST be a power of 10.
 */
 #define MAX_N_OF_PROPOSERS 10
-
-
-/* Supported storage backends */
-#define PAXOS_MEM_STORAGE 0
-#define PAXOS_LMDB_STORAGE 1
 
 #endif

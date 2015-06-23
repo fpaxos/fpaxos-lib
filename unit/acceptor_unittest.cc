@@ -29,7 +29,7 @@
 #include "acceptor.h"
 #include "gtest/gtest.h"
 
-class AcceptorTest : public::testing::TestWithParam<int> {
+class AcceptorTest : public::testing::TestWithParam<paxos_storage_backend> {
 protected:
 
 	int id;
@@ -239,7 +239,7 @@ TEST_P(AcceptorTest, TrimmedInstances) {
 }
 
 
-const int backends[] = {
+const paxos_storage_backend backends[] = {
 	PAXOS_MEM_STORAGE,
 #if HAS_LMDB
 	PAXOS_LMDB_STORAGE,

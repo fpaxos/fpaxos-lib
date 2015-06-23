@@ -264,7 +264,7 @@ parse_address(char* str, struct address* addr)
 }
 
 static int
-parse_verbosity(char* str, int* verbosity)
+parse_verbosity(char* str, paxos_log_level* verbosity)
 {
 	if (strcasecmp(str, "quiet") == 0) *verbosity = PAXOS_LOG_QUIET;
 	else if (strcasecmp(str, "error") == 0) *verbosity = PAXOS_LOG_ERROR;
@@ -275,10 +275,10 @@ parse_verbosity(char* str, int* verbosity)
 }
 
 static int
-parse_backend(char* str, int* verbosity)
+parse_backend(char* str, paxos_storage_backend* backend)
 {
-	if (strcasecmp(str, "memory") == 0) *verbosity = PAXOS_MEM_STORAGE;
-	else if (strcasecmp(str, "lmdb") == 0) *verbosity = PAXOS_LMDB_STORAGE;
+	if (strcasecmp(str, "memory") == 0) *backend = PAXOS_MEM_STORAGE;
+	else if (strcasecmp(str, "lmdb") == 0) *backend = PAXOS_LMDB_STORAGE;
 	else return 0;
 	return 1;
 }

@@ -28,7 +28,7 @@
 #include "storage.h"
 #include "gtest/gtest.h"
 
-class StorageTest : public::testing::TestWithParam<int> {
+class StorageTest : public::testing::TestWithParam<paxos_storage_backend> {
 protected:
 
 	struct storage store;
@@ -151,7 +151,7 @@ TEST_P(StorageTest, TrimWithHoles) {
 	TestCheckInstancesExist(501, 600);
 }
 
-const int backends[] = {
+paxos_storage_backend backends[] = {
 #if HAS_LMDB
 	PAXOS_LMDB_STORAGE,
 #endif
