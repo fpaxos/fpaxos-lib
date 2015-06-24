@@ -3,7 +3,7 @@
 VG=""
 BUILD="build"
 CONFIG="paxos.conf"
-OPT=""
+OPT="--verbose"
 
 tmux_test ()  {
 	tmux new-session -d -s paxos
@@ -46,7 +46,7 @@ while [[ $# > 0 ]]; do
 		usage
 		;;
 		-s|--silence-replica)
-		OPT="-s"
+		OPT=""
 		;;
 		-v|--valgrind)
 		VG="valgrind "

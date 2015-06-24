@@ -54,7 +54,8 @@ typedef void (*deliver_function)(
  *
  * @param id the id of the replica
  * @param config path a paxos config file
- * @param cb the callback function to be called whenever the learner delivers
+ * @param cb the callback function to be called whenever the learner delivers.
+ * This paramater may be NULL, in which case no learner is initialized.
  * @param arg an optional argument that is passed to the callback
  * @param base the underlying event_base to be used
  *

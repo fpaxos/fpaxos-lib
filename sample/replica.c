@@ -34,12 +34,12 @@
 
 struct client_value
 {
-  struct timeval t;
-  size_t size;
-  char value[];
+	struct timeval t;
+	size_t size;
+	char value[];
 };
 
-static int verbose = 1;
+static int verbose = 0;
 
 static void
 handle_sigint(int sig, short ev, void* arg)
@@ -52,8 +52,6 @@ handle_sigint(int sig, short ev, void* arg)
 static void
 deliver(unsigned iid, char* value, size_t size, void* arg)
 {
-	if (verbose == 0)
-		return;
 	struct client_value* val = (struct client_value*)value;
 	printf("%ld.%06d [%.16s] %ld bytes\n", val->t.tv_sec, val->t.tv_usec,
 		val->value, (long)val->size);
@@ -65,9 +63,13 @@ start_replica(int id, const char* config)
 	struct event* sig;
 	struct event_base* base;
 	struct evpaxos_replica* replica;
+	deliver_function cb = NULL;
+
+	if (verbose)
+		cb = deliver;
 	
 	base = event_base_new();
-	replica = evpaxos_replica_init(id, config, deliver, NULL, base);
+	replica = evpaxos_replica_init(id, config, cb, NULL, base);
 	
 	if (replica == NULL) {
 		printf("Could not start the replica!\n");
@@ -81,7 +83,6 @@ start_replica(int id, const char* config)
 	event_free(sig);
 	evpaxos_replica_free(replica);
 	event_base_free(base);
-	
 }
 
 static void
@@ -89,7 +90,7 @@ usage(const char* prog)
 {
 	printf("Usage: %s id [path/to/paxos.conf] [-h] [-s]\n", prog);
 	printf("  %-30s%s\n", "-h, --help", "Output this message and exit");
-	printf("  %-30s%s\n", "-s, --silent", "Don't print delivered messages");
+	printf("  %-30s%s\n", "-v, --verbose", "Print delivered messages");
 	exit(1);
 }
 
@@ -112,8 +113,8 @@ main(int argc, char const *argv[])
 	while (i != argc) {
 		if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
 			usage(argv[0]);
-		else if (strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--silent") == 0)
-			verbose = 0;
+		else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0)
+			verbose = 1;
 		else
 			usage(argv[0]);
 		i++;
