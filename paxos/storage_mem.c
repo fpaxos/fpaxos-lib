@@ -27,17 +27,14 @@
 
 
 #include "storage.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
+#include "khash.h"
 
-#define MAX_RECORDS (4*1024)
+KHASH_MAP_INIT_INT(record, paxos_accepted*);
 
 struct mem_storage
 {
-	int acceptor_id;
-	paxos_accepted *records[MAX_RECORDS];
+	iid_t trim_iid;
+	kh_record_t* records;
 };
 
 static void paxos_accepted_copy(paxos_accepted* dst, paxos_accepted* src);
@@ -45,14 +42,11 @@ static void paxos_accepted_copy(paxos_accepted* dst, paxos_accepted* src);
 static struct mem_storage*
 mem_storage_new(int acceptor_id)
 {
-	int i;
 	struct mem_storage* s = malloc(sizeof(struct mem_storage));
-	memset(s, 0, sizeof(struct mem_storage));
-	for (i = 0; i < MAX_RECORDS; ++i) {
-		s->records[i] = malloc(sizeof(paxos_accepted));
-		memset(s->records[i], 0, sizeof(paxos_accepted));
-	}
-	s->acceptor_id = acceptor_id;
+	if (s == NULL)
+		return s;
+	s->trim_iid = 0;
+	s->records = kh_init(record);
 	return s;
 }
 
@@ -65,13 +59,10 @@ mem_storage_open(void* handle)
 static void
 mem_storage_close(void* handle)
 {
-	int i;
 	struct mem_storage* s = handle;
-	for (i = 0; i < MAX_RECORDS; ++i) {
-		if (s->records[i]->value.paxos_value_val != NULL)
-			free(s->records[i]->value.paxos_value_val);
-		free(s->records[i]);
-	}
+	paxos_accepted* accepted;
+	kh_foreach_value(s->records, accepted, paxos_accepted_free(accepted));
+	kh_destroy_record(s->records);
 	free(s);
 }
 
@@ -93,39 +84,58 @@ mem_storage_tx_abort(void* handle) { }
 static int
 mem_storage_get(void* handle, iid_t iid, paxos_accepted* out)
 {
+	khiter_t k;
 	struct mem_storage* s = handle;
-	paxos_accepted* record = s->records[iid % MAX_RECORDS];
-	if (iid < record->iid) {
-		paxos_log_error("Instance %d too old! Current is %d", iid, record->iid);
-		exit(1);
-	}
-	if (iid == record->iid)
-		paxos_accepted_copy(out, record);
-	else
+	k = kh_get_record(s->records, iid);
+	if (k == kh_end(s->records))
 		return 0;
+	paxos_accepted_copy(out, kh_value(s->records, k));
 	return 1;
 }
 
 static int
 mem_storage_put(void* handle, paxos_accepted* acc)
 {
+	int rv;
+	khiter_t k;
 	struct mem_storage* s = handle;
-	paxos_accepted* record = s->records[acc->iid % MAX_RECORDS];
-	paxos_accepted_destroy(record);
+	paxos_accepted* record = malloc(sizeof(paxos_accepted));
 	paxos_accepted_copy(record, acc);
+	k = kh_put_record(s->records, acc->iid, &rv);
+	if (rv == -1) { // error
+		free(record);
+		return -1;
+	}
+	if (rv == 0) { // key is already present
+		paxos_accepted_free(kh_value(s->records, k));
+	}
+	kh_value(s->records, k) = record;
 	return 0;
 }
 
 static int
 mem_storage_trim(void* handle, iid_t iid)
 {
+	khiter_t k;
+	struct mem_storage* s = handle;
+	for (k = kh_begin(s->records); k != kh_end(s->records); ++k) {
+		if (kh_exist(s->records, k)) {
+			paxos_accepted* acc = kh_value(s->records, k);
+			if (acc->iid <= iid) {
+				paxos_accepted_free(acc);
+				kh_del_record(s->records, k);
+			}
+		}
+	}
+	s->trim_iid = iid;
 	return 0;
 }
 
 static iid_t
 mem_storage_get_trim_instance(void* handle)
 {
-	return 0;
+	struct mem_storage* s = handle;
+	return s->trim_iid;
 }
 
 static void

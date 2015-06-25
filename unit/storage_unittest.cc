@@ -152,12 +152,11 @@ TEST_P(StorageTest, TrimWithHoles) {
 }
 
 paxos_storage_backend backends[] = {
+	PAXOS_MEM_STORAGE,
 #if HAS_LMDB
 	PAXOS_LMDB_STORAGE,
 #endif
 };
 
-#if HAS_LMDB
 INSTANTIATE_TEST_CASE_P(StorageBackends, StorageTest, 
 	testing::ValuesIn(backends));
-#endif
