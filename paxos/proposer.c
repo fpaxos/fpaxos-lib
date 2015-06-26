@@ -145,7 +145,7 @@ proposer_prepare(struct proposer* p, paxos_prepare* out)
 
 int
 proposer_receive_promise(struct proposer* p, paxos_promise* ack,
-	int from_id, paxos_prepare* out)
+	paxos_prepare* out)
 {
 	khiter_t k = kh_get_instance(p->prepare_instances, ack->iid);
 	
@@ -167,14 +167,14 @@ proposer_receive_promise(struct proposer* p, paxos_promise* ack,
 		return 1;
 	}
 	
-	if (quorum_add(&inst->quorum, from_id) == 0) {
+	if (quorum_add(&inst->quorum, ack->aid) == 0) {
 		paxos_log_debug("Duplicate promise dropped from: %d, iid: %u",
-			from_id, inst->iid);
+			ack->aid, inst->iid);
 		return 0;
 	}
 		
 	paxos_log_debug("Received valid promise from: %d, iid: %u",
-		from_id, inst->iid);
+		ack->aid, inst->iid);
 		
 	if (ack->value.paxos_value_len > 0) {
 		paxos_log_debug("Promise has value");
@@ -228,7 +228,7 @@ proposer_accept(struct proposer* p, paxos_accept* out)
 }
 
 int
-proposer_receive_accepted(struct proposer* p, paxos_accepted* ack, int from_id)
+proposer_receive_accepted(struct proposer* p, paxos_accepted* ack)
 {
 	khiter_t k = kh_get_instance(p->accept_instances, ack->iid);
 	
@@ -240,9 +240,9 @@ proposer_receive_accepted(struct proposer* p, paxos_accepted* ack, int from_id)
 	struct instance* inst = kh_value(p->accept_instances, k);
 	
 	if (ack->ballot == inst->ballot) {
-		if (!quorum_add(&inst->quorum, from_id)) {
+		if (!quorum_add(&inst->quorum, ack->aid)) {
 			paxos_log_debug("Duplicate accept dropped from: %d, iid: %u", 
-				from_id, inst->iid);
+				ack->aid, inst->iid);
 			return 0;
 		}
 		

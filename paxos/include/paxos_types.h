@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, University of Lugano
+ * Copyright (c) 2013-2015, University of Lugano
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,7 @@ typedef struct paxos_prepare paxos_prepare;
 
 struct paxos_promise
 {
+	uint32_t aid;
 	uint32_t iid;
 	uint32_t ballot;
 	uint32_t value_ballot;
@@ -64,6 +65,7 @@ typedef struct paxos_accept paxos_accept;
 
 struct paxos_accepted
 {
+	uint32_t aid;
 	uint32_t iid;
 	uint32_t ballot;
 	uint32_t value_ballot;
@@ -73,6 +75,7 @@ typedef struct paxos_accepted paxos_accepted;
 
 struct paxos_preempted
 {
+	uint32_t aid;
 	uint32_t iid;
 	uint32_t ballot;
 };
@@ -93,6 +96,7 @@ typedef struct paxos_trim paxos_trim;
 
 struct paxos_acceptor_state
 {
+	uint32_t aid;
 	uint32_t trim_iid;
 };
 typedef struct paxos_acceptor_state paxos_acceptor_state;

@@ -46,7 +46,7 @@ protected:
 	}
 	
 	void TestPutManyInstances(iid_t from, iid_t to) {
-		paxos_accepted accepted = {0, 0, 0, {0, NULL}};
+		paxos_accepted accepted = {0, 0, 0, 0, {0, NULL}};
 		storage_tx_begin(&store);
 		for (int i = from; i <= to; i++) {
 			accepted.iid = i;
@@ -85,7 +85,7 @@ TEST_P(StorageTest, GetInitialTrimInstance) {
 }
 
 TEST_P(StorageTest, TrimInstanceZero) {
-	paxos_accepted accepted = {1, 0, 0, {0, NULL}};
+	paxos_accepted accepted = {0, 1, 0, 0, {0, NULL}};
 
 	storage_tx_begin(&store);
 	storage_put_record(&store, &accepted);

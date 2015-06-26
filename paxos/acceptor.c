@@ -33,13 +33,14 @@
 
 struct acceptor
 {
+	int id;
 	iid_t trim_iid;
 	struct storage store;
 };
 
 static void paxos_accepted_to_promise(paxos_accepted* acc, paxos_message* out);
-static void paxos_accept_to_accepted(paxos_accept* acc, paxos_message* out);
-static void paxos_accepted_to_preempted(paxos_accepted* acc, paxos_message* out);
+static void paxos_accept_to_accepted(int id, paxos_accept* acc, paxos_message* out);
+static void paxos_accepted_to_preempted(int id, paxos_accepted* acc, paxos_message* out);
 
 
 struct acceptor*
@@ -54,6 +55,7 @@ acceptor_new(int id)
 	}
 	if (storage_tx_begin(&a->store) != 0)
 		return NULL;
+	a->id = id;
 	a->trim_iid = storage_get_trim_instance(&a->store);
 	if (storage_tx_commit(&a->store) != 0)
 		return NULL;
@@ -80,6 +82,7 @@ acceptor_receive_prepare(struct acceptor* a,
 	int found = storage_get_record(&a->store, req->iid, &acc);
 	if (!found || acc.ballot <= req->ballot) {
 		paxos_log_debug("Preparing iid: %u, ballot: %u", req->iid, req->ballot);
+		acc.aid = a->id;
 		acc.iid = req->iid;
 		acc.ballot = req->ballot;
 		if (storage_put_record(&a->store, &acc) != 0) {
@@ -106,13 +109,13 @@ acceptor_receive_accept(struct acceptor* a,
 	int found = storage_get_record(&a->store, req->iid, &acc);
 	if (!found || acc.ballot <= req->ballot) {
 		paxos_log_debug("Accepting iid: %u, ballot: %u", req->iid, req->ballot);
-		paxos_accept_to_accepted(req, out);
+		paxos_accept_to_accepted(a->id, req, out);
 		if (storage_put_record(&a->store, &(out->u.accepted)) != 0) {
 			storage_tx_abort(&a->store);
 			return 0;
 		}
 	} else {
-		paxos_accepted_to_preempted(&acc, out);
+		paxos_accepted_to_preempted(a->id, &acc, out);
 	}
 	if (storage_tx_commit(&a->store) != 0)
 		return 0;
@@ -149,6 +152,7 @@ acceptor_receive_trim(struct acceptor* a, paxos_trim* trim)
 void
 acceptor_set_current_state(struct acceptor* a, paxos_acceptor_state* state)
 {
+	state->aid = a->id;
 	state->trim_iid = a->trim_iid;
 }
 
@@ -157,6 +161,7 @@ paxos_accepted_to_promise(paxos_accepted* acc, paxos_message* out)
 {
 	out->type = PAXOS_PROMISE;
 	out->u.promise = (paxos_promise) {
+		acc->aid,
 		acc->iid,
 		acc->ballot,
 		acc->value_ballot,
@@ -165,7 +170,7 @@ paxos_accepted_to_promise(paxos_accepted* acc, paxos_message* out)
 }
 
 static void
-paxos_accept_to_accepted(paxos_accept* acc, paxos_message* out)
+paxos_accept_to_accepted(int id, paxos_accept* acc, paxos_message* out)
 {
 	char* value = NULL;
 	int value_size = acc->value.paxos_value_len;
@@ -175,6 +180,7 @@ paxos_accept_to_accepted(paxos_accept* acc, paxos_message* out)
 	}
 	out->type = PAXOS_ACCEPTED;
 	out->u.accepted = (paxos_accepted) {
+		id,
 		acc->iid,
 		acc->ballot,
 		acc->ballot,
@@ -183,8 +189,8 @@ paxos_accept_to_accepted(paxos_accept* acc, paxos_message* out)
 }
 
 static void
-paxos_accepted_to_preempted(paxos_accepted* acc, paxos_message* out)
+paxos_accepted_to_preempted(int id, paxos_accepted* acc, paxos_message* out)
 {
 	out->type = PAXOS_PREEMPTED;
-	out->u.preempted = (paxos_preempted) { acc->iid, acc->ballot };
+	out->u.preempted = (paxos_preempted) { id, acc->iid, acc->ballot };
 }

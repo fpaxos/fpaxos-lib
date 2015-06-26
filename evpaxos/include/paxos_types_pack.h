@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, University of Lugano
+ * Copyright (c) 2013-2015, University of Lugano
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,6 +46,8 @@ void msgpack_pack_paxos_repeat(msgpack_packer* p, paxos_repeat* v);
 void msgpack_unpack_paxos_repeat(msgpack_object* o, paxos_repeat* v);
 void msgpack_pack_paxos_trim(msgpack_packer* p, paxos_trim* v);
 void msgpack_unpack_paxos_trim(msgpack_object* o, paxos_trim* v);
+void msgpack_pack_paxos_acceptor_state(msgpack_packer* p, paxos_acceptor_state* v);
+void msgpack_unpack_paxos_acceptor_state(msgpack_object* o, paxos_acceptor_state* v);
 void msgpack_pack_paxos_client_value(msgpack_packer* p, paxos_client_value* v);
 void msgpack_unpack_paxos_client_value(msgpack_object* o, paxos_client_value* v);
 void msgpack_pack_paxos_message(msgpack_packer* p, paxos_message* v);

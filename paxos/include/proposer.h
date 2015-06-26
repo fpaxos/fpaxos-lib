@@ -47,11 +47,11 @@ void proposer_set_instance_id(struct proposer* p, iid_t iid);
 // phase 1
 void proposer_prepare(struct proposer* p, paxos_prepare* out);
 int proposer_receive_promise(struct proposer* p, paxos_promise* ack,
-	int from_id, paxos_prepare* out);
+	paxos_prepare* out);
 
 // phase 2
 int proposer_accept(struct proposer* p, paxos_accept* out);
-int proposer_receive_accepted(struct proposer* p, paxos_accepted* ack, int id);
+int proposer_receive_accepted(struct proposer* p, paxos_accepted* ack);
 int proposer_receive_preempted(struct proposer* p, paxos_preempted* ack, 
 	paxos_prepare* out);
 

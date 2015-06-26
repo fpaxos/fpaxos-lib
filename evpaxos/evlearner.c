@@ -87,8 +87,7 @@ static void
 evlearner_handle_accepted(struct peer* p, paxos_message* msg, void* arg)
 {
 	struct evlearner* l = arg;
-	int peer_id = peer_get_id(p);
-	learner_receive_accepted(l->state, &msg->u.accepted, peer_id);
+	learner_receive_accepted(l->state, &msg->u.accepted);
 	evlearner_deliver_next_closed(l);
 }
 

@@ -11,6 +11,7 @@ schema = GenPack::Schema.define "paxos_types" do
     uint :ballot
   }
   message(:paxos_promise) {
+    uint :aid
     uint :iid
     uint :ballot
     uint :value_ballot
@@ -22,12 +23,14 @@ schema = GenPack::Schema.define "paxos_types" do
     paxos_value :value
   }
   message(:paxos_accepted) {
+    uint :aid
     uint :iid
     uint :ballot
     uint :value_ballot
     paxos_value :value
   }
   message(:paxos_preempted) {
+    uint :aid
     uint :iid
     uint :ballot
   }
@@ -39,6 +42,7 @@ schema = GenPack::Schema.define "paxos_types" do
     uint :iid
   }
   message(:paxos_acceptor_state) {
+    uint :aid
     uint :trim_iid
   }
   message(:paxos_client_value) {
@@ -59,7 +63,7 @@ end
 
 LICENSE = <<-eos
 /*
- * Copyright (c) 2013-2014, University of Lugano
+ * Copyright (c) 2013-2015, University of Lugano
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
