@@ -35,16 +35,16 @@
 
 struct paxos_config paxos_config =
 {
-	PAXOS_LOG_INFO,    /* verbosity */
-	1,                 /* tcp_nodelay */
-	1,                 /* learner_catchup */
-	1,                 /* proposer_timeout */
-	128,               /* proposer_preexec_window */
-	PAXOS_MEM_STORAGE, /* storage_backend */
-	0,                 /* trash_files */
-	0,                 /* lmdb_sync */
-	"/tmp/acceptor",   /* lmdb_env_path */
-	10*1024*1024       /* lmdb_mapsize */
+	.verbosity = PAXOS_LOG_INFO,
+	.tcp_nodelay = 1,
+	.learner_catch_up = 1,
+	.proposer_timeout = 1,
+	.proposer_preexec_window = 128,
+	.storage_backend = PAXOS_MEM_STORAGE,
+	.trash_files = 0,
+	.lmdb_sync = 0,
+	.lmdb_env_path = "/tmp/acceptor",
+	.lmdb_mapsize = 10*1024*1024
 };
 
 

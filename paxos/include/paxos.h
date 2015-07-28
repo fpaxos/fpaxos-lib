@@ -57,8 +57,8 @@ typedef enum
 struct paxos_config
 { 
 	/* General configuration */
-	int tcp_nodelay;
 	paxos_log_level verbosity;
+	int tcp_nodelay;
 	
 	/* Learner */
 	int learner_catch_up;
