@@ -1,7 +1,5 @@
 /* The MIT License
-
    Copyright (c) 2008, 2009, 2011 by Attractive Chaos <attractor@live.co.uk>
-
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
    "Software"), to deal in the Software without restriction, including
@@ -9,10 +7,8 @@
    distribute, sublicense, and/or sell copies of the Software, and to
    permit persons to whom the Software is furnished to do so, subject to
    the following conditions:
-
    The above copyright notice and this permission notice shall be
    included in all copies or substantial portions of the Software.
-
    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -25,7 +21,6 @@
 
 /*
   An example:
-
 #include "khash.h"
 KHASH_MAP_INIT_INT(32, char)
 int main() {
@@ -47,69 +42,43 @@ int main() {
 
 /*
   2013-05-02 (0.2.8):
-
 	* Use quadratic probing. When the capacity is power of 2, stepping function
 	  i*(i+1)/2 guarantees to traverse each bucket. It is better than double
 	  hashing on cache performance and is more robust than linear probing.
-
 	  In theory, double hashing should be more robust than quadratic probing.
 	  However, my implementation is probably not for large hash tables, because
 	  the second hash function is closely tied to the first hash function,
 	  which reduce the effectiveness of double hashing.
-
 	Reference: http://research.cs.vt.edu/AVresearch/hashing/quadratic.php
-
   2011-12-29 (0.2.7):
-
     * Minor code clean up; no actual effect.
-
   2011-09-16 (0.2.6):
-
 	* The capacity is a power of 2. This seems to dramatically improve the
 	  speed for simple keys. Thank Zilong Tan for the suggestion. Reference:
-
 	   - http://code.google.com/p/ulib/
 	   - http://nothings.org/computer/judy/
-
 	* Allow to optionally use linear probing which usually has better
 	  performance for random input. Double hashing is still the default as it
 	  is more robust to certain non-random input.
-
 	* Added Wang's integer hash function (not used by default). This hash
 	  function is more robust to certain non-random input.
-
   2011-02-14 (0.2.5):
-
     * Allow to declare global functions.
-
   2009-09-26 (0.2.4):
-
     * Improve portability
-
   2008-09-19 (0.2.3):
-
 	* Corrected the example
 	* Improved interfaces
-
   2008-09-11 (0.2.2):
-
 	* Improved speed a little in kh_put()
-
   2008-09-10 (0.2.1):
-
 	* Added kh_clear()
 	* Fixed a compiling error
-
   2008-09-02 (0.2.0):
-
 	* Changed to token concatenation which increases flexibility.
-
   2008-08-31 (0.1.2):
-
 	* Fixed a bug in kh_get(), which has not been tested previously.
-
   2008-08-31 (0.1.1):
-
 	* Added destructor
 */
 
@@ -119,7 +88,6 @@ int main() {
 
 /*!
   @header
-
   Generic hash table library.
  */
 
@@ -143,11 +111,21 @@ typedef unsigned long khint64_t;
 typedef unsigned long long khint64_t;
 #endif
 
+#ifndef kh_inline
 #ifdef _MSC_VER
 #define kh_inline __inline
 #else
 #define kh_inline inline
 #endif
+#endif /* kh_inline */
+
+#ifndef klib_unused
+#if (defined __clang__ && __clang_major__ >= 3) || (defined __GNUC__ && __GNUC__ >= 3)
+#define klib_unused __attribute__ ((__unused__))
+#else
+#define klib_unused
+#endif
+#endif /* klib_unused */
 
 typedef khint32_t khint_t;
 typedef khint_t khiter_t;
@@ -182,7 +160,7 @@ typedef khint_t khiter_t;
 static const double __ac_HASH_UPPER = 0.77;
 
 #define __KHASH_TYPE(name, khkey_t, khval_t) \
-	typedef struct { \
+	typedef struct kh_##name##_s { \
 		khint_t n_buckets, size, n_occupied, upper_bound; \
 		khint32_t *flags; \
 		khkey_t *keys; \
@@ -245,11 +223,11 @@ static const double __ac_HASH_UPPER = 0.77;
 				memset(new_flags, 0xaa, __ac_fsize(new_n_buckets) * sizeof(khint32_t)); \
 				if (h->n_buckets < new_n_buckets) {	/* expand */		\
 					khkey_t *new_keys = (khkey_t*)krealloc((void *)h->keys, new_n_buckets * sizeof(khkey_t)); \
-					if (!new_keys) return -1;							\
+					if (!new_keys) { kfree(new_flags); return -1; }		\
 					h->keys = new_keys;									\
 					if (kh_is_map) {									\
 						khval_t *new_vals = (khval_t*)krealloc((void *)h->vals, new_n_buckets * sizeof(khval_t)); \
-						if (!new_vals) return -1;						\
+						if (!new_vals) { kfree(new_flags); return -1; }	\
 						h->vals = new_vals;								\
 					}													\
 				} /* otherwise shrink */								\
@@ -353,7 +331,7 @@ static const double __ac_HASH_UPPER = 0.77;
 	__KHASH_IMPL(name, SCOPE, khkey_t, khval_t, kh_is_map, __hash_func, __hash_equal)
 
 #define KHASH_INIT(name, khkey_t, khval_t, kh_is_map, __hash_func, __hash_equal) \
-	KHASH_INIT2(name, static kh_inline, khkey_t, khval_t, kh_is_map, __hash_func, __hash_equal)
+	KHASH_INIT2(name, static kh_inline klib_unused, khkey_t, khval_t, kh_is_map, __hash_func, __hash_equal)
 
 /* --- BEGIN OF HASH FUNCTIONS --- */
 
@@ -409,7 +387,7 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
     key ^=  (key >> 16);
     return key;
 }
-#define kh_int_hash_func2(k) __ac_Wang_hash((khint_t)key)
+#define kh_int_hash_func2(key) __ac_Wang_hash((khint_t)key)
 
 /* --- END OF HASH FUNCTIONS --- */
 
@@ -455,7 +433,8 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
   @param  name  Name of the hash table [symbol]
   @param  h     Pointer to the hash table [khash_t(name)*]
   @param  k     Key [type of keys]
-  @param  r     Extra return code: 0 if the key is present in the hash table;
+  @param  r     Extra return code: -1 if the operation failed;
+                0 if the key is present in the hash table;
                 1 if the bucket is empty (never used); 2 if the element in
 				the bucket has been deleted [int*]
   @return       Iterator to the inserted element [khint_t]
