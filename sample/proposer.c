@@ -55,7 +55,8 @@ start_proposer(const char* config, int id)
 		printf("Could not start the proposer!\n");
 		exit(1);
 	}
-	
+
+	signal(SIGPIPE, SIG_IGN);
 	event_base_dispatch(base);
 
 	event_free(sig);

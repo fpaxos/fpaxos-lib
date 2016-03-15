@@ -78,6 +78,8 @@ start_replica(int id, const char* config)
 	
 	sig = evsignal_new(base, SIGINT, handle_sigint, base);
 	evsignal_add(sig, NULL);
+
+	signal(SIGPIPE, SIG_IGN);
 	event_base_dispatch(base);
 
 	event_free(sig);
