@@ -56,6 +56,7 @@ start_acceptor(int id, const char* config)
 		return;
 	}
 	
+	signal(SIGPIPE, SIG_IGN);
 	event_base_dispatch(base);
 	
 	event_free(sig);
