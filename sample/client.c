@@ -212,6 +212,8 @@ client_free(struct client* c)
 	event_free(c->stats_ev);
 	event_free(c->sig);
 	event_base_free(c->base);
+	if (c->learner)
+		evlearner_free(c->learner);
 	free(c);
 }
 
@@ -220,6 +222,7 @@ start_client(const char* config, int proposer_id, int outstanding, int value_siz
 {
 	struct client* client;
 	client = make_client(config, proposer_id, outstanding, value_size);
+	signal(SIGPIPE, SIG_IGN);
 	event_base_dispatch(client->base);
 	client_free(client);
 }
