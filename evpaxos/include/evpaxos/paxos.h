@@ -33,6 +33,10 @@
 #include <event2/event.h>
 #include <event2/bufferevent.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct evlearner;
 struct evproposer;
 struct evacceptor;
@@ -170,5 +174,9 @@ void evproposer_set_instance_id(struct evproposer* p, unsigned iid);
  * Used by clients to submit values to proposers.
  */
 void paxos_submit(struct bufferevent* bev, char* value, int size);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

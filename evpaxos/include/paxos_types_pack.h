@@ -29,6 +29,10 @@
 #ifndef _PAXOS_TYPES_PACK_H_
 #define _PAXOS_TYPES_PACK_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "paxos_types.h"
 #include <msgpack.h>
 
@@ -52,5 +56,9 @@ void msgpack_pack_paxos_client_value(msgpack_packer* p, paxos_client_value* v);
 void msgpack_unpack_paxos_client_value(msgpack_object* o, paxos_client_value* v);
 void msgpack_pack_paxos_message(msgpack_packer* p, paxos_message* v);
 void msgpack_unpack_paxos_message(msgpack_object* o, paxos_message* v);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

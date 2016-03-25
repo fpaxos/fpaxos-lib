@@ -29,6 +29,10 @@
 #ifndef _LIBPAXOS_H_
 #define _LIBPAXOS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdarg.h>
 #include <sys/types.h>
 #include <paxos_types.h>
@@ -101,5 +105,9 @@ void paxos_log_debug(const char* format, ...);
 	This number MUST be a power of 10.
 */
 #define MAX_N_OF_PROPOSERS 10
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
