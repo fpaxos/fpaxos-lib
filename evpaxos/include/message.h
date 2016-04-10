@@ -29,6 +29,10 @@
 #ifndef _TCP_SENDBUF_H_
 #define _TCP_SENDBUF_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "paxos_types.h"
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
@@ -42,5 +46,9 @@ void send_paxos_preempted(struct bufferevent* bev, paxos_preempted* msg);
 void send_paxos_repeat(struct bufferevent* bev, paxos_repeat* msg);
 void send_paxos_trim(struct bufferevent* bev, paxos_trim* msg);
 int recv_paxos_message(struct evbuffer* in, paxos_message* out);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
