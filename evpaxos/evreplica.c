@@ -36,8 +36,18 @@ struct evpaxos_replica
 	struct evlearner* learner;
 	struct evproposer* proposer;
 	struct evacceptor* acceptor;
+	deliver_function deliver;
+	void* arg;
 };
 
+static void
+evpaxos_replica_deliver(unsigned iid, char* value, size_t size, void* arg)
+{
+	struct evpaxos_replica* r = arg;
+	evproposer_set_instance_id(r->proposer, iid);
+	if (r->deliver)
+		r->deliver(iid, value, size, r->arg);
+}
 
 struct evpaxos_replica*
 evpaxos_replica_init(int id, const char* config_file, deliver_function f,
@@ -54,10 +64,11 @@ evpaxos_replica_init(int id, const char* config_file, deliver_function f,
 	
 	r->acceptor = evacceptor_init_internal(id, config, r->peers);
 	r->proposer = evproposer_init_internal(id, config, r->peers);
-	r->learner = NULL;
-	if (f != NULL)
-		r->learner = evlearner_init_internal(config, r->peers, f, arg);
-	
+	r->learner  = evlearner_init_internal(config, r->peers,
+		evpaxos_replica_deliver, r);
+	r->deliver = f;
+	r->arg = arg;
+
 	int port = evpaxos_acceptor_listen_port(config, id);
 	if (peers_listen(r->peers, port) == 0) {
 		evpaxos_config_free(config);

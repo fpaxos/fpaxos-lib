@@ -127,7 +127,12 @@ proposer_prepared_count(struct proposer* p)
 void
 proposer_set_instance_id(struct proposer* p, iid_t iid)
 {
-	p->next_prepare_iid = iid;
+	if (iid > p->next_prepare_iid) {
+		p->next_prepare_iid = iid;
+		// remove instances older than iid
+		proposer_trim_instances(p, p->prepare_instances, iid);
+		proposer_trim_instances(p, p->accept_instances, iid);
+	}
 }
 
 void
@@ -293,19 +298,10 @@ proposer_receive_preempted(struct proposer* p, paxos_preempted* ack,
 void
 proposer_receive_acceptor_state(struct proposer* p, paxos_acceptor_state* state)
 {
-	// ignore old trim messages
-	if (p->max_trim_iid > state->trim_iid)
-		return;
-	
-	p->max_trim_iid = state->trim_iid;
-
-	// advance next_prepare_iid
-	if (p->next_prepare_iid < state->trim_iid)
-		p->next_prepare_iid = state->trim_iid;
-	
-	// remove instances older than trim_iid
-	proposer_trim_instances(p, p->prepare_instances, state->trim_iid);
-	proposer_trim_instances(p, p->accept_instances, state->trim_iid);
+	if (p->max_trim_iid < state->trim_iid) {
+		p->max_trim_iid = state->trim_iid;
+		proposer_set_instance_id(p, state->trim_iid);
+	}
 }
 
 struct timeout_iterator*

@@ -428,3 +428,11 @@ TEST_F(ProposerTest, AvoidDuplicateProposals) {
 	TestPrepareAckFromQuorum(pre.iid, pre.ballot);
 	ASSERT_FALSE(proposer_accept(p, &acc));
 }
+
+TEST_F(ProposerTest, SetInstanceId) {
+	iid_t iid = 10;
+	paxos_prepare pr;
+	proposer_set_instance_id(p, iid);
+	proposer_prepare(p, &pr);
+	ASSERT_EQ(pr.iid, iid + 1);
+}
