@@ -6,7 +6,7 @@
 set(MSGPACK_ROOT "" CACHE STRING "MessagePack root directory")
 
 find_path(MSGPACK_INCLUDE_DIR msgpack.h HINTS "${MSGPACK_ROOT}/include")
-find_library(MSGPACK_LIBRARY msgpack HINTS "${MSGPACK_ROOT}/lib")
+find_library(MSGPACK_LIBRARY NAMES msgpack msgpackc HINTS "${MSGPACK_ROOT}/lib")
 
 set(MSGPACK_LIBRARIES ${MSGPACK_LIBRARY})
 set(MSGPACK_INCLUDE_DIRS ${MSGPACK_INCLUDE_DIR})
