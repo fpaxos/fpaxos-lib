@@ -41,21 +41,24 @@
 
 struct client_value
 {
-  struct timeval t;
-  size_t size;
-  char value[MAX_VALUE_SIZE];
+	int client_id;
+	struct timeval t;
+	size_t size;
+	char value[MAX_VALUE_SIZE];
 };
 
 struct stats
 {
-	int delivered;
 	long min_latency;
 	long max_latency;
 	long avg_latency;
+	int delivered_count;
+	size_t delivered_bytes;
 };
 
 struct client
 {
+	int id;
 	int value_size;
 	int outstanding;
 	struct stats stats;
@@ -90,10 +93,11 @@ static void
 client_submit_value(struct client* c)
 {
 	struct client_value v;
+	v.client_id = c->id;
 	gettimeofday(&v.t, NULL);
 	v.size = c->value_size;
 	random_string(v.value, v.size);
-	size_t size = sizeof(struct timeval) + sizeof(size_t) + v.size;
+	size_t size = sizeof(int) + sizeof(struct timeval) + sizeof(size_t) + v.size;
 	paxos_submit(c->bev, (char*)&v, size);
 }
 
@@ -109,14 +113,15 @@ timeval_diff(struct timeval* t1, struct timeval* t2)
 }
 
 static void
-update_stats(struct stats* stats, struct client_value* delivered)
+update_stats(struct stats* stats, struct client_value* delivered, size_t size)
 {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 	long lat = timeval_diff(&delivered->t, &tv);
-	stats->delivered++;
+	stats->delivered_count++;
+	stats->delivered_bytes += size;
 	stats->avg_latency = stats->avg_latency + 
-		((lat - stats->avg_latency) / stats->delivered);
+		((lat - stats->avg_latency) / stats->delivered_count);
 	if (stats->min_latency == 0 || lat < stats->min_latency)
 		stats->min_latency = lat;
 	if (lat > stats->max_latency)
@@ -128,18 +133,20 @@ on_deliver(unsigned iid, char* value, size_t size, void* arg)
 {
 	struct client* c = arg;
 	struct client_value* v = (struct client_value*)value;
-	update_stats(&c->stats, v);
-	client_submit_value(c);
+	if (v->client_id == c->id) {
+		update_stats(&c->stats, v, size);
+		client_submit_value(c);
+	}
 }
 
 static void
 on_stats(evutil_socket_t fd, short event, void *arg)
 {
 	struct client* c = arg;
-	double mbps = (double)(c->stats.delivered*c->value_size*8) / (1024*1024);
+	double mbps = (double)(c->stats.delivered_bytes * 8) / (1024*1024);
 	printf("%d value/sec, %.2f Mbps, latency min %ld us max %ld us avg %ld us\n", 
-		c->stats.delivered, mbps, c->stats.min_latency, c->stats.max_latency,
-		c->stats.avg_latency);
+		c->stats.delivered_count, mbps, c->stats.min_latency,
+		c->stats.max_latency, c->stats.avg_latency);
 	memset(&c->stats, 0, sizeof(struct stats));
 	event_add(c->stats_ev, &c->stats_interval);
 }
@@ -189,6 +196,7 @@ make_client(const char* config, int proposer_id, int outstanding, int value_size
 	if (c->bev == NULL)
 		exit(1);
 	
+	c->id = rand();
 	c->value_size = value_size;
 	c->outstanding = outstanding;
 	
@@ -245,6 +253,7 @@ main(int argc, char const *argv[])
 	int proposer_id = 0;
 	int outstanding = 1;
 	int value_size = 64;
+	struct timeval seed;
 	const char* config = "../paxos.conf";
 
 	if (argc > 1 && argv[1][0] != '-') {
@@ -265,9 +274,10 @@ main(int argc, char const *argv[])
 			usage(argv[0]);
 		i++;
 	}
-	
-	srand(time(NULL));
+
+	gettimeofday(&seed, NULL);
+	srand(seed.tv_usec);
 	start_client(config, proposer_id, outstanding, value_size);
-	
+
 	return 0;
 }

@@ -31,6 +31,14 @@
 #include <evpaxos.h>
 #include <signal.h>
 
+struct client_value
+{
+	int client_id;
+	struct timeval t;
+	size_t size;
+	char value[];
+};
+
 static void
 handle_sigint(int sig, short ev, void* arg)
 {
@@ -42,7 +50,9 @@ handle_sigint(int sig, short ev, void* arg)
 static void
 deliver(unsigned iid, char* value, size_t size, void* arg)
 {
-	printf("Delivered value: %s\n", value);
+	struct client_value* val = (struct client_value*)value;
+	printf("%ld.%06d [%.16s] %ld bytes\n", val->t.tv_sec, val->t.tv_usec,
+		val->value, (long)val->size);
 }
 
 static void
