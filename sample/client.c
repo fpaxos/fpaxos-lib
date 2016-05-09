@@ -44,7 +44,7 @@ struct client_value
 	int client_id;
 	struct timeval t;
 	size_t size;
-	char value[MAX_VALUE_SIZE];
+	char value[0];
 };
 
 struct stats
@@ -61,6 +61,7 @@ struct client
 	int id;
 	int value_size;
 	int outstanding;
+	char* send_buffer;
 	struct stats stats;
 	struct event_base* base;
 	struct bufferevent* bev;
@@ -92,13 +93,13 @@ random_string(char *s, const int len)
 static void
 client_submit_value(struct client* c)
 {
-	struct client_value v;
-	v.client_id = c->id;
-	gettimeofday(&v.t, NULL);
-	v.size = c->value_size;
-	random_string(v.value, v.size);
-	size_t size = sizeof(int) + sizeof(struct timeval) + sizeof(size_t) + v.size;
-	paxos_submit(c->bev, (char*)&v, size);
+	struct client_value* v = (struct client_value*)c->send_buffer;
+	v->client_id = c->id;
+	gettimeofday(&v->t, NULL);
+	v->size = c->value_size;
+	random_string(v->value, v->size);
+	size_t size = sizeof(struct client_value) + v->size;
+	paxos_submit(c->bev, c->send_buffer, size);
 }
 
 // Returns t2 - t1 in microseconds.
@@ -199,6 +200,7 @@ make_client(const char* config, int proposer_id, int outstanding, int value_size
 	c->id = rand();
 	c->value_size = value_size;
 	c->outstanding = outstanding;
+	c->send_buffer = malloc(sizeof(struct client_value) + value_size);
 	
 	c->stats_interval = (struct timeval){1, 0};
 	c->stats_ev = evtimer_new(c->base, on_stats, c);
@@ -216,6 +218,7 @@ make_client(const char* config, int proposer_id, int outstanding, int value_size
 static void
 client_free(struct client* c)
 {
+	free(c->send_buffer);
 	bufferevent_free(c->bev);
 	event_free(c->stats_ev);
 	event_free(c->sig);
