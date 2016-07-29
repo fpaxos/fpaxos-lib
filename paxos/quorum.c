@@ -33,12 +33,20 @@
 
 
 void
-quorum_init(struct quorum* q, int acceptors)
+quorum_init(struct quorum* q, int acceptors, int quorum_size)
 {
 	q->acceptors = acceptors;
-	q->quorum = paxos_quorum(acceptors);
+	q->quorum = quorum_size;
 	q->acceptor_ids = malloc(sizeof(int) * q->acceptors);
 	quorum_clear(q);
+}
+
+void
+quorum_resize(struct quorum* q, int quorum_size)
+{
+	q->quorum = quorum_size;
+	q->count = 0;
+	memset(q->acceptor_ids, 0, sizeof(int) * q->acceptors);
 }
 
 void

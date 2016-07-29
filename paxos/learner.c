@@ -44,6 +44,7 @@ KHASH_MAP_INIT_INT(instance, struct instance*)
 struct learner
 {
 	int acceptors;
+	int quorum_size;
 	int late_start;
 	iid_t current_iid;
 	iid_t highest_iid_closed;
@@ -52,13 +53,13 @@ struct learner
 
 static struct instance* learner_get_instance(struct learner* l, iid_t iid);
 static struct instance* learner_get_current_instance(struct learner* l);
-static struct instance* learner_get_instance_or_create(struct learner* l, 
+static struct instance* learner_get_instance_or_create(struct learner* l,
 	iid_t iid);
 static void learner_delete_instance(struct learner* l, struct instance* inst);
 static struct instance* instance_new(int acceptors);
 static void instance_free(struct instance* i, int acceptors);
-static void instance_update(struct instance* i, paxos_accepted* ack, int acceptors);
-static int instance_has_quorum(struct instance* i, int acceptors);
+static void instance_update(struct instance* i, paxos_accepted* ack, int acceptors, int quorum_size);
+static int instance_has_quorum(struct instance* i, int acceptors, int quorum_size);
 static void instance_add_accept(struct instance* i, paxos_accepted* ack);
 static paxos_accepted* paxos_accepted_dup(paxos_accepted* ack);
 static void paxos_value_copy(paxos_value* dst, paxos_value* src);
@@ -70,6 +71,7 @@ learner_new(int acceptors)
 	struct learner* l;
 	l = malloc(sizeof(struct learner));
 	l->acceptors = acceptors;
+	l->quorum_size = !paxos_config.quorum_2;
 	l->current_iid = 1;
 	l->highest_iid_closed = 1;
 	l->late_start = !paxos_config.learner_catch_up;
@@ -95,24 +97,24 @@ learner_set_instance_id(struct learner* l, iid_t iid)
 
 void
 learner_receive_accepted(struct learner* l, paxos_accepted* ack)
-{	
+{
 	if (l->late_start) {
 		l->late_start = 0;
 		l->current_iid = ack->iid;
 	}
-	
+
 	if (ack->iid < l->current_iid) {
 		paxos_log_debug("Dropped paxos_accepted for iid %u. Already delivered.",
 			ack->iid);
 		return;
 	}
-	
+
 	struct instance* inst;
 	inst = learner_get_instance_or_create(l, ack->iid);
-	
-	instance_update(inst, ack, l->acceptors);
-	
-	if (instance_has_quorum(inst, l->acceptors)
+
+	instance_update(inst, ack, l->acceptors, l->quorum_size);
+
+	if (instance_has_quorum(inst, l->acceptors, l->quorum_size)
 		&& (inst->iid > l->highest_iid_closed))
 		l->highest_iid_closed = inst->iid;
 }
@@ -121,7 +123,7 @@ int
 learner_deliver_next(struct learner* l, paxos_accepted* out)
 {
 	struct instance* inst = learner_get_current_instance(l);
-	if (inst == NULL || !instance_has_quorum(inst, l->acceptors))
+	if (inst == NULL || !instance_has_quorum(inst, l->acceptors, l->quorum_size))
 		return 0;
 	memcpy(out, inst->final_value, sizeof(paxos_accepted));
 	paxos_value_copy(&out->value, &inst->final_value->value);
@@ -205,50 +207,50 @@ instance_free(struct instance* inst, int acceptors)
 }
 
 static void
-instance_update(struct instance* inst, paxos_accepted* accepted, int acceptors)
-{	
+instance_update(struct instance* inst, paxos_accepted* accepted, int acceptors, int quorum_size)
+{
 	if (inst->iid == 0) {
 		paxos_log_debug("Received first message for iid: %u", accepted->iid);
 		inst->iid = accepted->iid;
 		inst->last_update_ballot = accepted->ballot;
 	}
-	
-	if (instance_has_quorum(inst, acceptors)) {
+
+	if (instance_has_quorum(inst, acceptors, quorum_size)) {
 		paxos_log_debug("Dropped paxos_accepted iid %u. Already closed.",
 			accepted->iid);
 		return;
 	}
-	
+
 	paxos_accepted* prev_accepted = inst->acks[accepted->aid];
 	if (prev_accepted != NULL && prev_accepted->ballot >= accepted->ballot) {
 		paxos_log_debug("Dropped paxos_accepted for iid %u."
 			"Previous ballot is newer or equal.", accepted->iid);
 		return;
 	}
-	
+
 	instance_add_accept(inst, accepted);
 }
 
-/* 
-	Checks if a given instance is closed, that is if a quorum of acceptor 
-	accepted the same value ballot pair. 
+/*
+	Checks if a given instance is closed, that is if a quorum of acceptor
+	accepted the same value ballot pair.
 	Returns 1 if the instance is closed, 0 otherwise.
 */
-static int 
-instance_has_quorum(struct instance* inst, int acceptors)
+static int
+instance_has_quorum(struct instance* inst, int acceptors, int quorum_size)
 {
 	paxos_accepted* curr_ack;
 	int i, a_valid_index = -1, count = 0;
 
 	if (inst->final_value != NULL)
 		return 1;
-	
+
 	for (i = 0; i < acceptors; i++) {
 		curr_ack = inst->acks[i];
-	
+
 		// Skip over missing acceptor acks
 		if (curr_ack == NULL) continue;
-		
+
 		// Count the ones "agreeing" with the last added
 		if (curr_ack->ballot == inst->last_update_ballot) {
 			count++;
@@ -256,7 +258,7 @@ instance_has_quorum(struct instance* inst, int acceptors)
 		}
 	}
 
-	if (count >= paxos_quorum(acceptors)) {
+	if (count >= quorum_size) {
 		paxos_log_debug("Reached quorum, iid: %u is closed!", inst->iid);
 		inst->final_value = inst->acks[a_valid_index];
 		return 1;
@@ -265,7 +267,7 @@ instance_has_quorum(struct instance* inst, int acceptors)
 }
 
 /*
-	Adds the given paxos_accepted to the given instance, 
+	Adds the given paxos_accepted to the given instance,
 	replacing the previous paxos_accepted, if any.
 */
 static void
@@ -298,6 +300,6 @@ paxos_value_copy(paxos_value* dst, paxos_value* src)
 	dst->paxos_value_len = len;
 	if (src->paxos_value_val != NULL) {
 		dst->paxos_value_val = malloc(len);
-		memcpy(dst->paxos_value_val, src->paxos_value_val, len);	
+		memcpy(dst->paxos_value_val, src->paxos_value_val, len);
 	}
 }

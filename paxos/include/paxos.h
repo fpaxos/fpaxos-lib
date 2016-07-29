@@ -59,21 +59,23 @@ typedef enum
 
 /* Configuration */
 struct paxos_config
-{ 
+{
 	/* General configuration */
 	paxos_log_level verbosity;
 	int tcp_nodelay;
-	
+
 	/* Learner */
 	int learner_catch_up;
-	
+
 	/* Proposer */
 	int proposer_timeout;
 	int proposer_preexec_window;
-	
+
 	/* Acceptor */
 	paxos_storage_backend storage_backend;
 	int trash_files;
+	int quorum_1;
+	int quorum_2;
 
 	/* lmdb storage configuration */
 	int lmdb_sync;
@@ -84,7 +86,6 @@ struct paxos_config
 extern struct paxos_config paxos_config;
 
 /* Core functions */
-int paxos_quorum(int acceptors);
 paxos_value* paxos_value_new(const char* v, size_t s);
 void paxos_value_free(paxos_value* v);
 void paxos_promise_destroy(paxos_promise* p);

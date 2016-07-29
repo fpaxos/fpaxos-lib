@@ -38,7 +38,7 @@ extern "C" {
 struct proposer;
 struct timeout_iterator;
 
-struct proposer* proposer_new(int id, int acceptors);
+struct proposer* proposer_new(int id, int acceptors, int q1, int q2);
 void proposer_free(struct proposer* p);
 void proposer_propose(struct proposer* p, const char* value, size_t size);
 int proposer_prepared_count(struct proposer* p);
@@ -52,7 +52,7 @@ int proposer_receive_promise(struct proposer* p, paxos_promise* ack,
 // phase 2
 int proposer_accept(struct proposer* p, paxos_accept* out);
 int proposer_receive_accepted(struct proposer* p, paxos_accepted* ack);
-int proposer_receive_preempted(struct proposer* p, paxos_preempted* ack, 
+int proposer_receive_preempted(struct proposer* p, paxos_preempted* ack,
 	paxos_prepare* out);
 
 // periodic acceptor state

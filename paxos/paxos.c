@@ -48,12 +48,6 @@ struct paxos_config paxos_config =
 };
 
 
-int
-paxos_quorum(int acceptors)
-{
-	return (acceptors/2)+1;
-}
-
 paxos_value*
 paxos_value_new(const char* value, size_t size)
 {
@@ -76,7 +70,7 @@ static void
 paxos_value_destroy(paxos_value* v)
 {
 	if (v->paxos_value_len > 0)
-		free(v->paxos_value_val);	
+		free(v->paxos_value_val);
 }
 
 void
@@ -136,10 +130,10 @@ paxos_log(int level, const char* format, va_list ap)
 	int off;
 	char msg[1024];
 	struct timeval tv;
-	
+
 	if (level > paxos_config.verbosity)
 		return;
-	
+
 	gettimeofday(&tv,NULL);
 	off = strftime(msg, sizeof(msg), "%d %b %H:%M:%S. ", localtime(&tv.tv_sec));
 	vsnprintf(msg+off, sizeof(msg)-off, format, ap);

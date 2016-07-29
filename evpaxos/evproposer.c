@@ -139,18 +139,18 @@ evproposer_check_timeouts(evutil_socket_t fd, short event, void *arg)
 	struct evproposer* p = arg;
 	struct timeout_iterator* iter = proposer_timeout_iterator(p->state);
 
-	paxos_prepare pr;	
+	paxos_prepare pr;
 	while (timeout_iterator_prepare(iter, &pr)) {
 		paxos_log_info("Instance %d timed out in phase 1.", pr.iid);
 		peers_foreach_acceptor(p->peers, peer_send_prepare, &pr);
 	}
-	
+
 	paxos_accept ar;
 	while (timeout_iterator_accept(iter, &ar)) {
 		paxos_log_info("Instance %d timed out in phase 2.", ar.iid);
 		peers_foreach_acceptor(p->peers, peer_send_accept, &ar);
 	}
-	
+
 	timeout_iterator_free(iter);
 	event_add(p->timeout_ev, &p->tv);
 }
@@ -185,10 +185,10 @@ evproposer_init_internal(int id, struct evpaxos_config* c, struct peers* peers)
 	p->tv.tv_usec = 0;
 	p->timeout_ev = evtimer_new(base, evproposer_check_timeouts, p);
 	event_add(p->timeout_ev, &p->tv);
-	
-	p->state = proposer_new(p->id, acceptor_count);
+
+	p->state = proposer_new(p->id, acceptor_count,paxos_config.quorum_1,paxos_config.quorum_2);
 	p->peers = peers;
-	
+
 	event_base_once(base, 0, EV_TIMEOUT, evproposer_preexec_once, p, NULL);
 
 	return p;
@@ -207,7 +207,7 @@ evproposer_init(int id, const char* config_file, struct event_base* base)
 		paxos_log_error("Invalid proposer id: %d", id);
 		return NULL;
 	}
-	
+
 	struct peers* peers = peers_new(base, config);
 	peers_connect_to_acceptors(peers);
 	int port = evpaxos_proposer_listen_port(config, id);

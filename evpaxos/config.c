@@ -79,6 +79,8 @@ struct option options[] =
 	{ "lmdb-sync", &paxos_config.lmdb_sync, option_boolean },
 	{ "lmdb-env-path", &paxos_config.lmdb_env_path, option_string },
 	{ "lmdb-mapsize", &paxos_config.lmdb_mapsize, option_bytes },
+	{ "quorum-1", &paxos_config.quorum_1, option_integer },
+	{ "quorum-2", &paxos_config.quorum_2, option_integer },
 	{ 0 }
 };
 
@@ -97,29 +99,29 @@ evpaxos_config_read(const char* path)
 	char line[512];
 	int linenumber = 1;
 	struct evpaxos_config* c = NULL;
-	
+
 	if ((f = fopen(path, "r")) == NULL) {
 		perror("fopen");
 		goto failure;
 	}
-	
+
 	if (stat(path, &sb) == -1) {
 		perror("stat");
 		goto failure;
 	}
-	
+
 	if (!S_ISREG(sb.st_mode)) {
 		paxos_log_error("Error: %s is not a regular file\n", path);
 		goto failure;
 	}
-	
+
 	c = malloc(sizeof(struct evpaxos_config));
 	if (c == NULL) {
 		perror("malloc");
 		goto failure;
 	}
 	memset(c, 0, sizeof(struct evpaxos_config));
-	
+
 	while (fgets(line, sizeof(line), f) != NULL) {
 		if (line[0] != '#' && line[0] != '\n') {
 			if (parse_line(c, line) == 0) {
@@ -156,14 +158,14 @@ evpaxos_proposer_address(struct evpaxos_config* config, int i)
 {
 	return address_to_sockaddr(&config->proposers[i]);
 }
-	
+
 int
 evpaxos_proposer_listen_port(struct evpaxos_config* config, int i)
 {
 	return config->proposers[i].port;
 }
 
-int 
+int
 evpaxos_acceptor_count(struct evpaxos_config* config)
 {
 	return config->acceptors_count;
@@ -224,7 +226,7 @@ parse_boolean(char* str, int* boolean)
 	if (strcasecmp(str, "no") == 0) {
 		*boolean = 0;
 		return 1;
-	}	
+	}
 	return 0;
 }
 
@@ -295,17 +297,17 @@ lookup_option(char* opt)
 	return NULL;
 }
 
-static int 
+static int
 parse_line(struct evpaxos_config* c, char* line)
 {
 	int rv;
 	char* tok;
 	char* sep = " ";
 	struct option* opt;
-	
+
 	line = strtrim(line);
 	tok = strsep(&line, sep);
-	
+
 	if (strcasecmp(tok, "a") == 0 || strcasecmp(tok, "acceptor") == 0) {
 		if (c->acceptors_count >= MAX_N_OF_PROPOSERS) {
 			paxos_log_error("Number of acceptors exceded maximum of: %d\n",
@@ -315,7 +317,7 @@ parse_line(struct evpaxos_config* c, char* line)
 		struct address* addr = &c->acceptors[c->acceptors_count++];
 		return parse_address(line, addr);
 	}
-	
+
 	if (strcasecmp(tok, "p") == 0 || strcasecmp(tok, "proposer") == 0) {
 		if (c->proposers_count >= MAX_N_OF_PROPOSERS) {
 			paxos_log_error("Number of proposers exceded maximum of: %d\n",
@@ -325,7 +327,7 @@ parse_line(struct evpaxos_config* c, char* line)
 		struct address* addr = &c->proposers[c->proposers_count++];
 		return parse_address(line, addr);
 	}
-	
+
 	if (strcasecmp(tok, "r") == 0 || strcasecmp(tok, "replica") == 0) {
 		if (c->proposers_count >= MAX_N_OF_PROPOSERS ||
 			c->acceptors_count >= MAX_N_OF_PROPOSERS ) {
@@ -339,7 +341,7 @@ parse_line(struct evpaxos_config* c, char* line)
 		address_copy(pro_addr, acc_addr);
 		return rv;
 	}
-	
+
 	line = strtrim(line);
 	opt = lookup_option(tok);
 	if (opt == NULL)
@@ -370,7 +372,7 @@ parse_line(struct evpaxos_config* c, char* line)
 			rv = parse_bytes(line, opt->value);
 			if (rv == 0) paxos_log_error("Expected number of bytes.\n");
 	}
-	
+
 	return rv;
 }
 
