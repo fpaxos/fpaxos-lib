@@ -43,6 +43,8 @@ struct paxos_config paxos_config =
 	.storage_backend = PAXOS_MEM_STORAGE,
 	.trash_files = 0,
 	.lmdb_sync = 0,
+	.quorum_1 = 2,
+	.quorum_2 = 2,
 	.lmdb_env_path = "/tmp/acceptor",
 	.lmdb_mapsize = 10*1024*1024
 };

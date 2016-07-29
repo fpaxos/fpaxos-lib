@@ -185,7 +185,7 @@ evproposer_init_internal(int id, struct evpaxos_config* c, struct peers* peers)
 	p->tv.tv_usec = 0;
 	p->timeout_ev = evtimer_new(base, evproposer_check_timeouts, p);
 	event_add(p->timeout_ev, &p->tv);
-
+	
 	p->state = proposer_new(p->id, acceptor_count,paxos_config.quorum_1,paxos_config.quorum_2);
 	p->peers = peers;
 

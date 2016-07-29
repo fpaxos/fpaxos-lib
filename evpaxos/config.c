@@ -71,6 +71,8 @@ struct option options[] =
 {
 	{ "verbosity", &paxos_config.verbosity, option_verbosity },
 	{ "tcp-nodelay", &paxos_config.tcp_nodelay, option_boolean },
+	{ "quorum-1", &paxos_config.quorum_1, option_integer },
+	{ "quorum-2", &paxos_config.quorum_2, option_integer },
 	{ "learner-catch-up", &paxos_config.learner_catch_up, option_boolean },
 	{ "proposer-timeout", &paxos_config.proposer_timeout, option_integer },
 	{ "proposer-preexec-window", &paxos_config.proposer_preexec_window, option_integer },
@@ -79,8 +81,6 @@ struct option options[] =
 	{ "lmdb-sync", &paxos_config.lmdb_sync, option_boolean },
 	{ "lmdb-env-path", &paxos_config.lmdb_env_path, option_string },
 	{ "lmdb-mapsize", &paxos_config.lmdb_mapsize, option_bytes },
-	{ "quorum-1", &paxos_config.quorum_1, option_integer },
-	{ "quorum-2", &paxos_config.quorum_2, option_integer },
 	{ 0 }
 };
 

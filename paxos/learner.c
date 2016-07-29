@@ -71,7 +71,7 @@ learner_new(int acceptors)
 	struct learner* l;
 	l = malloc(sizeof(struct learner));
 	l->acceptors = acceptors;
-	l->quorum_size = !paxos_config.quorum_2;
+	l->quorum_size = paxos_config.quorum_2;
 	l->current_iid = 1;
 	l->highest_iid_closed = 1;
 	l->late_start = !paxos_config.learner_catch_up;
@@ -259,7 +259,7 @@ instance_has_quorum(struct instance* inst, int acceptors, int quorum_size)
 	}
 
 	if (count >= quorum_size) {
-		paxos_log_debug("Reached quorum, iid: %u is closed!", inst->iid);
+		paxos_log_debug("Reached quorum of %u, iid: %u is closed!", quorum_size, inst->iid);
 		inst->final_value = inst->acks[a_valid_index];
 		return 1;
 	}

@@ -1,3 +1,9 @@
-h1 ./sample/replica 0 ../paxos.conf > /dev/null &
-h2 ./sample/replica 1 ../paxos.conf > /dev/null &
-h3 ./sample/replica 2 ../paxos.conf > /dev/null &
+
+# clean up
+rm replica*.log
+
+# deploy
+for ((i=1; i<$1+1; i++))
+do
+	h(expr $1+1) ./sample/replica $i ../paxos.conf >> replica_$i.log &
+done
