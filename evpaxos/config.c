@@ -73,6 +73,8 @@ struct option options[] =
 	{ "tcp-nodelay", &paxos_config.tcp_nodelay, option_boolean },
 	{ "quorum-1", &paxos_config.quorum_1, option_integer },
 	{ "quorum-2", &paxos_config.quorum_2, option_integer },
+	{ "group-1", &paxos_config.group_1, option_integer },
+	{ "group-2", &paxos_config.group_2, option_integer },
 	{ "learner-catch-up", &paxos_config.learner_catch_up, option_boolean },
 	{ "proposer-timeout", &paxos_config.proposer_timeout, option_integer },
 	{ "proposer-preexec-window", &paxos_config.proposer_preexec_window, option_integer },

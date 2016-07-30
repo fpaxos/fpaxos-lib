@@ -66,7 +66,7 @@ proposer_preexecute(struct evproposer* p)
 	if (count <= 0) return;
 	for (i = 0; i < count; i++) {
 		proposer_prepare(p->state, &pr);
-		peers_foreach_acceptor(p->peers, peer_send_prepare, &pr);
+		peers_for_n_acceptor(p->peers, peer_send_prepare, &pr, paxos_config.group_1);
 	}
 	paxos_log_debug("Opened %d new instances", count);
 }
@@ -76,7 +76,7 @@ try_accept(struct evproposer* p)
 {
 	paxos_accept accept;
 	while (proposer_accept(p->state, &accept))
-		peers_foreach_acceptor(p->peers, peer_send_accept, &accept);
+		peers_for_n_acceptor(p->peers, peer_send_accept, &accept, paxos_config.group_2);
 	proposer_preexecute(p);
 }
 
@@ -88,7 +88,7 @@ evproposer_handle_promise(struct peer* p, paxos_message* msg, void* arg)
 	paxos_promise* pro = &msg->u.promise;
 	int preempted = proposer_receive_promise(proposer->state, pro, &prepare);
 	if (preempted)
-		peers_foreach_acceptor(proposer->peers, peer_send_prepare, &prepare);
+		peers_for_n_acceptor(proposer->peers, peer_send_prepare, &prepare, paxos_config.group_1);
 	try_accept(proposer);
 }
 
@@ -109,7 +109,7 @@ evproposer_handle_preempted(struct peer* p, paxos_message* msg, void* arg)
 	int preempted = proposer_receive_preempted(proposer->state,
 		&msg->u.preempted, &prepare);
 	if (preempted) {
-		peers_foreach_acceptor(proposer->peers, peer_send_prepare, &prepare);
+		peers_for_n_acceptor(proposer->peers, peer_send_prepare, &prepare, paxos_config.group_1);
 		try_accept(proposer);
 	}
 }
@@ -142,13 +142,13 @@ evproposer_check_timeouts(evutil_socket_t fd, short event, void *arg)
 	paxos_prepare pr;
 	while (timeout_iterator_prepare(iter, &pr)) {
 		paxos_log_info("Instance %d timed out in phase 1.", pr.iid);
-		peers_foreach_acceptor(p->peers, peer_send_prepare, &pr);
+		peers_for_n_acceptor(p->peers, peer_send_prepare, &pr, paxos_config.group_1);
 	}
 
 	paxos_accept ar;
 	while (timeout_iterator_accept(iter, &ar)) {
 		paxos_log_info("Instance %d timed out in phase 2.", ar.iid);
-		peers_foreach_acceptor(p->peers, peer_send_accept, &ar);
+		peers_for_n_acceptor(p->peers, peer_send_accept, &ar, paxos_config.group_2);
 	}
 
 	timeout_iterator_free(iter);
@@ -185,7 +185,7 @@ evproposer_init_internal(int id, struct evpaxos_config* c, struct peers* peers)
 	p->tv.tv_usec = 0;
 	p->timeout_ev = evtimer_new(base, evproposer_check_timeouts, p);
 	event_add(p->timeout_ev, &p->tv);
-	
+
 	p->state = proposer_new(p->id, acceptor_count,paxos_config.quorum_1,paxos_config.quorum_2);
 	p->peers = peers;
 

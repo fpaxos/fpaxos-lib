@@ -76,6 +76,8 @@ struct paxos_config
 	int trash_files;
 	int quorum_1;
 	int quorum_2;
+	int group_1;
+	int group_2;
 
 	/* lmdb storage configuration */
 	int lmdb_sync;

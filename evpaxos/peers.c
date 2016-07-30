@@ -118,7 +118,7 @@ peers_connect(struct peers* p, int id, struct sockaddr_in* addr)
 {
 	p->peers = realloc(p->peers, sizeof(struct peer*) * (p->peers_count+1));
 	p->peers[p->peers_count] = make_peer(p, id, addr);
-	
+
 	struct peer* peer = p->peers[p->peers_count];
 	bufferevent_setcb(peer->bev, on_read, NULL, on_peer_event, peer);
 	peer->reconnect_ev = evtimer_new(p->base, on_connection_timeout, peer);
@@ -142,6 +142,16 @@ peers_foreach_acceptor(struct peers* p, peer_iter_cb cb, void* arg)
 {
 	int i;
 	for (i = 0; i < p->peers_count; ++i)
+		cb(p->peers[i], arg);
+}
+
+void
+peers_for_n_acceptor(struct peers* p, peer_iter_cb cb, void* arg, int n)
+{
+	if (n>p->peers_count)
+		n=p->peers_count;
+	int i;
+	for (i = 0; i < n; ++i)
 		cb(p->peers[i], arg);
 }
 
@@ -187,13 +197,13 @@ peers_listen(struct peers* p, int port)
 	unsigned flags = LEV_OPT_CLOSE_ON_EXEC
 		| LEV_OPT_CLOSE_ON_FREE
 		| LEV_OPT_REUSEABLE;
-	
+
 	/* listen on the given port at address 0.0.0.0 */
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = htonl(0);
 	addr.sin_port = htons(port);
-	
+
 	p->listener = evconnlistener_new_bind(p->base, on_accept, p, flags, -1,
 		(struct sockaddr*)&addr, sizeof(addr));
 	if (p->listener == NULL) {
@@ -248,7 +258,7 @@ static void
 on_peer_event(struct bufferevent* bev, short ev, void *arg)
 {
 	struct peer* p = (struct peer*)arg;
-	
+
 	if (ev & BEV_EVENT_CONNECTED) {
 		paxos_log_info("Connected to %s:%d",
 			inet_ntoa(p->addr.sin_addr), ntohs(p->addr.sin_port));
@@ -281,7 +291,7 @@ on_client_event(struct bufferevent* bev, short ev, void *arg)
 			clients[i]->id = i;
 		}
 		p->peers->clients_count--;
-		p->peers->clients = realloc(p->peers->clients, 
+		p->peers->clients = realloc(p->peers->clients,
 			sizeof(struct peer*) * (p->peers->clients_count));
 		free_peer(p);
 	} else {
@@ -314,19 +324,19 @@ on_accept(struct evconnlistener *l, evutil_socket_t fd,
 
 	peers->clients = realloc(peers->clients,
 		sizeof(struct peer*) * (peers->clients_count+1));
-	peers->clients[peers->clients_count] = 
+	peers->clients[peers->clients_count] =
 		make_peer(peers, peers->clients_count, (struct sockaddr_in*)addr);
-	
+
 	peer = peers->clients[peers->clients_count];
 	bufferevent_setfd(peer->bev, fd);
 	bufferevent_setcb(peer->bev, on_read, NULL, on_client_event, peer);
 	bufferevent_enable(peer->bev, EV_READ|EV_WRITE);
 	socket_set_nodelay(fd);
-	
+
 	paxos_log_info("Accepted connection from %s:%d",
 		inet_ntoa(((struct sockaddr_in*)addr)->sin_addr),
 		ntohs(((struct sockaddr_in*)addr)->sin_port));
-	
+
 	peers->clients_count++;
 }
 
@@ -334,10 +344,10 @@ static void
 connect_peer(struct peer* p)
 {
 	bufferevent_enable(p->bev, EV_READ|EV_WRITE);
-	bufferevent_socket_connect(p->bev, 
+	bufferevent_socket_connect(p->bev,
 		(struct sockaddr*)&p->addr, sizeof(p->addr));
 	socket_set_nodelay(bufferevent_getfd(p->bev));
-	paxos_log_info("Connect to %s:%d", 
+	paxos_log_info("Connect to %s:%d",
 		inet_ntoa(p->addr.sin_addr), ntohs(p->addr.sin_port));
 }
 

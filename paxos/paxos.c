@@ -45,6 +45,8 @@ struct paxos_config paxos_config =
 	.lmdb_sync = 0,
 	.quorum_1 = 2,
 	.quorum_2 = 2,
+	.group_1 = 2,
+	.group_2 = 2,
 	.lmdb_env_path = "/tmp/acceptor",
 	.lmdb_mapsize = 10*1024*1024
 };
