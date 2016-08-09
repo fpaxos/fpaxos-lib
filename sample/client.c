@@ -121,7 +121,7 @@ update_stats(struct stats* stats, struct client_value* delivered, size_t size)
 	long lat = timeval_diff(&delivered->t, &tv);
 	stats->delivered_count++;
 	stats->delivered_bytes += size;
-	stats->avg_latency = stats->avg_latency + 
+	stats->avg_latency = stats->avg_latency +
 		((lat - stats->avg_latency) / stats->delivered_count);
 	if (stats->min_latency == 0 || lat < stats->min_latency)
 		stats->min_latency = lat;
@@ -145,7 +145,7 @@ on_stats(evutil_socket_t fd, short event, void *arg)
 {
 	struct client* c = arg;
 	double mbps = (double)(c->stats.delivered_bytes * 8) / (1024*1024);
-	printf("%d value/sec, %.2f Mbps, latency min %ld us max %ld us avg %ld us\n", 
+	printf("%d value/sec, %.2f Mbps, latency min %ld us max %ld us avg %ld us\n",
 		c->stats.delivered_count, mbps, c->stats.min_latency,
 		c->stats.max_latency, c->stats.avg_latency);
 	memset(&c->stats, 0, sizeof(struct stats));
@@ -166,7 +166,7 @@ on_connect(struct bufferevent* bev, short events, void* arg)
 	}
 }
 
-static struct bufferevent* 
+static struct bufferevent*
 connect_to_proposer(struct client* c, const char* config, int proposer_id)
 {
 	struct bufferevent* bev;
@@ -191,27 +191,27 @@ make_client(const char* config, int proposer_id, int outstanding, int value_size
 	struct client* c;
 	c = malloc(sizeof(struct client));
 	c->base = event_base_new();
-	
+
 	memset(&c->stats, 0, sizeof(struct stats));
 	c->bev = connect_to_proposer(c, config, proposer_id);
 	if (c->bev == NULL)
 		exit(1);
-	
+
 	c->id = rand();
 	c->value_size = value_size;
 	c->outstanding = outstanding;
 	c->send_buffer = malloc(sizeof(struct client_value) + value_size);
-	
+
 	c->stats_interval = (struct timeval){1, 0};
 	c->stats_ev = evtimer_new(c->base, on_stats, c);
 	event_add(c->stats_ev, &c->stats_interval);
-	
+
 	paxos_config.learner_catch_up = 0;
 	c->learner = evlearner_init(config, on_deliver, c, c->base);
-	
+
 	c->sig = evsignal_new(c->base, SIGINT, handle_sigint, c->base);
 	evsignal_add(c->sig, NULL);
-	
+
 	return c;
 }
 
