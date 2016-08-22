@@ -1,6 +1,6 @@
 # LibFPaxos
 
-LibFPaxos is a extended version of LibPaxos3[http://libpaxos.sourceforge.net] which draws a distinction between the quorums sizes for Paxos's two phases. The code is not production ready and should be used for experimentation only.
+LibFPaxos is a extended version of [LibPaxos3](http://libpaxos.sourceforge.net) which draws a distinction between the quorums used for Paxos's two phases. The code is not production ready and should be used for experimentation only.
 
 ## LibPaxos3 (Original Readme)
 
