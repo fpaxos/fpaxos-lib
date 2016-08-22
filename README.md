@@ -1,4 +1,8 @@
-# LibPaxos
+# LibFPaxos
+
+LibFPaxos is a extended version of LibPaxos3[http://libpaxos.sourceforge.net] which draws a distinction between the quorums sizes for Paxos's two phases. The code is not production ready and should be used for experimentation only.
+
+## LibPaxos3 (Original Readme)
 
 This is LibPaxos3! A complete rewrite of [LibPaxos2][1].
 LibPaxos3 has been improved in the following aspects:
@@ -8,13 +12,13 @@ LibPaxos3 has been improved in the following aspects:
 - Has a better build system based on CMake
 - Comes with unit tests
 
-LibPaxos3 is divided in two libraries: libpaxos and libevpaxos. 
+LibPaxos3 is divided in two libraries: libpaxos and libevpaxos.
 
-Libpaxos (see ```libpaxos/paxos```) implements the core of the Paxos consensus 
-protocol, and is not cluttered with network specific code. That is, libpaxos 
+Libpaxos (see ```libpaxos/paxos```) implements the core of the Paxos consensus
+protocol, and is not cluttered with network specific code. That is, libpaxos
 does not depend on any particular networking library.
 
-Libevpaxos (see ```libpaxos/evpaxos```) is the actual networked Paxos 
+Libevpaxos (see ```libpaxos/evpaxos```) is the actual networked Paxos
 implementation. This library is built on top of the libpaxos and [libevent][2].
 
 ## Building
@@ -56,7 +60,7 @@ See ```paxos.conf``` for a sample configuration file.
 
 ##  Unit tests
 
-Unit tests depend on the [Google Test][4] library. Execute the tests using 
+Unit tests depend on the [Google Test][4] library. Execute the tests using
 ```make test``` in your build directory, or run ```runtest``` from
 ```build/unit``` for  detailed output.
 
