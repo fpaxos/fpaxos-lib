@@ -41,7 +41,7 @@ schema = GenPack::Schema.define "paxos_types" do
   message(:paxos_trim) {
     uint :iid
   }
-  message(:paxos_acceptor_state) {
+  message(:paxos_standard_acceptor_state) {
     uint :aid
     uint :trim_iid
   }
@@ -56,7 +56,7 @@ schema = GenPack::Schema.define "paxos_types" do
     paxos_preempted :preempted
     paxos_repeat :repeat
     paxos_trim :trim
-    paxos_acceptor_state :state
+    paxos_standard_acceptor_state :state
     paxos_client_value :client_value
   }
 end

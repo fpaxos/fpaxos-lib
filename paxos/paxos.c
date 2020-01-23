@@ -73,8 +73,10 @@ paxos_value_free(paxos_value* v)
 static void
 paxos_value_destroy(paxos_value* v)
 {
-	if (v->paxos_value_len > 0)
-		free(v->paxos_value_val);
+    if (v != NULL) {
+        if (v->paxos_value_len > 0)
+            free(v->paxos_value_val);
+    }
 }
 
 void
@@ -82,6 +84,18 @@ paxos_accepted_free(paxos_accepted* a)
 {
 	paxos_accepted_destroy(a);
 	free(a);
+}
+
+void
+paxos_accept_free(struct paxos_accept* accept){
+    paxos_value_destroy(&accept->value);
+    free(accept);
+}
+
+
+void
+paxos_prepare_free(struct paxos_prepare* prepare) {
+    free(prepare);
 }
 
 void

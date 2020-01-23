@@ -66,24 +66,26 @@ struct option
 	void* value;
 	enum option_type type;
 };
-
+// TODO
+// need to add in the ability to choose between standard paxos, window promises, and epoch promises
+// need to add in the ability to choose between standard leadership and randomised back off
 struct option options[] =
 {
-	{ "verbosity", &paxos_config.verbosity, option_verbosity },
-	{ "tcp-nodelay", &paxos_config.tcp_nodelay, option_boolean },
-	{ "quorum-1", &paxos_config.quorum_1, option_integer },
-	{ "quorum-2", &paxos_config.quorum_2, option_integer },
-	{ "group-1", &paxos_config.group_1, option_integer },
-	{ "group-2", &paxos_config.group_2, option_integer },
-	{ "learner-catch-up", &paxos_config.learner_catch_up, option_boolean },
-	{ "proposer-timeout", &paxos_config.proposer_timeout, option_integer },
-	{ "proposer-preexec-window", &paxos_config.proposer_preexec_window, option_integer },
-	{ "storage-backend", &paxos_config.storage_backend, option_backend },
-	{ "acceptor-trash-files", &paxos_config.trash_files, option_boolean },
-	{ "lmdb-sync", &paxos_config.lmdb_sync, option_boolean },
-	{ "lmdb-env-path", &paxos_config.lmdb_env_path, option_string },
-	{ "lmdb-mapsize", &paxos_config.lmdb_mapsize, option_bytes },
-	{ 0 }
+        { "verbosity", &paxos_config.verbosity, option_verbosity },
+        {"tcp-nodelay",             &paxos_config.tcp_nodelay,             option_boolean },
+        {"quorum-1",                &paxos_config.quorum_1,                option_integer },
+        {"quorum-2",                &paxos_config.quorum_2,                option_integer },
+        {"group-1",                 &paxos_config.group_1,                 option_integer },
+        {"group-2",                 &paxos_config.group_2,                 option_integer },
+        {"learner-catch-up",        &paxos_config.learner_catch_up,        option_boolean },
+        {"proposer-timeout",        &paxos_config.proposer_timeout,        option_integer },
+        {"proposer-preexec-window", &paxos_config.proposer_preexec_window, option_integer },
+        {"stable-storage-backend",  &paxos_config.storage_backend,         option_backend},
+        {"acceptor-trash-files",    &paxos_config.trash_files,             option_boolean },
+        {"lmdb-sync",               &paxos_config.lmdb_sync,               option_boolean },
+        {"lmdb-env-path",           &paxos_config.lmdb_env_path,           option_string },
+        {"lmdb-mapsize",            &paxos_config.lmdb_mapsize,            option_bytes },
+        {0 }
 };
 
 static int parse_line(struct evpaxos_config* c, char* line);
@@ -124,8 +126,10 @@ evpaxos_config_read(const char* path)
 	}
 	memset(c, 0, sizeof(struct evpaxos_config));
 
+    // check each line
 	while (fgets(line, sizeof(line), f) != NULL) {
-		if (line[0] != '#' && line[0] != '\n') {
+        // if line is a comment (#) or isn't a blank line (\n) then skip
+        if (line[0] != '#' && line[0] != '\n') {
 			if (parse_line(c, line) == 0) {
 				paxos_log_error("Please, check line %d\n", linenumber);
 				paxos_log_error("Error parsing config file %s\n", path);
@@ -167,10 +171,12 @@ evpaxos_proposer_listen_port(struct evpaxos_config* config, int i)
 	return config->proposers[i].port;
 }
 
+// Reads the number of acceptors defined in the config
+// file to determine how many aceptors it should expect to connect to
 int
 evpaxos_acceptor_count(struct evpaxos_config* config)
 {
-	return config->acceptors_count;
+    return config->acceptors_count;
 }
 
 struct sockaddr_in

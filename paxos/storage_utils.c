@@ -34,7 +34,7 @@ char*
 paxos_accepted_to_buffer(paxos_accepted* acc)
 {
 	size_t len = acc->value.paxos_value_len;
-	char* buffer = malloc(sizeof(paxos_accepted) + len);
+	char* buffer = calloc(1, sizeof(paxos_accepted) + len);
 	if (buffer == NULL)
 		return NULL;
 	memcpy(buffer, acc, sizeof(paxos_accepted));

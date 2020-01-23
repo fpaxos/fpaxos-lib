@@ -194,7 +194,7 @@ void msgpack_unpack_paxos_trim(msgpack_object* o, paxos_trim* v)
 	msgpack_unpack_uint32_at(o, &v->iid, &i);
 }
 
-void msgpack_pack_paxos_acceptor_state(msgpack_packer* p, paxos_acceptor_state* v)
+void msgpack_pack_paxos_acceptor_state(msgpack_packer* p, paxos_standard_acceptor_state* v)
 {
 	msgpack_pack_array(p, 3);
 	msgpack_pack_int32(p, PAXOS_ACCEPTOR_STATE);
@@ -202,7 +202,7 @@ void msgpack_pack_paxos_acceptor_state(msgpack_packer* p, paxos_acceptor_state* 
 	msgpack_pack_uint32(p, v->trim_iid);
 }
 
-void msgpack_unpack_paxos_acceptor_state(msgpack_object* o, paxos_acceptor_state* v)
+void msgpack_unpack_paxos_acceptor_state(msgpack_object* o, paxos_standard_acceptor_state* v)
 {
 	int i = 1;
 	msgpack_unpack_uint32_at(o, &v->aid, &i);
@@ -252,7 +252,7 @@ void msgpack_pack_paxos_message(msgpack_packer* p, paxos_message* v)
 	case PAXOS_CLIENT_VALUE:
 		msgpack_pack_paxos_client_value(p, &v->u.client_value);
 		break;
-	}
+	} // TODO add cases for epoch stuff
 }
 
 void msgpack_unpack_paxos_message(msgpack_object* o, paxos_message* v)

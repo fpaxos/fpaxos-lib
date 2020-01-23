@@ -26,171 +26,136 @@
  */
 
 
-#include "acceptor.h"
-#include "storage.h"
+#include "standard_acceptor.h"
+#include "stable_storage.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
-struct acceptor
+#include <paxos_message_conversion.h>
+
+/*
+struct standard_acceptor
 {
 	int id;
 	iid_t trim_iid;
-	struct storage store;
+    struct stable_storage stable_storage;
 };
-
-static void paxos_accepted_to_promise(paxos_accepted* acc, paxos_message* out);
-static void paxos_accept_to_accepted(int id, paxos_accept* acc, paxos_message* out);
-static void paxos_accepted_to_preempted(int id, paxos_accepted* acc, paxos_message* out);
+*/
 
 
-struct acceptor*
-acceptor_new(int id)
+struct standard_acceptor*
+standard_acceptor_new(int id)
 {
-	struct acceptor* a;
-	a = malloc(sizeof(struct acceptor));
-	storage_init(&a->store, id);
-	if (storage_open(&a->store) != 0) {
+	struct standard_acceptor* a = calloc(1, sizeof(struct standard_acceptor));
+
+    storage_init(&a->stable_storage, id);
+    if (storage_open(&a->stable_storage) != 0) {
 		free(a);
 		return NULL;
 	}
-	if (storage_tx_begin(&a->store) != 0)
+    if (storage_tx_begin(&a->stable_storage) != 0)
 		return NULL;
 	a->id = id;
-	a->trim_iid = storage_get_trim_instance(&a->store);
-	if (storage_tx_commit(&a->store) != 0)
+
+	iid_t * trim_iid = calloc(1, sizeof(iid_t));
+    storage_get_trim_instance(&a->stable_storage, trim_iid);
+    a->trim_iid = *trim_iid;
+
+    if (storage_tx_commit(&a->stable_storage) != 0)
 		return NULL;
 	return a;
 }
 
 void
-acceptor_free(struct acceptor* a) 
-{
-	storage_close(&a->store);
+standard_acceptor_free(struct standard_acceptor *a) {
+    storage_close(&a->stable_storage);
 	free(a);
 }
 
 int
-acceptor_receive_prepare(struct acceptor* a, 
-	paxos_prepare* req, paxos_message* out)
+standard_acceptor_receive_prepare(struct standard_acceptor *a,
+                                  paxos_prepare *req, paxos_message *out)
 {
 	paxos_accepted acc;
 	if (req->iid <= a->trim_iid)
 		return 0;
 	memset(&acc, 0, sizeof(paxos_accepted));
-	if (storage_tx_begin(&a->store) != 0)
+    if (storage_tx_begin(&a->stable_storage) != 0)
 		return 0;
-	int found = storage_get_record(&a->store, req->iid, &acc);
+    int found = storage_get_instance_info(&a->stable_storage, req->iid, &acc);
 	if (!found || acc.ballot <= req->ballot) {
 		paxos_log_debug("Preparing iid: %u, ballot: %u", req->iid, req->ballot);
 		acc.aid = a->id;
 		acc.iid = req->iid;
 		acc.ballot = req->ballot;
-		if (storage_put_record(&a->store, &acc) != 0) {
-			storage_tx_abort(&a->store);
+        if (storage_store_instance_info(&a->stable_storage, &acc) != 0) {
+            storage_tx_abort(&a->stable_storage);
 			return 0;
 		}
 	}
-	if (storage_tx_commit(&a->store) != 0)
+    if (storage_tx_commit(&a->stable_storage) != 0)
 		return 0;
-	paxos_accepted_to_promise(&acc, out);
+    paxos_accepted_to_promise(&acc, out);
 	return 1;
 }
 
 int
-acceptor_receive_accept(struct acceptor* a,
-	paxos_accept* req, paxos_message* out)
+standard_acceptor_receive_accept(struct standard_acceptor *a,
+                                 paxos_accept *req, paxos_message *out)
 {
 	paxos_accepted acc;
 	if (req->iid <= a->trim_iid)
 		return 0;
 	memset(&acc, 0, sizeof(paxos_accepted));
-	if (storage_tx_begin(&a->store) != 0)
+    if (storage_tx_begin(&a->stable_storage) != 0)
 		return 0;
-	int found = storage_get_record(&a->store, req->iid, &acc);
+    int found = storage_get_instance_info(&a->stable_storage, req->iid, &acc);
 	if (!found || acc.ballot <= req->ballot) {
 		paxos_log_debug("Accepting iid: %u, ballot: %u", req->iid, req->ballot);
 		paxos_accept_to_accepted(a->id, req, out);
-		if (storage_put_record(&a->store, &(out->u.accepted)) != 0) {
-			storage_tx_abort(&a->store);
+        if (storage_store_instance_info(&a->stable_storage, &(out->u.accepted)) != 0) {
+            storage_tx_abort(&a->stable_storage);
 			return 0;
 		}
 	} else {
 		paxos_accepted_to_preempted(a->id, &acc, out);
 	}
-	if (storage_tx_commit(&a->store) != 0)
+    if (storage_tx_commit(&a->stable_storage) != 0)
 		return 0;
 	paxos_accepted_destroy(&acc);
 	return 1;
 }
 
 int
-acceptor_receive_repeat(struct acceptor* a, iid_t iid, paxos_accepted* out)
+standard_acceptor_receive_repeat(struct standard_acceptor *a, iid_t iid, paxos_accepted *out)
 {
 	memset(out, 0, sizeof(paxos_accepted));
-	if (storage_tx_begin(&a->store) != 0)
+    if (storage_tx_begin(&a->stable_storage) != 0)
 		return 0;
-	int found = storage_get_record(&a->store, iid, out);
-	if (storage_tx_commit(&a->store) != 0)
+    int found = storage_get_instance_info(&a->stable_storage, iid, out);
+    if (storage_tx_commit(&a->stable_storage) != 0)
 		return 0;
 	return found && (out->value.paxos_value_len > 0);
 }
 
 int
-acceptor_receive_trim(struct acceptor* a, paxos_trim* trim)
+standard_acceptor_receive_trim(struct standard_acceptor *a, paxos_trim *trim)
 {
 	if (trim->iid <= a->trim_iid)
 		return 0;
 	a->trim_iid = trim->iid;
-	if (storage_tx_begin(&a->store) != 0)
+    if (storage_tx_begin(&a->stable_storage) != 0)
 		return 0;
-	storage_trim(&a->store, trim->iid);
-	if (storage_tx_commit(&a->store) != 0)
+    storage_store_trim_instance(&a->stable_storage, trim->iid);
+    if (storage_tx_commit(&a->stable_storage) != 0)
 		return 0;
 	return 1;
 }
 
 void
-acceptor_set_current_state(struct acceptor* a, paxos_acceptor_state* state)
+standard_acceptor_set_current_state(struct standard_acceptor *a, paxos_standard_acceptor_state *state)
 {
 	state->aid = a->id;
 	state->trim_iid = a->trim_iid;
-}
-
-static void
-paxos_accepted_to_promise(paxos_accepted* acc, paxos_message* out)
-{
-	out->type = PAXOS_PROMISE;
-	out->u.promise = (paxos_promise) {
-		acc->aid,
-		acc->iid,
-		acc->ballot,
-		acc->value_ballot,
-		{acc->value.paxos_value_len, acc->value.paxos_value_val}
-	};
-}
-
-static void
-paxos_accept_to_accepted(int id, paxos_accept* acc, paxos_message* out)
-{
-	char* value = NULL;
-	int value_size = acc->value.paxos_value_len;
-	if (value_size > 0) {
-		value = malloc(value_size);
-		memcpy(value, acc->value.paxos_value_val, value_size);
-	}
-	out->type = PAXOS_ACCEPTED;
-	out->u.accepted = (paxos_accepted) {
-		id,
-		acc->iid,
-		acc->ballot,
-		acc->ballot,
-		{value_size, value}
-	};
-}
-
-static void
-paxos_accepted_to_preempted(int id, paxos_accepted* acc, paxos_message* out)
-{
-	out->type = PAXOS_PREEMPTED;
-	out->u.preempted = (paxos_preempted) { id, acc->iid, acc->ballot };
 }

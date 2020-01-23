@@ -41,6 +41,7 @@ extern "C" {
 typedef uint32_t iid_t;
 typedef uint32_t ballot_t;
 
+#define MIN_INSTANCE_ID 0;
 /* Logging and verbosity levels */
 typedef enum
 {
@@ -50,7 +51,7 @@ typedef enum
 	PAXOS_LOG_DEBUG = 3
 } paxos_log_level;
 
-/* Supported storage backends */
+/* Supported stable_storage backends */
 typedef enum
 {
 	PAXOS_MEM_STORAGE = 0,
@@ -79,7 +80,7 @@ struct paxos_config
 	int group_1;
 	int group_2;
 
-	/* lmdb storage configuration */
+    /* lmdb stable_storage configuration */
 	int lmdb_sync;
 	char *lmdb_env_path;
 	size_t lmdb_mapsize;
@@ -95,6 +96,8 @@ void paxos_accept_destroy(paxos_accept* a);
 void paxos_accepted_destroy(paxos_accepted* a);
 void paxos_message_destroy(paxos_message* m);
 void paxos_accepted_free(paxos_accepted* a);
+void paxos_prepare_free(struct paxos_prepare* prepare);
+void paxos_accept_free(struct paxos_accept* accept);
 void paxos_log(int level, const char* format, va_list ap);
 void paxos_log_error(const char* format, ...);
 void paxos_log_info(const char* format, ...);

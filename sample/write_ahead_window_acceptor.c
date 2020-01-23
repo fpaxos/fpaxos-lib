@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, University of Lugano
+ * Copyright (c) 2013-2015, University of Lugano
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,45 +26,59 @@
  */
 
 
-#include "gtest/gtest.h"
-#include "evpaxos.h"
-#include "test_client.h"
-#include "replica_thread.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <evpaxos.h>
+#include <signal.h>
 
-
-int start_replicas_from_config(const char* config_file, 
-	struct replica_thread** threads, int deliveries)
+static void
+handle_sigint(int sig, short ev, void* arg)
 {
-	int i;
-	struct evpaxos_config* config = evpaxos_config_read(config_file);
-	int count = evpaxos_acceptor_count(config);
-	*threads = (replica_thread*)calloc(count, sizeof(struct replica_thread));
-	for (i = 0; i < count; i++)
-		replica_thread_create(&(*threads)[i], i, config_file, deliveries);
-	evpaxos_config_free(config);
-	return count;
+    struct event_base* base = arg;
+    printf("Caught signal %d\n", sig);
+    event_base_loopexit(base, NULL);
 }
 
-TEST(ReplicaTest, TotalOrderDelivery) {
-	struct replica_thread* threads;
-	int i, j, replicas, deliveries = 100000;
-		
-	replicas = start_replicas_from_config("config/replicas.conf", 
-		&threads, deliveries);
-	test_client* client = test_client_new("config/replicas.conf", 0);
+static void
+start_acceptor(int id, const char* config)
+{
+    struct event_base* base;
+    struct event* sig;
 
-	for (i = 0; i < deliveries; i++)
-		test_client_submit_value(client, i);
-	
-	int* values[replicas];
-	for (i = 0; i < replicas; i++)
-		values[i] = replica_thread_wait_deliveries(&threads[i]);
-	
-	for (i = 0; i < replicas; i++)
-		for (j = 0; j < deliveries; j++)
-			ASSERT_EQ(values[i][j], j);
-	
-	test_client_free(client);
-	for (i = 0; i < replicas; i++)
-		replica_thread_destroy(&threads[i]);
+    base = event_base_new();
+    sig = evsignal_new(base, SIGINT, handle_sigint, base);
+    evsignal_add(sig, NULL);
+
+    struct ev_write_ahead_acceptor* acc = ev_write_ahead_acceptor_init(id, config, base);
+    if (acc == NULL) {
+        printf("Could not start the acceptor\n");
+        return;
+    }
+
+    signal(SIGPIPE, SIG_IGN);
+    event_base_dispatch(base);
+
+    event_free(sig);
+    ev_write_ahead_acceptor_free(acc);
+    event_base_free(base);
+}
+
+int
+main(int argc, char const *argv[])
+{
+    int id;
+    const char* config = "../paxos.conf";
+
+    if (argc != 2 && argc != 3) {
+        printf("Usage: %s id [path/to/paxos.conf]\n", argv[0]);
+        exit(0);
+    }
+
+    id = atoi(argv[1]);
+    if (argc >= 3)
+        config = argv[2];
+
+    start_acceptor(id, config);
+
+    return 1;
 }

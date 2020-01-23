@@ -112,6 +112,11 @@ evproposer_handle_preempted(struct peer* p, paxos_message* msg, void* arg)
 		peers_for_n_acceptor(proposer->peers, peer_send_prepare, &prepare, paxos_config.group_1);
 		try_accept(proposer);
 	}
+
+
+
+	// todo
+	// here is where the logic to handle randomised backoff should be placed
 }
 
 static void
@@ -129,7 +134,7 @@ static void
 evproposer_handle_acceptor_state(struct peer* p, paxos_message* msg, void* arg)
 {
 	struct evproposer* proposer = arg;
-	struct paxos_acceptor_state* acc_state = &msg->u.state;
+	struct paxos_standard_acceptor_state* acc_state = &msg->u.state;
 	proposer_receive_acceptor_state(proposer->state, acc_state);
 }
 

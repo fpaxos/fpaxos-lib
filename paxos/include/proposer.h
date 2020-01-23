@@ -57,7 +57,7 @@ int proposer_receive_preempted(struct proposer* p, paxos_preempted* ack,
 
 // periodic acceptor state
 void proposer_receive_acceptor_state(struct proposer* p,
-	paxos_acceptor_state* state);
+                                     paxos_standard_acceptor_state* state);
 
 // timeouts
 struct timeout_iterator* proposer_timeout_iterator(struct proposer* p);

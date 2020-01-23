@@ -252,17 +252,13 @@ usage(const char* name)
 int
 main(int argc, char const *argv[])
 {
+    // Initial values if no program parameters are provided
 	int i = 1;
 	int proposer_id = 0;
 	int outstanding = 1;
 	int value_size = 64;
 	struct timeval seed;
 	const char* config = "../paxos.conf";
-
-	if (argc > 1 && argv[1][0] != '-') {
-		config = argv[1];
-		i++;
-	}
 
 	while (i != argc) {
 		if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
@@ -273,6 +269,8 @@ main(int argc, char const *argv[])
 			value_size = atoi(argv[++i]);
 		else if (strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--proposer-id") == 0)
 			proposer_id = atoi(argv[++i]);
+		else if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--config") == 0)
+		    config = argv[++i];//atoi(argv[++i]);
 		else
 			usage(argv[0]);
 		i++;

@@ -37,10 +37,16 @@ struct evlearner* evlearner_init_internal(struct evpaxos_config* config,
 
 void evlearner_free_internal(struct evlearner* l);
 		
-struct evacceptor* evacceptor_init_internal(int id,
-	struct evpaxos_config* config, struct peers* peers);
-	
-void evacceptor_free_internal(struct evacceptor* a);
+struct ev_standard_acceptor* evacceptor_init_internal(int id,
+                                                      struct evpaxos_config* config, struct peers* peers);
+
+void evacceptor_free_internal(struct ev_standard_acceptor* a);
+
+// ADDED
+struct ev_write_ahead_acceptor* ev_write_ahead_acceptor_init_internal(int id, struct evpaxos_config* config, struct peers* peers);
+
+void ev_write_ahead_acceptor_free_internal(struct ev_write_ahead_acceptor* acceptor);
+//
 
 struct evproposer* evproposer_init_internal(int id,
 	struct evpaxos_config* config, struct peers* peers);

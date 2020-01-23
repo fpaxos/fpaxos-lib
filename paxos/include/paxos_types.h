@@ -71,7 +71,9 @@ struct paxos_accepted
 	uint32_t value_ballot;
 	paxos_value value;
 };
+
 typedef struct paxos_accepted paxos_accepted;
+
 
 struct paxos_preempted
 {
@@ -94,12 +96,12 @@ struct paxos_trim
 };
 typedef struct paxos_trim paxos_trim;
 
-struct paxos_acceptor_state
+struct paxos_standard_acceptor_state
 {
 	uint32_t aid;
 	uint32_t trim_iid;
 };
-typedef struct paxos_acceptor_state paxos_acceptor_state;
+typedef struct paxos_standard_acceptor_state paxos_standard_acceptor_state;
 
 struct paxos_client_value
 {
@@ -117,7 +119,14 @@ enum paxos_message_type
 	PAXOS_REPEAT,
 	PAXOS_TRIM,
 	PAXOS_ACCEPTOR_STATE,
-	PAXOS_CLIENT_VALUE
+    PAXOS_CLIENT_VALUE,
+
+    // ADDED MESSAGES
+    PAXOS_EPOCH_PROMISE,
+    PAXOS_EPOCH_ACCEPT,
+    PAXOS_EPOCH_ACCEPTED,
+    PAXOS_EPOCH_BALLOT_PREEMPTED,
+    PAXOS_EPOCH_NOTIFICATION
 };
 typedef enum paxos_message_type paxos_message_type;
 
@@ -133,10 +142,27 @@ struct paxos_message
 		paxos_preempted preempted;
 		paxos_repeat repeat;
 		paxos_trim trim;
-		paxos_acceptor_state state;
+		paxos_standard_acceptor_state state;
 		paxos_client_value client_value;
 	} u;
 };
+
+struct paxos_epoch_promise {
+    struct paxos_promise promise;
+    uint32_t epoch_promised;
+};
+
+struct paxos_epoch_accept {
+    struct paxos_accept accept_request;
+    uint32_t epoch;
+};
+
+struct paxos_epoch_accepted {
+    struct paxos_accepted accepted;
+    uint32_t promised_epoch;
+    uint32_t accetped_epoch;
+};
+
 typedef struct paxos_message paxos_message;
 
 #endif

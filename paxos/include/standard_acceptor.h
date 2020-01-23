@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, University of Lugano
+ * Copyright (c) 2013-2014, University of Lugano
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,61 +26,41 @@
  */
 
 
-#include <evpaxos.h>
-#include <pthread.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <string.h>
-#include "replica_thread.h"
+#ifndef _ACCEPTOR_H_
+#define _ACCEPTOR_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-static void
-replica_thread_deliver(unsigned iid, char* value, size_t size, void* arg)
-{
-	struct replica_thread* self = arg;
-	assert(size == sizeof(int));
-	self->delivery_values[iid-1] = *(int*)value;
-	if (iid == self->delivery_count)
-		pthread_exit(NULL);
+#include "paxos.h"
+#include "stable_storage.h"
+
+struct standard_acceptor {
+    int id;
+    iid_t trim_iid;
+    struct stable_storage stable_storage;
+};
+
+struct standard_acceptor *standard_acceptor_new(int id);
+
+void standard_acceptor_free(struct standard_acceptor *a);
+
+int standard_acceptor_receive_prepare(struct standard_acceptor *a,
+                                      paxos_prepare *req, paxos_message *out);
+
+int standard_acceptor_receive_accept(struct standard_acceptor *a,
+                                     paxos_accept *req, paxos_message *out);
+
+int standard_acceptor_receive_repeat(struct standard_acceptor *a,
+                                     iid_t iid, paxos_accepted *out);
+
+int standard_acceptor_receive_trim(struct standard_acceptor *a, paxos_trim *trim);
+
+void standard_acceptor_set_current_state(struct standard_acceptor *a, paxos_standard_acceptor_state *state);
+
+#ifdef __cplusplus
 }
+#endif
 
-static void*
-replica_thread_run(void* arg)
-{
-	struct replica_thread* self = arg;
-	event_base_dispatch(self->base);
-	return NULL;
-}
-
-void
-replica_thread_create(struct replica_thread* self, int id, const char* config, 
-	int delivery_count)
-{
-	self->delivery_count = delivery_count;
-	self->delivery_values = calloc(delivery_count, sizeof(int));
-	self->base = event_base_new();
-	self->replica = evpaxos_replica_init(id, config, replica_thread_deliver,
-		self, self->base);
-	pthread_create(&self->thread, NULL, replica_thread_run, self);
-}
-
-void
-replica_thread_stop(struct replica_thread* self)
-{
-	pthread_cancel(self->thread);
-}
-
-int*
-replica_thread_wait_deliveries(struct replica_thread* self)
-{
-	pthread_join(self->thread, NULL);
-	return self->delivery_values;
-}
-
-void
-replica_thread_destroy(struct replica_thread* self)
-{
-	free(self->delivery_values);
-	evpaxos_replica_free(self->replica);
-	event_base_free(self->base);
-}
+#endif

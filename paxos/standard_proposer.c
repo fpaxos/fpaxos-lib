@@ -300,7 +300,7 @@ proposer_receive_preempted(struct proposer* p, paxos_preempted* ack,
 }
 
 void
-proposer_receive_acceptor_state(struct proposer* p, paxos_acceptor_state* state)
+proposer_receive_acceptor_state(struct proposer* p, paxos_standard_acceptor_state* state)
 {
 	if (p->max_trim_iid < state->trim_iid) {
 		p->max_trim_iid = state->trim_iid;

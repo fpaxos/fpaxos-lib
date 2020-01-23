@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <evpaxos.h>
 #include <signal.h>
+#include <standard_acceptor.h>
 
 static void
 handle_sigint(int sig, short ev, void* arg)
@@ -42,15 +43,17 @@ handle_sigint(int sig, short ev, void* arg)
 static void
 start_acceptor(int id, const char* config)
 {
-	struct evacceptor* acc;
+	//struct ev_write_ahead_promises_acceptor* acc;
 	struct event_base* base;
 	struct event* sig;
 
 	base = event_base_new();
 	sig = evsignal_new(base, SIGINT, handle_sigint, base);
 	evsignal_add(sig, NULL);
-	
-	acc = evacceptor_init(id, config, base);
+
+	// TODO Change to mechanism that reads config and works out what acceptor to choose
+   struct ev_standard_acceptor* acc = evacceptor_init(id, config, base);
+   // struct ev_write_ahead_acceptor* acc = ev_write_ahead_acceptor_init(id, config, base);
 	if (acc == NULL) {
 		printf("Could not start the acceptor\n");
 		return;
@@ -60,7 +63,7 @@ start_acceptor(int id, const char* config)
 	event_base_dispatch(base);
 	
 	event_free(sig);
-	evacceptor_free(acc);
+    evacceptor_free(acc);
 	event_base_free(base);
 }
 

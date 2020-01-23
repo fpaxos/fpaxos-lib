@@ -26,23 +26,36 @@
  */
 
 
-#include "storage.h"
+#include <stable_storage.h>
+#include "stable_storage.h"
 #include "khash.h"
 
 KHASH_MAP_INIT_INT(record, paxos_accepted*);
 
-struct mem_storage
+struct stable_storage_but_not_really
 {
 	iid_t trim_iid;
 	kh_record_t* records;
 };
 
-static void paxos_accepted_copy(paxos_accepted* dst, paxos_accepted* src);
 
-static struct mem_storage*
+
+static void
+paxos_accepted_copy(struct paxos_accepted* dst, const struct paxos_accepted* src)
+{
+    memcpy(dst, src, sizeof(paxos_accepted));
+    if (dst->value.paxos_value_len > 0) {
+        dst->value.paxos_value_val = malloc(src->value.paxos_value_len);
+        memcpy(dst->value.paxos_value_val, src->value.paxos_value_val,
+               src->value.paxos_value_len);
+    }
+}
+
+
+static struct stable_storage_but_not_really *
 mem_storage_new(int acceptor_id)
 {
-	struct mem_storage* s = malloc(sizeof(struct mem_storage));
+    struct stable_storage_but_not_really *s = malloc(sizeof(struct stable_storage_but_not_really));
 	if (s == NULL)
 		return s;
 	s->trim_iid = 0;
@@ -59,7 +72,7 @@ mem_storage_open(void* handle)
 static void
 mem_storage_close(void* handle)
 {
-	struct mem_storage* s = handle;
+    struct stable_storage_but_not_really *s = handle;
 	paxos_accepted* accepted;
 	kh_foreach_value(s->records, accepted, paxos_accepted_free(accepted));
 	kh_destroy_record(s->records);
@@ -85,7 +98,7 @@ static int
 mem_storage_get(void* handle, iid_t iid, paxos_accepted* out)
 {
 	khiter_t k;
-	struct mem_storage* s = handle;
+    struct stable_storage_but_not_really *s = handle;
 	k = kh_get_record(s->records, iid);
 	if (k == kh_end(s->records))
 		return 0;
@@ -94,11 +107,11 @@ mem_storage_get(void* handle, iid_t iid, paxos_accepted* out)
 }
 
 static int
-mem_storage_put(void* handle, paxos_accepted* acc)
+mem_storage_put(void* handle, const struct paxos_accepted* acc)
 {
 	int rv;
 	khiter_t k;
-	struct mem_storage* s = handle;
+    struct stable_storage_but_not_really *s = handle;
 	paxos_accepted* record = malloc(sizeof(paxos_accepted));
 	paxos_accepted_copy(record, acc);
 	k = kh_put_record(s->records, acc->iid, &rv);
@@ -117,7 +130,7 @@ static int
 mem_storage_trim(void* handle, iid_t iid)
 {
 	khiter_t k;
-	struct mem_storage* s = handle;
+    struct stable_storage_but_not_really *s = handle;
 	for (k = kh_begin(s->records); k != kh_end(s->records); ++k) {
 		if (kh_exist(s->records, k)) {
 			paxos_accepted* acc = kh_value(s->records, k);
@@ -131,35 +144,25 @@ mem_storage_trim(void* handle, iid_t iid)
 	return 0;
 }
 
-static iid_t
-mem_storage_get_trim_instance(void* handle)
-{
-	struct mem_storage* s = handle;
-	return s->trim_iid;
-}
 
-static void
-paxos_accepted_copy(paxos_accepted* dst, paxos_accepted* src)
+static int  //returns 1 because always found
+mem_storage_get_trim_instance(void* handle, iid_t* trim_instance)
 {
-	memcpy(dst, src, sizeof(paxos_accepted));
-	if (dst->value.paxos_value_len > 0) {
-		dst->value.paxos_value_val = malloc(src->value.paxos_value_len);
-		memcpy(dst->value.paxos_value_val, src->value.paxos_value_val,
-			src->value.paxos_value_len);
-	}
+    struct stable_storage_but_not_really *s = handle;
+    *trim_instance = s->trim_iid;
+	return 1;
 }
-
 void
-storage_init_mem(struct storage* s, int acceptor_id)
+storage_init_mem(struct stable_storage *s, int acceptor_id)
 {
 	s->handle = mem_storage_new(acceptor_id);
-	s->api.open = mem_storage_open;
-	s->api.close = mem_storage_close;
-	s->api.tx_begin = mem_storage_tx_begin;
-	s->api.tx_commit = mem_storage_tx_commit;
-	s->api.tx_abort = mem_storage_tx_abort;
-	s->api.get = mem_storage_get;
-	s->api.put = mem_storage_put;
-	s->api.trim = mem_storage_trim;
-	s->api.get_trim_instance = mem_storage_get_trim_instance;
+    s->stable_storage_api.open = mem_storage_open;
+    s->stable_storage_api.close = mem_storage_close;
+    s->stable_storage_api.tx_begin = mem_storage_tx_begin;
+    s->stable_storage_api.tx_commit = mem_storage_tx_commit;
+    s->stable_storage_api.tx_abort = mem_storage_tx_abort;
+    s->stable_storage_api.get_instance_info = mem_storage_get;
+    s->stable_storage_api.store_instance_info = (int (*)(void *, const struct paxos_accepted *)) mem_storage_put;
+    s->stable_storage_api.store_trim_instance = mem_storage_trim;
+    s->stable_storage_api.get_trim_instance = mem_storage_get_trim_instance;
 }

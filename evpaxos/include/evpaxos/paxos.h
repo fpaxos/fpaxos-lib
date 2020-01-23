@@ -39,7 +39,7 @@ extern "C" {
 
 struct evlearner;
 struct evproposer;
-struct evacceptor;
+struct ev_standard_acceptor;
 struct evpaxos_replica;
 
 /**
@@ -140,14 +140,28 @@ void evlearner_send_trim(struct evlearner* l, unsigned iid);
  * Initializes a acceptor with a given id (which MUST be unique),
  * a config file and a libevent event_base.
  */
-struct evacceptor* evacceptor_init(int id, const char* config,
-	struct event_base* b);
+struct ev_standard_acceptor* evacceptor_init(int id, const char* config,
+                                             struct event_base* b);
 
 /**
  * Frees the memory allocated by the acceptor.
  * This will also cleanly close the  * underlying storage.
  */
-void evacceptor_free(struct evacceptor* a);
+void evacceptor_free(struct ev_standard_acceptor* a);
+
+
+/**
+ * Initializes a acceptor with a given id (which MUST be unique),
+ * a config file and a libevent event_base.
+ */
+struct ev_write_ahead_acceptor* ev_write_ahead_acceptor_init(int id, const char* config,
+                                   struct event_base* b);
+
+/**
+ * Frees the memory allocated by the acceptor.
+ * This will also cleanly close the  * underlying storage.
+ */
+void ev_write_ahead_acceptor_free(struct ev_write_ahead_acceptor* a);
 
 /**
  * Initializes a proposer with a given ID (which MUST be unique),
