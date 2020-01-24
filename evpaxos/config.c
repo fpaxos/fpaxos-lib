@@ -86,6 +86,7 @@ struct option options[] =
         {"lmdb-env-path",           &paxos_config.lmdb_env_path,           option_string },
         {"lmdb-mapsize",            &paxos_config.lmdb_mapsize,            option_bytes },
         {0 }
+        //todo add window options here
 };
 
 static int parse_line(struct evpaxos_config* c, char* line);
@@ -322,7 +323,8 @@ parse_line(struct evpaxos_config* c, char* line)
 				MAX_N_OF_PROPOSERS);
 			return 0;
 		}
-		struct address* addr = &c->acceptors[c->acceptors_count++];
+		struct address* addr = &c->acceptors[c->acceptors_count];
+		c->acceptors_count++;
 		return parse_address(line, addr);
 	}
 
@@ -332,7 +334,8 @@ parse_line(struct evpaxos_config* c, char* line)
 				MAX_N_OF_PROPOSERS);
 			return 0;
 		}
-		struct address* addr = &c->proposers[c->proposers_count++];
+		struct address* addr = &c->proposers[c->proposers_count];
+        c->proposers_count++;
 		return parse_address(line, addr);
 	}
 

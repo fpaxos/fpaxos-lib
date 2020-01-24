@@ -53,7 +53,7 @@ start_acceptor(int id, const char* config)
 
 	// TODO Change to mechanism that reads config and works out what acceptor to choose
    struct ev_standard_acceptor* acc = evacceptor_init(id, config, base);
-   // struct ev_write_ahead_acceptor* acc = ev_write_ahead_acceptor_init(id, config, base);
+   // struct ev_write_ahead_acceptor* acc = ev_write_ahead_window_acceptor_init(id, config, base);
 	if (acc == NULL) {
 		printf("Could not start the acceptor\n");
 		return;

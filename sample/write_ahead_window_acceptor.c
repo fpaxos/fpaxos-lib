@@ -49,7 +49,7 @@ start_acceptor(int id, const char* config)
     sig = evsignal_new(base, SIGINT, handle_sigint, base);
     evsignal_add(sig, NULL);
 
-    struct ev_write_ahead_acceptor* acc = ev_write_ahead_acceptor_init(id, config, base);
+    struct ev_write_ahead_acceptor* acc = ev_write_ahead_window_acceptor_init(id, config, base);
     if (acc == NULL) {
         printf("Could not start the acceptor\n");
         return;
@@ -59,7 +59,7 @@ start_acceptor(int id, const char* config)
     event_base_dispatch(base);
 
     event_free(sig);
-    ev_write_ahead_acceptor_free(acc);
+    ev_write_ahead_window_acceptor_free(acc);
     event_base_free(base);
 }
 

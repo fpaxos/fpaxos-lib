@@ -154,14 +154,14 @@ void evacceptor_free(struct ev_standard_acceptor* a);
  * Initializes a acceptor with a given id (which MUST be unique),
  * a config file and a libevent event_base.
  */
-struct ev_write_ahead_acceptor* ev_write_ahead_acceptor_init(int id, const char* config,
-                                   struct event_base* b);
+struct ev_write_ahead_acceptor* ev_write_ahead_window_acceptor_init(int id, const char* config,
+                                                                    struct event_base* b);
 
 /**
  * Frees the memory allocated by the acceptor.
  * This will also cleanly close the  * underlying storage.
  */
-void ev_write_ahead_acceptor_free(struct ev_write_ahead_acceptor* a);
+void ev_write_ahead_window_acceptor_free(struct ev_write_ahead_acceptor* a);
 
 /**
  * Initializes a proposer with a given ID (which MUST be unique),
