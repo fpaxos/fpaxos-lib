@@ -41,12 +41,20 @@
 
 
 struct write_ahead_window_acceptor {
+    // Easy to just extend off of the standard acceptor
     struct standard_acceptor* standard_acceptor;
+
+    // Volatile storage to store the "actual" promises made to proposers
+    // Will be lost on restart
+    // Important to ensure that any promise given to a proposer is written ahead to the
+    // standard acceptor's stable storage
     struct paxos_storage* volatile_storage;
 
     // A stable storage duplicate is included to allow the Acceptor to handle responding to
     // Promise Requests and Accept Requests without ever having to being a transaction in Stable Storage
     // Of course this only applies when an Acceptor doesn't have to safely storage anything
+    // Need to ensure that all promises and acceptances written to stable storage are written
+    // both the the standard acceptor's and the duplicate
     struct paxos_storage* stable_storage_duplicate; //  TODO add in to speed up access
 
     // The minimum point in which volatile storage is allowed to catch up with stable storage
@@ -95,7 +103,6 @@ write_ahead_window_acceptor_new_ballot_epoch_from_ballot(struct write_ahead_wind
                                                   const iid_t instance,
                                                   const uint32_t ballot) {
     // todo error checking and reting from method
-
     // Initialising memory for the instance info variable
     struct paxos_accepted instance_info;//calloc(1, sizeof(struct paxos_accepted));
     memset(&instance_info, 0, sizeof(struct paxos_accepted));
@@ -109,9 +116,6 @@ write_ahead_window_acceptor_new_ballot_epoch_from_ballot(struct write_ahead_wind
     // Store new instance info to stable storage
     write_ahead_window_acceptor_store_in_stable_storage(acceptor, &instance_info);
     paxos_log_debug("Writing ahead new ballot epoch to instance %u; new ballot: %u", instance_info.iid, instance_info.ballot);
-
-
-    //  free(instance_info);
 }
 
 
@@ -211,7 +215,7 @@ write_ahead_window_acceptor_new_instance_epoch(struct write_ahead_window_accepto
         write_ahead_window_acceptor_new_ballot_epoch_from_last_epoch(acceptor, i);
     }
 
-    paxos_log_debug("Writing ahead new instance epoch to instance %u", new_instance_epoch_end);
+    paxos_log_debug("Written ahead Epoch. Max Inited Instance now %u", new_instance_epoch_end);
 }
 
 
@@ -265,6 +269,8 @@ void check_and_update_instance_window(struct write_ahead_window_acceptor *accept
     if (write_ahead_window_acceptor_does_instance_window_need_adjusting(max_inited_instance,
                                                                  acceptor->last_instance,
                                                                  acceptor->min_instance_catachup)){
+        paxos_log_debug("Instance Window has caught up\n"
+                        "Writing ahead new Instance Epoch");
         write_ahead_window_acceptor_new_instance_epoch(acceptor);
     }
 }

@@ -143,10 +143,10 @@ ev_write_ahead_acceptor_init_internal(int id, struct evpaxos_config* c, struct p
 
 
    acceptor->state = write_ahead_window_acceptor_new(id,
-            5000,
+            1,
+            5,
             20,
-            50,
-            100000);
+            5);
     acceptor->peers = p;
 
     peers_subscribe(p, PAXOS_PREPARE, ev_write_ahead_acceptor_handle_prepare, acceptor);
