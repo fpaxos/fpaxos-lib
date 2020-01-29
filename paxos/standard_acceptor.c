@@ -93,6 +93,8 @@ standard_acceptor_receive_prepare(struct standard_acceptor *a,
             storage_tx_abort(&a->stable_storage);
 			return 0;
 		}
+	} else {
+	    // ?
 	}
     if (storage_tx_commit(&a->stable_storage) != 0)
 		return 0;

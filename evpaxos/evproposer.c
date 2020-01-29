@@ -57,6 +57,8 @@ peer_send_accept(struct peer* p, void* arg)
 	send_paxos_accept(peer_get_buffer(p), arg);
 }
 
+
+// Begins one or more instances, defined by the preexec_window
 static void
 proposer_preexecute(struct evproposer* p)
 {
@@ -194,6 +196,7 @@ evproposer_init_internal(int id, struct evpaxos_config* c, struct peers* peers)
 	p->state = proposer_new(p->id, acceptor_count,paxos_config.quorum_1,paxos_config.quorum_2);
 	p->peers = peers;
 
+	// This initiates the first Paxos Event in the Proposer-Acceptor communication
 	event_base_once(base, 0, EV_TIMEOUT, evproposer_preexec_once, p, NULL);
 
 	return p;

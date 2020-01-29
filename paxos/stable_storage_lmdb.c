@@ -93,7 +93,7 @@ lmdb_storage_put_max_instance(struct lmdb_storage *lmdb_storage, iid_t max_insta
         paxos_log_error("%s\n", mdb_strerror(result));
     assert(result == 0);
 
-    paxos_log_debug("last inited instance: %u", max_instance);
+  //  paxos_log_debug("last inited instance: %u", max_instance);
     return 0;
 }
 

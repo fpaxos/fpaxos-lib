@@ -269,9 +269,12 @@ void check_and_update_instance_window(struct write_ahead_window_acceptor *accept
     if (write_ahead_window_acceptor_does_instance_window_need_adjusting(max_inited_instance,
                                                                  acceptor->last_instance,
                                                                  acceptor->min_instance_catachup)){
-        paxos_log_debug("Instance Window has caught up\n"
+        paxos_log_debug("Instance Window has caught up"
                         "Writing ahead new Instance Epoch");
+
+        storage_tx_begin(&acceptor->standard_acceptor->stable_storage);
         write_ahead_window_acceptor_new_instance_epoch(acceptor);
+        storage_tx_commit(&acceptor->standard_acceptor->stable_storage);
     }
 }
 
@@ -289,10 +292,11 @@ write_ahead_window_acceptor_check_and_update_write_ahead_windows(struct write_ah
 
     // Get the maximum instance id to be initialised (promised or accepted in)
     iid_t max_inited_instance; //= calloc(1, sizeof(iid_t));
-    storage_tx_begin(&acceptor->standard_acceptor->stable_storage);
-    storage_get_max_inited_instance(&acceptor->standard_acceptor->stable_storage, &max_inited_instance);
+    //storage_tx_begin(&acceptor->standard_acceptor->stable_storage);
+    //storage_get_max_inited_instance(&acceptor->standard_acceptor->stable_storage, &max_inited_instance);
+    get_max_inited_instance(acceptor->stable_storage_duplicate, &max_inited_instance);
     check_and_update_instance_window(acceptor, max_inited_instance);
-    storage_tx_commit(&acceptor->standard_acceptor->stable_storage);
+    //storage_tx_commit(&acceptor->standard_acceptor->stable_storage);
 
    // free(max_inited_instance);
 }

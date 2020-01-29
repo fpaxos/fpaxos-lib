@@ -36,6 +36,7 @@
 #include <assert.h>
 #include <event2/event.h>
 #include <hash_mapped_memory.h>
+#include <evdns.h>
 
 
 struct ev_write_ahead_acceptor
@@ -44,6 +45,12 @@ struct ev_write_ahead_acceptor
     struct write_ahead_window_acceptor* state;
     struct event* timer_ev;
     struct timeval timer_tv;
+
+    struct event *write_ahead_ev;
+    struct timeval write_ahead_timer;
+
+
+
 };
 
 static void
@@ -66,7 +73,9 @@ ev_write_ahead_acceptor_handle_prepare(struct peer* p, paxos_message* msg, void*
     if (write_ahead_window_acceptor_receive_prepare(a->state, prepare, &out) != 0) {
         send_paxos_message(peer_get_buffer(p), &out);
         paxos_message_destroy(&out);
-        write_ahead_window_acceptor_check_and_update_write_ahead_windows(a->state);
+
+        //event_base_new();
+        //write_ahead_window_acceptor_check_and_update_write_ahead_windows(a->state);
     }
 
 }
@@ -88,7 +97,7 @@ ev_write_ahead_acceptor_handle_accept(struct peer* p, paxos_message* msg, void* 
         } else if (out.type == PAXOS_PREEMPTED) {
             send_paxos_message(peer_get_buffer(p), &out);
         }
-        write_ahead_window_acceptor_check_and_update_write_ahead_windows(a->state);
+       // write_ahead_window_acceptor_check_and_update_write_ahead_windows(a->state);
 
         paxos_message_destroy(&out);
     }
@@ -128,6 +137,13 @@ send_acceptor_state(int fd, short ev, void* arg)
     event_add(a->timer_ev, &a->timer_tv);
 }
 
+static void
+check_windows_event(int fd, short ev, void* arg) {
+    struct ev_write_ahead_acceptor* a = (struct ev_write_ahead_acceptor*) arg;
+    write_ahead_window_acceptor_check_and_update_write_ahead_windows(a->state);
+    event_add(a->write_ahead_ev, &a->write_ahead_timer);
+}
+
 struct ev_write_ahead_acceptor*
 ev_write_ahead_acceptor_init_internal(int id, struct evpaxos_config* c, struct peers* p)
 {
@@ -143,10 +159,10 @@ ev_write_ahead_acceptor_init_internal(int id, struct evpaxos_config* c, struct p
 
 
    acceptor->state = write_ahead_window_acceptor_new(id,
-            1,
-            5,
-            20,
-            5);
+            10000,
+            10,
+            50,
+            100000);
     acceptor->peers = p;
 
     peers_subscribe(p, PAXOS_PREPARE, ev_write_ahead_acceptor_handle_prepare, acceptor);
@@ -155,9 +171,20 @@ ev_write_ahead_acceptor_init_internal(int id, struct evpaxos_config* c, struct p
     peers_subscribe(p, PAXOS_TRIM, ev_write_ahead_acceptor_handle_trim, acceptor);
 
     struct event_base* base = peers_get_event_base(p);
+
+
     acceptor->timer_ev = evtimer_new(base, send_acceptor_state, acceptor);
     acceptor->timer_tv = (struct timeval){1, 0};
     event_add(acceptor->timer_ev, &acceptor->timer_tv);
+
+    // New event to check windows async
+   // acceptor->write_ahead_timer = evtimer_new(base, )
+    acceptor->write_ahead_ev =  evtimer_new(base, check_windows_event, acceptor);
+    acceptor->write_ahead_timer = (struct timeval) {.tv_sec = 0, .tv_usec = (rand()%500)};
+
+   event_add(acceptor->write_ahead_ev, &acceptor->write_ahead_timer);
+    //event_set(&acceptor->timer_ev, 0, EV_PERSIST, write_ahead_window_acceptor_check_and_update_write_ahead_windows, acceptor->state);
+    //evtimer_add(&acceptor->timer_ev, &time);
 
     return acceptor;
 }

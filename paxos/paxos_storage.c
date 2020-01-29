@@ -6,6 +6,9 @@
 #include <hash_mapped_memory.h>
 #include "paxos_storage.h"
 
+int get_max_inited_instance(const struct paxos_storage* paxos_storage, iid_t* returned_max_inited_instance){
+    return paxos_storage->api.get_max_inited_instance(paxos_storage->handle, returned_max_inited_instance);
+}
 
 int store_last_prepare(struct paxos_storage *paxos_storage, const struct paxos_prepare *last_prepare) {
     return paxos_storage->api.store_last_promise(paxos_storage->handle, last_prepare);

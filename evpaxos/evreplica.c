@@ -35,7 +35,7 @@ struct evpaxos_replica
 	struct peers* peers;
 	struct evlearner* learner;
 	struct evproposer* proposer;
-	struct ev_standard_acceptor* acceptor;
+	struct ev_write_ahead_acceptor* acceptor;
 	deliver_function deliver;
 	void* arg;
 };

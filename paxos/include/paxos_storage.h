@@ -50,8 +50,12 @@ struct paxos_storage {
 
         int (*get_all_untrimmed_instances_info)(void *paxos_storage, paxos_accepted **retrieved_instances_info,
                                                 int *number_of_instances_retrieved);
+
+        int (*get_max_inited_instance)(void *paxos_storage, iid_t* returned_max_inited_instance);
     } api;
 };
+
+int get_max_inited_instance(const struct paxos_storage* paxos_storage, iid_t* returned_max_inited_instance);
 
 void init_paxos_storage(struct paxos_storage* paxos_storage);
 

@@ -14,6 +14,8 @@ struct hash_mapped_memory {
     kh_last_promises_t *last_promises;
     kh_last_accepteds_t *last_accepteds;
 
+    iid_t max_inited_instance;
+
     int trim_instance_id;
 };
 
@@ -54,7 +56,13 @@ hash_mapped_memory_store_last_promise(struct hash_mapped_memory *volatile_storag
         paxos_prepare_free(kh_value(volatile_storage->last_promises, key));
     }
     kh_value(volatile_storage->last_promises, key) = to_store_prepare; // poinot kh_value to copied prepare
+
+
+    if (last_ballot_promised->iid > volatile_storage->max_inited_instance)
+        volatile_storage->max_inited_instance = last_ballot_promised->iid;
+
     return 0;
+
 }
 
 static int
@@ -84,6 +92,9 @@ hash_mapped_memory_store_last_accepted(struct hash_mapped_memory *volatile_stora
         paxos_accept_free(kh_value(volatile_storage->last_accepteds, key));
     }
     kh_value(volatile_storage->last_accepteds, key) = to_store_accept; // poinot kh_value to copied prepare
+
+    if (last_ballot_accepted->iid > volatile_storage->max_inited_instance)
+        volatile_storage->max_inited_instance = last_ballot_accepted->iid;
     return 0;
 }
 
@@ -205,10 +216,18 @@ static struct hash_mapped_memory*
     return hash_mapped_mem;
 }
 
+// always returns 0 because no errors should appear
+static int
+        hash_mapped_memory_get_last_inited_instance(const struct hash_mapped_memory* memory, iid_t* max_inited_instance){
+    *max_inited_instance = memory->max_inited_instance;
+    return 0;
+}
+
 
 
 static void
 initialise_hash_mapped_memory_function_pointers(struct paxos_storage *volatile_storage) {
+    volatile_storage->api.get_max_inited_instance = (int (*) (void *, iid_t*)) hash_mapped_memory_get_last_inited_instance;
     volatile_storage->api.get_trim_instance = (int (*) (void *, iid_t *)) hash_mapped_memory_get_trim_instance;
     volatile_storage->api.store_trim_instance = (int (*) (void *, iid_t)) hash_mapped_memory_store_trim_instance;
 

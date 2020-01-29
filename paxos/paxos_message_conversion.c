@@ -61,11 +61,22 @@ paxos_accept_to_accepted(int id, const struct paxos_accept *acc, paxos_message *
     };
 }
 
+void // should this return the same ballot or a higher one?
+paxos_prepare_to_preempted(int id, const struct paxos_prepare* prepare, struct paxos_message *out) {
+    out->type = PAXOS_PREEMPTED;
+    out->u.preempted = (struct paxos_preempted) {
+        .aid = id,
+        .iid = prepare->iid,
+        .ballot = prepare->ballot
+    };
+}
+
 void
 paxos_accept_to_preempted(int id, const struct paxos_accept* accept, paxos_message *out){
     out->type = PAXOS_PREEMPTED;
     out->u.preempted = (paxos_preempted) {id, accept->iid, accept->ballot};
 }
+
 void
 paxos_accepted_to_preempted(int id, const struct paxos_accepted *acc, paxos_message *out) {
     out->type = PAXOS_PREEMPTED;
