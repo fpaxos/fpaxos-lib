@@ -147,21 +147,13 @@ struct paxos_message
 	} u;
 };
 
-struct paxos_epoch_promise {
-    struct paxos_promise promise;
-    uint32_t epoch_promised;
+
+struct paxos_epoch_ballot {
+     uint32_t epoch;
+     uint32_t ballot;
 };
 
-struct paxos_epoch_accept {
-    struct paxos_accept accept_request;
-    uint32_t epoch;
-};
 
-struct paxos_epoch_accepted {
-    struct paxos_accepted accepted;
-    uint32_t promised_epoch;
-    uint32_t accetped_epoch;
-};
 
 typedef struct paxos_message paxos_message;
 

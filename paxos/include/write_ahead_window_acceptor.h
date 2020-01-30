@@ -29,7 +29,7 @@ write_ahead_window_acceptor_new (
 
 struct write_ahead_window_acceptor;
 
-struct write_ahead_window_acceptor* write_ahead_window_acceptor_new(int id, int min_instance_catchup, int min_ballot_catchup, int bal_window, int instance_window);
+struct write_ahead_window_acceptor* write_ahead_window_acceptor_new(int id, int min_instance_catchup, int min_ballot_catchup, int bal_window, int instance_window, int instance_epoch_writing_iteration_size);
 
 void write_ahead_window_acceptor_free(struct write_ahead_window_acceptor *a);
 

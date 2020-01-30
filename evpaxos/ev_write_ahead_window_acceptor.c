@@ -162,7 +162,12 @@ ev_write_ahead_acceptor_init_internal(int id, struct evpaxos_config* c, struct p
             10000,
             10,
             50,
-            100000);
+            100000,
+            1000);
+   // by making instance window less than min instance
+   // catchup you can do a sort of write a little bit at once ahead
+   // of time rather than a giant bulk-write of all the written ahead instances
+
     acceptor->peers = p;
 
     peers_subscribe(p, PAXOS_PREPARE, ev_write_ahead_acceptor_handle_prepare, acceptor);
@@ -180,7 +185,8 @@ ev_write_ahead_acceptor_init_internal(int id, struct evpaxos_config* c, struct p
     // New event to check windows async
    // acceptor->write_ahead_timer = evtimer_new(base, )
     acceptor->write_ahead_ev =  evtimer_new(base, check_windows_event, acceptor);
-    acceptor->write_ahead_timer = (struct timeval) {.tv_sec = 0, .tv_usec = (rand()%500)};
+
+    acceptor->write_ahead_timer = (struct timeval) {.tv_sec = 0, .tv_usec = (20000)};
 
    event_add(acceptor->write_ahead_ev, &acceptor->write_ahead_timer);
     //event_set(&acceptor->timer_ev, 0, EV_PERSIST, write_ahead_window_acceptor_check_and_update_write_ahead_windows, acceptor->state);
