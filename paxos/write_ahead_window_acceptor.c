@@ -73,7 +73,7 @@ struct write_ahead_window_acceptor {
     iid_t* instances_to_begin_new_ballot_epoch;
     int number_of_instances_to_begin_new_ballot_epoch;
 
-    iid_t last_instance_responsed_to; // todo change from loop to just one
+    iid_t last_instance_responded_to; // todo change from loop to just one
     bool updating_instance_epoch;
     iid_t last_instance_epoch_end;
     iid_t last_iteration_end;
@@ -203,10 +203,9 @@ write_ahead_window_acceptor_on_recovery_new_epochs(struct write_ahead_window_acc
         i++;
     }
 
-    acceptor->last_instance_epoch_end = i;
+    acceptor->last_instance_epoch_end = i - 1;
     // find out what should be acceptor->last_iteration_end;
     acceptor->updating_instance_epoch = false;
-    acceptor->new_epoch_end = i;
 
     error = storage_tx_commit(&acceptor->standard_acceptor->stable_storage);
 }
@@ -234,11 +233,11 @@ void update_flagged_ballot_windows(struct write_ahead_window_acceptor *acceptor)
 
 // Checks to see if the instance window needs adjusting
 bool
-write_ahead_window_acceptor_does_instance_window_need_adjusting(iid_t max_inited_instance,
-                                                                iid_t last_instance_before_prev_epoch,
+write_ahead_window_acceptor_does_instance_window_need_adjusting(iid_t last_instance_responded_to,
+                                                                iid_t last_epoch_end,
                                                                 int min_window_size)
 {
-    if ((max_inited_instance - last_instance_before_prev_epoch) < min_window_size) {
+    if ((last_instance_responded_to - last_epoch_end) < min_window_size) {
         return true;
     } else {
         return false;
@@ -251,17 +250,54 @@ void
 write_ahead_window_acceptor_write_next_iteration_of_instance_epoch(struct write_ahead_window_acceptor* acceptor) {
     iid_t new_iteration_end = acceptor->last_iteration_end + acceptor->instance_epoch_iteration_size;
 
+    if (new_iteration_end > acceptor->new_epoch_end) // ensures the new_epoch_end is the end of the epoch
+        new_iteration_end = acceptor->new_epoch_end;
+
     for (iid_t i = acceptor->last_iteration_end + 1; i <= new_iteration_end; i++)
         write_ahead_window_acceptor_new_ballot_epoch_from_last_epoch(acceptor, i);
-    paxos_log_debug("Written iteration of new Epoch to Instance %u", new_iteration_end);
+    paxos_log_info("Written ahead iteration of new Epoch to Instance %u", new_iteration_end);
     acceptor->last_iteration_end = new_iteration_end;
 }
 
 
+bool write_ahead_acceptor_is_new_instance_epoch_needed(struct write_ahead_window_acceptor* acceptor) {
+    return //(write_ahead_window_acceptor_does_instance_window_need_adjusting(acceptor->last_instance_responded_to,
+                                                                   //        acceptor->last_instance_epoch_end,
+                                                                   //        acceptor->min_instance_catachup) && !acceptor->updating_instance_epoch);
+            (acceptor->last_instance_epoch_end - acceptor->last_instance_responded_to < acceptor->min_instance_catachup) && !acceptor->updating_instance_epoch;
+}
+
+void write_ahead_acceptor_begin_writing_instance_epoch(struct write_ahead_window_acceptor* acceptor) {
+    acceptor->updating_instance_epoch = true;
+    acceptor->new_epoch_end = acceptor->last_instance_epoch_end + acceptor->instance_window;
+
+    // This tells the acceptor where to start writing ahead the next epoch
+    acceptor->last_iteration_end = acceptor->last_instance_epoch_end;
+    paxos_log_info("Instance Window has caught up."
+                    "Beginning new epoch.");
+}
+
+void write_ahead_acceptor_write_iteration_of_instance_epoch(struct write_ahead_window_acceptor* acceptor) {
+    if (acceptor->updating_instance_epoch) {
+        storage_tx_begin(&acceptor->standard_acceptor->stable_storage);
+        write_ahead_window_acceptor_write_next_iteration_of_instance_epoch(acceptor);
+        storage_tx_commit(&acceptor->standard_acceptor->stable_storage);
+
+        if (acceptor->new_epoch_end <= acceptor->last_iteration_end) {
+            acceptor->updating_instance_epoch = false;
+            acceptor->last_instance_epoch_end = acceptor->last_iteration_end; // last_interation_end because new_epoch_end might be lower (but shouldn't be if programmed right)
+            paxos_log_info("Finished writing New Instance Epoch");
+        }
+    }
+}
+
+bool write_ahead_acceptor_is_writing_epoch(struct write_ahead_window_acceptor* acceptor){
+    return acceptor->updating_instance_epoch;
+}
 
 void check_and_update_instance_window(struct write_ahead_window_acceptor *acceptor, const iid_t max_inited_instance) {
     // Will not do if already updating
-    if (write_ahead_window_acceptor_does_instance_window_need_adjusting(acceptor->last_instance_responsed_to,
+    if (write_ahead_window_acceptor_does_instance_window_need_adjusting(acceptor->last_instance_responded_to,
                                                                  acceptor->last_instance_epoch_end,
                                                                  acceptor->min_instance_catachup) && !acceptor->updating_instance_epoch) {
         acceptor->updating_instance_epoch = true;
@@ -275,18 +311,7 @@ void check_and_update_instance_window(struct write_ahead_window_acceptor *accept
 
 
 
-    // todo break into separate event
-    if (acceptor->updating_instance_epoch) {
-        storage_tx_begin(&acceptor->standard_acceptor->stable_storage);
-        write_ahead_window_acceptor_write_next_iteration_of_instance_epoch(acceptor);
-        storage_tx_commit(&acceptor->standard_acceptor->stable_storage);
 
-        if (acceptor->new_epoch_end <= acceptor->last_iteration_end) {
-            acceptor->updating_instance_epoch = false;
-            acceptor->last_instance_epoch_end = acceptor->last_iteration_end; // last_interation_end because new_epoch_end might be lower
-            paxos_log_debug("Finished writing New Instance Epoch");
-        }
-    }
 
 }
 
@@ -364,7 +389,7 @@ write_ahead_window_acceptor_new (
 
 
 
-    // write_ahead_window_acceptor->last_instance_responsed_to = 0;
+    // write_ahead_window_acceptor->last_instance_responded_to = 0;
     // Some explaination about what is happening here:
     // When the Acceptor restarts it can assume that the last ballot held in stable storage is safe as it will have
     // never previously responded to a ballot higher.
@@ -418,7 +443,7 @@ write_ahead_window_acceptor_new (
     // Data related to writing new instance epochs
     // -- some of these values will be set again
     // after writing ahead the new instance epoch
-    write_ahead_window_acceptor->last_instance_responsed_to = 0;
+    write_ahead_window_acceptor->last_instance_responded_to = 0;
     write_ahead_window_acceptor->updating_instance_epoch = false;
     write_ahead_window_acceptor->last_instance_epoch_end = 0;
     write_ahead_window_acceptor->new_epoch_end = 0;
@@ -493,7 +518,7 @@ write_ahead_window_acceptor_receive_prepare(
         write_ahead_window_acceptor_store_prepare_in_volatile_storage(a, req);
 
         // TODO check if should be here
-        a->last_instance_responsed_to = req->iid;
+        a->last_instance_responded_to = req->iid;
 
         // Chwck is promise is written ahead
         if (last_stable_promise.ballot < req->ballot) {
@@ -574,7 +599,7 @@ write_ahead_window_acceptor_receive_accept(struct write_ahead_window_acceptor* a
 
     if (!found || last_promise->ballot <= request->ballot) {
 
-        acceptor->last_instance_responsed_to = request->iid;
+        acceptor->last_instance_responded_to = request->iid;
 
         if (storage_tx_begin(&acceptor->standard_acceptor->stable_storage) != 0)
             return 0;

@@ -47,6 +47,18 @@ int write_ahead_window_acceptor_receive_trim(struct write_ahead_window_acceptor 
 void write_ahead_window_acceptor_set_current_state(struct write_ahead_window_acceptor *a, paxos_standard_acceptor_state *state);
 
 void write_ahead_window_acceptor_check_and_update_write_ahead_windows(struct write_ahead_window_acceptor* acceptor);
+
+bool write_ahead_acceptor_is_new_instance_epoch_needed(struct write_ahead_window_acceptor* acceptor);
+
+void write_ahead_acceptor_write_iteration_of_instance_epoch(struct write_ahead_window_acceptor* acceptor);
+
+void write_ahead_acceptor_check_and_update_ballot_epochs(struct write_ahead_window_acceptor* acceptor);
+
+bool write_ahead_acceptor_is_writing_epoch(struct write_ahead_window_acceptor* acceptor);
+
+void write_ahead_acceptor_begin_writing_instance_epoch(struct write_ahead_window_acceptor* acceptor);
+
+void write_ahead_acceptor_clean_up_instance_epoch_stuff(struct write_ahead_window_acceptor* acceptor);
 #ifdef __cplusplus
 }
 #endif

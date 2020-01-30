@@ -43,11 +43,14 @@ struct ev_write_ahead_acceptor
 {
     struct peers* peers;
     struct write_ahead_window_acceptor* state;
-    struct event* timer_ev;
-    struct timeval timer_tv;
+    struct event* send_state_event;
+    struct timeval send_state_timer;
 
-    struct event *write_ahead_ev;
-    struct timeval write_ahead_timer;
+    struct event *instance_window_check_event;
+    struct timeval instance_window_check_timer;
+
+    struct event* instance_window_epoch_iteration_event;
+    struct timeval instance_window_epoch_iteration_timer;
 
 
 
@@ -134,14 +137,42 @@ send_acceptor_state(int fd, short ev, void* arg)
     paxos_message msg = {.type = PAXOS_ACCEPTOR_STATE};
     write_ahead_window_acceptor_set_current_state(a->state, &msg.u.state);
     peers_foreach_client(a->peers, peer_send_paxos_message, &msg);
-    event_add(a->timer_ev, &a->timer_tv);
+    event_add(a->send_state_event, &a->send_state_timer);
 }
 
 static void
-check_windows_event(int fd, short ev, void* arg) {
+check_ballot_windows_event(int fd, short ev, void* arg) {
     struct ev_write_ahead_acceptor* a = (struct ev_write_ahead_acceptor*) arg;
-    write_ahead_window_acceptor_check_and_update_write_ahead_windows(a->state);
-    event_add(a->write_ahead_ev, &a->write_ahead_timer);
+    //write_ahead_window_acceptor_check_and_update_write_ahead_windows(a->state);
+
+    //todo call method for checking and updating ballot windows
+    event_add(a->instance_window_check_event, &a->instance_window_check_timer);
+}
+
+static void
+write_instance_epoch_event(int fd, short ev, void* arg) {
+    struct ev_write_ahead_acceptor* a= (struct ev_write_ahead_acceptor*) arg;
+    write_ahead_acceptor_write_iteration_of_instance_epoch(a->state);
+    if (write_ahead_acceptor_is_writing_epoch(a->state)) {
+        event_add(a->instance_window_epoch_iteration_event, &a->instance_window_epoch_iteration_timer);
+    } else {
+        event_add(a->instance_window_check_event, &a->instance_window_check_timer);
+    }
+
+}
+
+static void
+check_instance_epoch_event(int fd, short ev, void* arg) {
+    struct ev_write_ahead_acceptor* a = (struct ev_write_ahead_acceptor*) arg;
+    if (!write_ahead_acceptor_is_writing_epoch(a->state)) {
+        if (write_ahead_acceptor_is_new_instance_epoch_needed(a->state)) {
+            write_ahead_acceptor_begin_writing_instance_epoch(a->state); // necessary variable adjustment
+            write_ahead_acceptor_write_iteration_of_instance_epoch(a->state); //write the first iteration
+            event_add(a->instance_window_epoch_iteration_event, &a->instance_window_epoch_iteration_timer);
+        } else {
+            event_add(a->instance_window_check_event, &a->instance_window_check_timer);
+        }
+    }
 }
 
 struct ev_write_ahead_acceptor*
@@ -159,11 +190,11 @@ ev_write_ahead_acceptor_init_internal(int id, struct evpaxos_config* c, struct p
 
 
    acceptor->state = write_ahead_window_acceptor_new(id,
-            10000,
+            50000,
             10,
             50,
             100000,
-            1000);
+            500);
    // by making instance window less than min instance
    // catchup you can do a sort of write a little bit at once ahead
    // of time rather than a giant bulk-write of all the written ahead instances
@@ -178,19 +209,25 @@ ev_write_ahead_acceptor_init_internal(int id, struct evpaxos_config* c, struct p
     struct event_base* base = peers_get_event_base(p);
 
 
-    acceptor->timer_ev = evtimer_new(base, send_acceptor_state, acceptor);
-    acceptor->timer_tv = (struct timeval){1, 0};
-    event_add(acceptor->timer_ev, &acceptor->timer_tv);
+    acceptor->send_state_event = evtimer_new(base, send_acceptor_state, acceptor);
+    acceptor->send_state_timer = (struct timeval){1, 0};
+    event_add(acceptor->send_state_event, &acceptor->send_state_timer);
 
     // New event to check windows async
-   // acceptor->write_ahead_timer = evtimer_new(base, )
-    acceptor->write_ahead_ev =  evtimer_new(base, check_windows_event, acceptor);
+   // acceptor->instance_window_check_timer = evtimer_new(base, )evti
+    acceptor->instance_window_check_event = event_new(base, -1, EV_TIMEOUT, check_instance_epoch_event, acceptor);
+    acceptor->instance_window_check_timer = (struct timeval) {.tv_sec = 0, .tv_usec = 3000000 + (rand() % 1000000)}; //0.5 seconds = 500000  us
 
-    acceptor->write_ahead_timer = (struct timeval) {.tv_sec = 0, .tv_usec = (20000)};
+    acceptor->instance_window_epoch_iteration_event =  event_new(base, -1, EV_TIMEOUT, write_instance_epoch_event, acceptor);
+    acceptor->instance_window_epoch_iteration_timer = (struct timeval) {.tv_sec = 0, .tv_usec = 500000 + (rand() % 100000)}; //0.5 seconds = 500000  us
 
-   event_add(acceptor->write_ahead_ev, &acceptor->write_ahead_timer);
-    //event_set(&acceptor->timer_ev, 0, EV_PERSIST, write_ahead_window_acceptor_check_and_update_write_ahead_windows, acceptor->state);
-    //evtimer_add(&acceptor->timer_ev, &time);
+    event_add(acceptor->instance_window_check_event, &acceptor->instance_window_check_timer);
+
+    // todo add ballot checking and updating event
+
+
+    //event_set(&acceptor->send_state_event, 0, EV_PERSIST, write_ahead_window_acceptor_check_and_update_write_ahead_windows, acceptor->state);
+    //evtimer_add(&acceptor->send_state_event, &time);
 
     return acceptor;
 }
@@ -225,7 +262,7 @@ ev_write_ahead_window_acceptor_init(int id, const char* config_file, struct even
 void
 ev_write_ahead_acceptor_free_internal(struct ev_write_ahead_acceptor* a)
 {
-    event_free(a->timer_ev);
+    event_free(a->send_state_event);
     ev_write_ahead_window_acceptor_free(a);
     free(a);
 }
