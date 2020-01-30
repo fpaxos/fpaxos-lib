@@ -216,10 +216,10 @@ ev_write_ahead_acceptor_init_internal(int id, struct evpaxos_config* c, struct p
     // New event to check windows async
    // acceptor->instance_window_check_timer = evtimer_new(base, )evti
     acceptor->instance_window_check_event = event_new(base, -1, EV_TIMEOUT, check_instance_epoch_event, acceptor);
-    acceptor->instance_window_check_timer = (struct timeval) {.tv_sec = 0, .tv_usec = 3000000 + (rand() % 1000000)}; //0.5 seconds = 500000  us
+    acceptor->instance_window_check_timer = (struct timeval) {.tv_sec = 3 + (rand() % 3), .tv_usec = 0};
 
     acceptor->instance_window_epoch_iteration_event =  event_new(base, -1, EV_TIMEOUT, write_instance_epoch_event, acceptor);
-    acceptor->instance_window_epoch_iteration_timer = (struct timeval) {.tv_sec = 0, .tv_usec = 500000 + (rand() % 100000)}; //0.5 seconds = 500000  us
+    acceptor->instance_window_epoch_iteration_timer = (struct timeval) {.tv_sec = 0, .tv_usec = 50000 + (rand() % 1000)}; //0.5 seconds = 500000  us
 
     event_add(acceptor->instance_window_check_event, &acceptor->instance_window_check_timer);
 
