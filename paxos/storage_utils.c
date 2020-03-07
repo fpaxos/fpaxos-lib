@@ -34,12 +34,12 @@ char*
 paxos_accepted_to_buffer(paxos_accepted* acc)
 {
 	size_t len = acc->value.paxos_value_len;
-	char* buffer = calloc(1, sizeof(paxos_accepted) + len);
+	char* buffer = calloc(1, sizeof(struct paxos_accepted) + len);
 	if (buffer == NULL)
 		return NULL;
-	memcpy(buffer, acc, sizeof(paxos_accepted));
+	memcpy(buffer, acc, sizeof(struct paxos_accepted));
 	if (len > 0) {
-		memcpy(&buffer[sizeof(paxos_accepted)], acc->value.paxos_value_val, len);
+		memcpy(&buffer[sizeof(struct paxos_accepted)], acc->value.paxos_value_val, len);
 	}
 	return buffer;
 }
@@ -47,11 +47,11 @@ paxos_accepted_to_buffer(paxos_accepted* acc)
 void
 paxos_accepted_from_buffer(char* buffer, paxos_accepted* out)
 {
-	memcpy(out, buffer, sizeof(paxos_accepted));
+	memcpy(out, buffer, sizeof(struct paxos_accepted));
 	if (out->value.paxos_value_len > 0) {
 		out->value.paxos_value_val = malloc(out->value.paxos_value_len);
 		memcpy(out->value.paxos_value_val,
-			&buffer[sizeof(paxos_accepted)],
+			&buffer[sizeof(struct paxos_accepted)],
 			out->value.paxos_value_len);
 	}
 }

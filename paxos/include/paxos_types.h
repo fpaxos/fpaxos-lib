@@ -30,6 +30,12 @@
 #define _PAXOS_TYPES_H_
 
 #include <stdint.h>
+#include <stdbool.h>
+
+struct ballot {
+    uint32_t number;
+    uint32_t proposer_id;
+};
 
 struct paxos_value
 {
@@ -41,16 +47,18 @@ typedef struct paxos_value paxos_value;
 struct paxos_prepare
 {
 	uint32_t iid;
-	uint32_t ballot;
+	struct ballot ballot;
 };
+
+// This is used for both epoch write ahead paxos and the standard paxos message flow
 typedef struct paxos_prepare paxos_prepare;
 
 struct paxos_promise
 {
 	uint32_t aid;
 	uint32_t iid;
-	uint32_t ballot;
-	uint32_t value_ballot;
+	struct ballot ballot;
+	struct ballot value_ballot;
 	paxos_value value;
 };
 typedef struct paxos_promise paxos_promise;
@@ -58,7 +66,7 @@ typedef struct paxos_promise paxos_promise;
 struct paxos_accept
 {
 	uint32_t iid;
-	uint32_t ballot;
+	struct ballot ballot;
 	paxos_value value;
 };
 typedef struct paxos_accept paxos_accept;
@@ -67,8 +75,8 @@ struct paxos_accepted
 {
 	uint32_t aid;
 	uint32_t iid;
-	uint32_t ballot;
-	uint32_t value_ballot;
+	struct ballot promise_ballot;
+	struct ballot value_ballot;
 	paxos_value value;
 };
 
@@ -79,9 +87,15 @@ struct paxos_preempted
 {
 	uint32_t aid;
 	uint32_t iid;
-	uint32_t ballot;
+	struct ballot ballot;
 };
 typedef struct paxos_preempted paxos_preempted;
+
+struct paxos_chosen {
+    uint32_t iid;
+    struct ballot ballot;
+    struct paxos_value value;
+};
 
 struct paxos_repeat
 {
@@ -115,46 +129,130 @@ enum paxos_message_type
 	PAXOS_PROMISE,
 	PAXOS_ACCEPT,
 	PAXOS_ACCEPTED,
+    PAXOS_CHOSEN,
 	PAXOS_PREEMPTED,
 	PAXOS_REPEAT,
 	PAXOS_TRIM,
 	PAXOS_ACCEPTOR_STATE,
     PAXOS_CLIENT_VALUE,
-
-    // ADDED MESSAGES
-    PAXOS_EPOCH_PROMISE,
-    PAXOS_EPOCH_ACCEPT,
-    PAXOS_EPOCH_ACCEPTED,
-    PAXOS_EPOCH_BALLOT_PREEMPTED,
-    PAXOS_EPOCH_NOTIFICATION
 };
+
 typedef enum paxos_message_type paxos_message_type;
 
-struct paxos_message
+struct standard_paxos_message
 {
 	paxos_message_type type;
 	union
 	{
-		paxos_prepare prepare;
-		paxos_promise promise;
-		paxos_accept accept;
-		paxos_accepted accepted;
-		paxos_preempted preempted;
-		paxos_repeat repeat;
-		paxos_trim trim;
-		paxos_standard_acceptor_state state;
-		paxos_client_value client_value;
+		struct paxos_prepare prepare;
+		struct paxos_promise promise;
+		struct paxos_accept accept;
+		struct paxos_accepted accepted;
+		struct paxos_preempted preempted;
+		struct paxos_repeat repeat;
+		struct paxos_trim trim;
+		struct paxos_standard_acceptor_state state;
+		struct paxos_client_value client_value;
+		struct paxos_chosen chosen;
 	} u;
 };
 
+typedef struct standard_paxos_message standard_paxos_message;
 
-struct paxos_epoch_ballot {
+
+// EPOCH PAXOS MESSAGES
+
+
+//Todo work out if requestor id is needed for responses?
+
+struct epoch_ballot {
      uint32_t epoch;
-     uint32_t ballot;
+     struct ballot ballot;
 };
 
 
+struct epoch_ballot_prepare {
+    uint32_t instance;
+    struct epoch_ballot epoch_ballot_requested;
+};
 
-typedef struct paxos_message paxos_message;
+struct epoch_ballot_promise {
+    uint32_t acceptor_id;
+    uint32_t instance;
+    struct epoch_ballot promised_epoch_ballot;
+    struct epoch_ballot last_accepted_ballot;
+    struct paxos_value last_accepted_value;
+};
 
+struct epoch_ballot_accept {
+    uint32_t instance;
+    struct epoch_ballot epoch_ballot_requested;
+    struct paxos_value value_to_accept;
+};
+
+struct epoch_ballot_accepted {
+    uint32_t acceptor_id;
+    uint32_t instance;
+    struct epoch_ballot accepted_epoch_ballot;
+    struct paxos_value accepted_value;
+};
+
+struct epoch_ballot_preempted {
+    uint32_t acceptor_id;
+    uint32_t instance;
+    struct epoch_ballot requested_epoch_ballot;
+    struct epoch_ballot acceptors_current_epoch_ballot;
+};
+
+struct epoch_notification {
+    uint32_t new_epoch;
+};
+
+struct instance_chosen_at_epoch_ballot {
+    uint32_t instance;
+    struct epoch_ballot chosen_epoch_ballot;
+    struct paxos_value chosen_value;
+};
+
+struct writeahead_epoch_acceptor_state {
+    struct paxos_standard_acceptor_state standard_acceptor_state;
+    uint32_t current_epoch;
+};
+
+enum writeahead_epoch_message_type {
+    WRITEAHEAD_STANDARD_PREPARE,
+    WRITEAHEAD_EPOCH_BALLOT_PREPARE,
+    WRITEAHED_EPOCH_BALLOT_PROMISE,
+    WRITEAHEAD_EPOCH_BALLOT_ACCEPT,
+    WRITEAHEAD_EPOCH_BALLOT_ACCEPTED,
+    WRITEAHEAD_EPOCH_BALLOT_PREEMPTED,
+    WRITEAHEAD_EPOCH_NOTIFICATION,
+    WRITEAHEAD_INSTANCE_CHOSEN_AT_EPOCH_BALLOT,
+    WRITEAHEAD_REPEAT,
+    WRITEAHEAD_INSTANCE_TRIM,
+    WRITEAHEAD_ACCEPTOR_STATE,
+    WRITEAHEAD_CLIENT_VALUE,
+};
+
+struct writeahead_epoch_paxos_message {
+    enum writeahead_epoch_message_type type;
+    union {
+        struct paxos_prepare standard_prepare;
+        struct epoch_ballot_prepare epoch_ballot_prepare;
+        struct epoch_ballot_promise epoch_ballot_promise;
+        struct epoch_ballot_accept epoch_ballot_accept;
+        struct epoch_ballot_accepted epoch_ballot_accepted;
+        struct epoch_ballot_preempted epoch_ballot_preempted;
+        struct instance_chosen_at_epoch_ballot instance_chosen_at_epoch_ballot;
+        struct epoch_notification epoch_notification;
+
+        struct paxos_repeat repeat;
+        struct paxos_trim trim;
+        struct writeahead_epoch_acceptor_state state;
+        struct paxos_client_value client_value;
+    } message_contents ;
+};
+
+
+bool is_values_equal(struct paxos_value lhs, struct paxos_value rhs);
 #endif

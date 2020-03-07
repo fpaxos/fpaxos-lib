@@ -40,9 +40,10 @@ struct learner;
 struct learner* learner_new(int acceptors);
 void learner_free(struct learner* l);
 void learner_set_instance_id(struct learner* l, iid_t iid);
-void learner_receive_accepted(struct learner* l, paxos_accepted* ack);
+int learner_receive_accepted(struct learner* l, paxos_accepted* ack, struct paxos_chosen* chosen_msg);
 int learner_deliver_next(struct learner* l, paxos_accepted* out);
 int learner_has_holes(struct learner* l, iid_t* from, iid_t* to);
+void learner_receive_chosen(struct learner* l, struct paxos_chosen* chosen);
 
 #ifdef __cplusplus
 }

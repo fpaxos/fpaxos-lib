@@ -123,7 +123,7 @@ paxos_client_value_destroy(paxos_client_value* p)
 }
 
 void
-paxos_message_destroy(paxos_message* m)
+paxos_message_destroy(standard_paxos_message* m)
 {
 	switch (m->type) {
 	case PAXOS_PROMISE:
@@ -143,7 +143,7 @@ paxos_message_destroy(paxos_message* m)
 }
 
 void
-paxos_log(int level, const char* format, va_list ap)
+paxos_log(unsigned int level, const char* format, va_list ap)
 {
 	int off;
 	char msg[1024];

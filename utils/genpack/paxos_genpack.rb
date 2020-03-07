@@ -48,7 +48,7 @@ schema = GenPack::Schema.define "paxos_types" do
   message(:paxos_client_value) {
     paxos_value :value
   }
-  union(:paxos_message) {
+  union(:standard_paxos_message) {
     paxos_prepare :prepare
     paxos_promise :promise
     paxos_accept :accept

@@ -62,6 +62,7 @@ quorum_destroy(struct quorum* q)
 	free(q->acceptor_ids);
 }
 
+
 int
 quorum_add(struct quorum* q, int id)
 {

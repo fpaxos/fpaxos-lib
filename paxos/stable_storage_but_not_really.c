@@ -26,16 +26,17 @@
  */
 
 
-#include <stable_storage.h>
-#include "stable_storage.h"
+#include <standard_stable_storage.h>
+#include "standard_stable_storage.h"
 #include "khash.h"
 
-KHASH_MAP_INIT_INT(record, paxos_accepted*);
+KHASH_MAP_INIT_INT(record, paxos_accepted*)
 
 struct stable_storage_but_not_really
 {
 	iid_t trim_iid;
 	kh_record_t* records;
+	int id;
 };
 
 
@@ -58,6 +59,7 @@ mem_storage_new(int acceptor_id)
     struct stable_storage_but_not_really *s = malloc(sizeof(struct stable_storage_but_not_really));
 	if (s == NULL)
 		return s;
+	s->id = acceptor_id;
 	s->trim_iid = 0;
 	s->records = kh_init(record);
 	return s;
@@ -66,6 +68,8 @@ mem_storage_new(int acceptor_id)
 static int
 mem_storage_open(void* handle)
 {
+    struct stable_storage_but_not_really *s = handle;
+    paxos_log_debug("Acceptor %i opended storage", s->id);
 	return 0;
 }
 
@@ -82,17 +86,24 @@ mem_storage_close(void* handle)
 static int
 mem_storage_tx_begin(void* handle)
 {
+    struct stable_storage_but_not_really *s = handle;
+    paxos_log_debug("Acceptor %i begun transaction", s->id);
 	return 0;
 }
 
 static int
 mem_storage_tx_commit(void* handle)
 {
+    struct stable_storage_but_not_really *s = handle;
+    paxos_log_debug("Acceptor %i committed transaction", s->id);
 	return 0;
 }
 
 static void
-mem_storage_tx_abort(void* handle) { }
+mem_storage_tx_abort(void* handle) {
+    struct stable_storage_but_not_really *s = handle;
+    paxos_log_debug("Acceptor %i aborted transaction", s->id);
+}
 
 static int
 mem_storage_get(void* handle, iid_t iid, paxos_accepted* out)
@@ -153,16 +164,16 @@ mem_storage_get_trim_instance(void* handle, iid_t* trim_instance)
 	return 1;
 }
 void
-storage_init_mem(struct stable_storage *s, int acceptor_id)
+storage_init_mem(struct standard_stable_storage *s, int acceptor_id)
 {
 	s->handle = mem_storage_new(acceptor_id);
-    s->stable_storage_api.open = mem_storage_open;
-    s->stable_storage_api.close = mem_storage_close;
-    s->stable_storage_api.tx_begin = mem_storage_tx_begin;
-    s->stable_storage_api.tx_commit = mem_storage_tx_commit;
-    s->stable_storage_api.tx_abort = mem_storage_tx_abort;
-    s->stable_storage_api.get_instance_info = mem_storage_get;
-    s->stable_storage_api.store_instance_info = (int (*)(void *, const struct paxos_accepted *)) mem_storage_put;
-    s->stable_storage_api.store_trim_instance = mem_storage_trim;
-    s->stable_storage_api.get_trim_instance = mem_storage_get_trim_instance;
+    s->api.open = mem_storage_open;
+    s->api.close = mem_storage_close;
+    s->api.tx_begin = mem_storage_tx_begin;
+    s->api.tx_commit = mem_storage_tx_commit;
+    s->api.tx_abort = mem_storage_tx_abort;
+    s->api.get_instance_info = mem_storage_get;
+    s->api.store_instance_info = (int (*)(void *, const struct paxos_accepted *)) mem_storage_put;
+    s->api.store_trim_instance = mem_storage_trim;
+    s->api.get_trim_instance = mem_storage_get_trim_instance;
 }

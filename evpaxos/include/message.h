@@ -37,15 +37,16 @@ extern "C" {
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 
-void send_paxos_message(struct bufferevent* bev, paxos_message* msg);
+void send_paxos_message(struct bufferevent* bev, standard_paxos_message* msg);
 void send_paxos_prepare(struct bufferevent* bev, paxos_prepare* msg);
 void send_paxos_promise(struct bufferevent* bev, paxos_promise* msg);
 void send_paxos_accept(struct bufferevent* bev, paxos_accept* msg);
 void send_paxos_accepted(struct bufferevent* bev, paxos_accepted* msg);
 void send_paxos_preempted(struct bufferevent* bev, paxos_preempted* msg);
 void send_paxos_repeat(struct bufferevent* bev, paxos_repeat* msg);
+void send_paxos_chosen(struct bufferevent* bev, struct paxos_chosen* chosen_msg);
 void send_paxos_trim(struct bufferevent* bev, paxos_trim* msg);
-int recv_paxos_message(struct evbuffer* in, paxos_message* out);
+int recv_paxos_message(struct evbuffer* in, standard_paxos_message* out);
 
 #ifdef __cplusplus
 }

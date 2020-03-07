@@ -88,6 +88,9 @@ carray_push_back(struct carray* a, void* p)
 	return 0;
 }
 
+
+
+
 void*
 carray_pop_front(struct carray* a)
 {
@@ -132,4 +135,20 @@ static void*
 carray_at(struct carray* a, int i)
 {
 	return a->array[(a->head+i) % a->size];
+}
+
+
+int carray_push_front(struct carray* a, void* p){
+    if (carray_full(a))
+        carray_grow(a);
+
+    a->head = (a->head - 1) % a->size;
+    a->array[a->head] = p;
+    a->count++;
+
+    // move head forward
+    // put into thing
+    // increment count
+    //
+    return 0;
 }

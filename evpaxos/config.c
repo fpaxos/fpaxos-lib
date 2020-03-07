@@ -46,6 +46,9 @@ struct evpaxos_config
 {
 	int proposers_count;
 	int acceptors_count;
+
+	// todo add learners so they can update each other
+
 	struct address proposers[MAX_N_OF_PROPOSERS];
 	struct address acceptors[MAX_N_OF_PROPOSERS];
 };
@@ -178,6 +181,10 @@ int
 evpaxos_acceptor_count(struct evpaxos_config* config)
 {
     return config->acceptors_count;
+}
+
+int evpaxos_proposer_count(struct evpaxos_config* config) {
+    return config->proposers_count;
 }
 
 struct sockaddr_in

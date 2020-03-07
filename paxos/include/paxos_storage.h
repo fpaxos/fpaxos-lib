@@ -5,6 +5,7 @@
 #ifndef LIBPAXOS_VOLATILE_STORAGE_H
 #define LIBPAXOS_VOLATILE_STORAGE_H
 
+#include <stdbool.h>
 #include "paxos_types.h"
 #include "paxos.h"
 
@@ -17,6 +18,10 @@ struct paxos_storage {
     void *handle;
 
     struct {
+        int (*set_instance_chosen)(void *paxos_storage, const iid_t instance);
+
+        int (*is_instance_chosen)(void *paxos_storage, const iid_t instance, bool* chosen);
+
         // paxos_prepare used instead of promise and the promise contains unnecessary information
         int (*store_last_promise)(void *volatile_storage, const struct paxos_prepare *last_promise);
 
@@ -54,6 +59,10 @@ struct paxos_storage {
         int (*get_max_inited_instance)(void *paxos_storage, iid_t* returned_max_inited_instance);
     } api;
 };
+
+int is_instance_chosen(const struct paxos_storage* paxos_storage, iid_t instance, bool* is_chosen);
+
+int set_instance_chosen(const struct paxos_storage* paxos_storage, iid_t instance);
 
 int get_max_inited_instance(const struct paxos_storage* paxos_storage, iid_t* returned_max_inited_instance);
 
@@ -93,6 +102,8 @@ int store_instance_info(struct paxos_storage* paxos_storage, const struct paxos_
 
 int get_instance_info(struct paxos_storage *paxos_storage, iid_t instance_id, paxos_accepted *instance_info_retrieved);
 
+
+void paxos_storage_init(struct paxos_storage *paxos_storage, int aid);
 
 #ifdef __cplusplus
 }

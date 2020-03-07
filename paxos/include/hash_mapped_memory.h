@@ -21,8 +21,8 @@ struct hash_mapped_memory*
 new_hash_mapped_memory_from_instances_info(paxos_accepted** instances_info, int* number_of_promises);
  */
 
-void init_hash_mapped_memory(struct paxos_storage* paxos_storage);
+void init_hash_mapped_memory(struct paxos_storage* paxos_storage, int aid);
 
-void init_hash_mapped_memory_from_instances_info(struct paxos_storage* paxos_storage, struct paxos_accepted* instances_info, int number_of_instances, int trim_instance);
+void init_hash_mapped_memory_from_instances_info(struct paxos_storage* paxos_storage, struct paxos_accepted* instances_info, int number_of_instances, int trim_instance, int aid);
 
 #endif //LIBPAXOS_HASH_MAPPED_MEMORY_H

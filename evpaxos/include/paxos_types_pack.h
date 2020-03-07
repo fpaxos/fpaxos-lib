@@ -36,16 +36,11 @@ extern "C" {
 #include "paxos_types.h"
 #include <msgpack.h>
 
+
+    // Common Messages
 void msgpack_pack_paxos_prepare(msgpack_packer* p, paxos_prepare* v);
 void msgpack_unpack_paxos_prepare(msgpack_object* o, paxos_prepare* v);
-void msgpack_pack_paxos_promise(msgpack_packer* p, paxos_promise* v);
-void msgpack_unpack_paxos_promise(msgpack_object* o, paxos_promise* v);
-void msgpack_pack_paxos_accept(msgpack_packer* p, paxos_accept* v);
-void msgpack_unpack_paxos_accept(msgpack_object* o, paxos_accept* v);
-void msgpack_pack_paxos_accepted(msgpack_packer* p, paxos_accepted* v);
-void msgpack_unpack_paxos_accepted(msgpack_object* o, paxos_accepted* v);
-void msgpack_pack_paxos_preempted(msgpack_packer* p, paxos_preempted* v);
-void msgpack_unpack_paxos_preempted(msgpack_object* o, paxos_preempted* v);
+
 void msgpack_pack_paxos_repeat(msgpack_packer* p, paxos_repeat* v);
 void msgpack_unpack_paxos_repeat(msgpack_object* o, paxos_repeat* v);
 void msgpack_pack_paxos_trim(msgpack_packer* p, paxos_trim* v);
@@ -54,8 +49,48 @@ void msgpack_pack_paxos_acceptor_state(msgpack_packer* p, paxos_standard_accepto
 void msgpack_unpack_paxos_acceptor_state(msgpack_object* o, paxos_standard_acceptor_state* v);
 void msgpack_pack_paxos_client_value(msgpack_packer* p, paxos_client_value* v);
 void msgpack_unpack_paxos_client_value(msgpack_object* o, paxos_client_value* v);
-void msgpack_pack_paxos_message(msgpack_packer* p, paxos_message* v);
-void msgpack_unpack_paxos_message(msgpack_object* o, paxos_message* v);
+
+
+
+    // Standard Paxos Only
+void msgpack_pack_paxos_promise(msgpack_packer* p, paxos_promise* v);
+void msgpack_unpack_paxos_promise(msgpack_object* o, paxos_promise* v);
+void msgpack_pack_paxos_accept(msgpack_packer* p, paxos_accept* v);
+void msgpack_unpack_paxos_accept(msgpack_object* o, paxos_accept* v);
+void msgpack_pack_paxos_accepted(msgpack_packer* p, paxos_accepted* v);
+void msgpack_unpack_paxos_accepted(msgpack_object* o, paxos_accepted* v);
+void msgpack_pack_paxos_preempted(msgpack_packer* p, paxos_preempted* v);
+void msgpack_unpack_paxos_preempted(msgpack_object* o, paxos_preempted* v);
+
+void msgpack_pack_paxos_message(msgpack_packer* p, standard_paxos_message* v);
+void msgpack_unpack_paxos_message(msgpack_object* o, standard_paxos_message* v);
+
+
+
+    // Writeahead Epoch Paxos Only
+void msgpack_pack_epoch_ballot_prepare(msgpack_packer* packer, struct epoch_ballot_prepare* prepare);
+void msgpack_unpack_epoch_ballot_prepare(msgpack_object* msg_object, struct epoch_ballot_prepare* unpacked_prepare);
+void msgpack_pack_epoch_ballot_promise(msgpack_packer* packer, struct epoch_ballot_promise* promise);
+void msgpack_unpack_epoch_ballot_promise(msgpack_object* msg_object, struct epoch_ballot_promise* unpacked_promise);
+void msgpack_pack_epoch_ballot_accept(msgpack_packer* packer, struct epoch_ballot_accept* accept);
+void msgpack_unpack_epoch_ballot_accept(msgpack_object* msg_object, struct epoch_ballot_accept* unpacked_accept);
+void msgpack_pack_epoch_ballot_accepted(msgpack_packer* packer, struct epoch_ballot_accepted* accepted);
+void msgpack_unpack_epoch_ballot_accepted(msgpack_object* msg_object, struct epoch_ballot_accepted* unpacked_accepted);
+void msgpack_pack_epoch_ballot_preempted(msgpack_packer* packer, struct epoch_ballot_preempted* preempted);
+void msgpack_unpack_epoch_ballot_preempted(msgpack_object* msg_object, struct epoch_ballot_preempted* unpacked_preempted);
+void msgpack_pack_instance_chosen_at_epoch_ballot(msgpack_packer* packer, struct instance_chosen_at_epoch_ballot* instance_chosen);
+void msgpack_unpack_instance_chosen_at_epoch_ballot(msgpack_object* packer, struct instance_chosen_at_epoch_ballot* unpacked_instance_chosen);
+void msgpack_pack_epoch_notification(msgpack_packer* packer, struct epoch_notification* epoch_notification);
+void msgpack_unpack_epoch_notification(msgpack_object* msg_object, struct epoch_notification* epoch_notification);
+void msgpack_pack_writeahead_epoch_acceptor_state(msgpack_packer* packer, struct writeahead_epoch_acceptor_state* state);
+void msgpack_unpack_writeahead_epoch_acceptor_state(msgpack_object* msg_object, struct writeahead_epoch_acceptor_state* state);
+
+void msgpack_unpack_paxos_chosen(msgpack_object* msg_object, struct paxos_chosen* unpacked_chosen_msg);
+void msgpack_pack_paxos_chosen(msgpack_packer* packer, struct paxos_chosen* instance_chosen) ;
+
+
+void msgpack_pack_writeahead_epoch_paxos_message(msgpack_packer* packer, struct writeahead_epoch_paxos_message* message);
+void msgpack_unpack_writeahead_epoch_paxos_message(msgpack_object* msg_object, struct writeahead_epoch_paxos_message* unpacked_message);
 
 #ifdef __cplusplus
 }

@@ -36,7 +36,7 @@ extern "C" {
 #include "paxos.h"
 #include "paxos_storage.h"
 
-struct stable_storage {
+struct standard_stable_storage {
     void *handle;
 
     //struct paxos_storage* paxos_storage;
@@ -63,48 +63,48 @@ struct stable_storage {
                                                 int *number_of_instances_retrieved);
 
         int (*get_max_instance)(void *handle, iid_t *retrieved_instance);
-    } stable_storage_api;
+    } api;
 };
 
-void storage_init(struct stable_storage *store, int acceptor_id);
+void storage_init(struct standard_stable_storage *store, int acceptor_id);
 
-int storage_open(struct stable_storage *stable_storage);
+int storage_open(struct standard_stable_storage *stable_storage);
 
-void storage_close(struct stable_storage *store);
+void storage_close(struct standard_stable_storage *store);
 
-int storage_tx_begin(struct stable_storage *store);
+int storage_tx_begin(struct standard_stable_storage *store);
 
-int storage_tx_commit(struct stable_storage *store);
+int storage_tx_commit(struct standard_stable_storage *store);
 
-void storage_tx_abort(struct stable_storage *store);
+void storage_tx_abort(struct standard_stable_storage *store);
 
-int storage_store_trim_instance(struct stable_storage *stable_storage, const iid_t iid);
+int storage_store_trim_instance(struct standard_stable_storage *stable_storage, const iid_t iid);
 
-int storage_get_trim_instance(struct stable_storage *store, iid_t *instance_id);
+int storage_get_trim_instance(struct standard_stable_storage *store, iid_t *instance_id);
 
 /*
-int storage_get_last_promise(struct stable_storage* store, iid_t instance_id, paxos_prepare* last_promise_retrieved);
-int storage_store_last_promise(struct stable_storage* store, paxos_prepare* last_promise);
-int storage_get_last_promises(struct stable_storage* store, iid_t* instance_ids, int number_of_instances_to_retrieve, paxos_prepare** retrieved_last_promises, int* number_of_instances_retrieved);
-int storage_store_last_promises(struct stable_storage* store, paxos_prepare** last_promises, int number_of_promises);
+int storage_get_last_promise(struct standard_stable_storage* store, iid_t instance_id, paxos_prepare* last_promise_retrieved);
+int storage_store_last_promise(struct standard_stable_storage* store, paxos_prepare* last_promise);
+int storage_get_last_promises(struct standard_stable_storage* store, iid_t* instance_ids, int number_of_instances_to_retrieve, paxos_prepare** retrieved_last_promises, int* number_of_instances_retrieved);
+int storage_store_last_promises(struct standard_stable_storage* store, paxos_prepare** last_promises, int number_of_promises);
 
-int storage_get_last_accepted(struct stable_storage* store, iid_t instance_id, paxos_accept* last_accepted_retrieved);
-int storage_store_last_accepted(struct stable_storage* store, paxos_accept* last_accepted);
-int storage_get_last_accepteds(struct stable_storage* store, iid_t* instance_ids, int number_of_instances_to_retrieve, paxos_accept** last_accepteds_retrieved);
-int storage_store_last_accepteds(struct stable_storage* store, paxos_accept** last_accepteds, int number_of_instances);
+int storage_get_last_accepted(struct standard_stable_storage* store, iid_t instance_id, paxos_accept* last_accepted_retrieved);
+int storage_store_last_accepted(struct standard_stable_storage* store, paxos_accept* last_accepted);
+int storage_get_last_accepteds(struct standard_stable_storage* store, iid_t* instance_ids, int number_of_instances_to_retrieve, paxos_accept** last_accepteds_retrieved);
+int storage_store_last_accepteds(struct standard_stable_storage* store, paxos_accept** ACCEPT_MAP_SYMBOL_AND_NAME, int number_of_instances);
 */
-int storage_get_instance_info(struct stable_storage *store, const iid_t instance_id, paxos_accepted *instance_info_retrieved);
+int storage_get_instance_info(struct standard_stable_storage *store, const iid_t instance_id, paxos_accepted *instance_info_retrieved);
 
-int storage_store_instance_info(struct stable_storage *store, const struct paxos_accepted *instance_info);
+int storage_store_instance_info(struct standard_stable_storage *store, const struct paxos_accepted *instance_info);
 
-int storage_get_all_untrimmed_instances_info(struct stable_storage *store, struct paxos_accepted **retrieved_instances_info,
+int storage_get_all_untrimmed_instances_info(struct standard_stable_storage *store, struct paxos_accepted **retrieved_instances_info,
                                              int *number_of_instances_retrieved);
 
-int storage_get_max_inited_instance(struct stable_storage *storage, iid_t *retrieved_instance);
+int storage_get_max_inited_instance(struct standard_stable_storage *storage, iid_t *retrieved_instance);
 
-void storage_init_mem(struct stable_storage *s, int acceptor_id);
+void storage_init_mem(struct standard_stable_storage *s, int acceptor_id);
 
-void storage_init_lmdb(struct stable_storage *s, int acceptor_id);
+void storage_init_lmdb(struct standard_stable_storage *s, int acceptor_id);
 
 #ifdef __cplusplus
 }

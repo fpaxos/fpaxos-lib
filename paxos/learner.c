@@ -31,14 +31,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <paxos_message_conversion.h>
 
 struct instance
 {
 	iid_t iid;
-	ballot_t last_update_ballot;
+	struct ballot last_update_ballot;
 	paxos_accepted** acks;
 	paxos_accepted* final_value;
 };
+
 KHASH_MAP_INIT_INT(instance, struct instance*)
 
 struct learner
@@ -62,7 +64,6 @@ static void instance_update(struct instance* i, paxos_accepted* ack, int accepto
 static int instance_has_quorum(struct instance* i, int acceptors, int quorum_size);
 static void instance_add_accept(struct instance* i, paxos_accepted* ack);
 static paxos_accepted* paxos_accepted_dup(paxos_accepted* ack);
-static void paxos_value_copy(paxos_value* dst, paxos_value* src);
 
 
 struct learner*
@@ -95,8 +96,36 @@ learner_set_instance_id(struct learner* l, iid_t iid)
 	l->highest_iid_closed = iid;
 }
 
-void
-learner_receive_accepted(struct learner* l, paxos_accepted* ack)
+void learner_receive_chosen(struct learner* l, struct paxos_chosen* chosen){
+    if (l->late_start) {
+        l->late_start = 0;
+        l->current_iid = chosen->iid;
+    }
+
+    if (chosen->iid < l->current_iid) {
+        paxos_log_debug("Ignoring chosen message for instance %u. It is out of date", chosen->iid);
+        return;
+    }
+    struct instance* inst;
+    inst = learner_get_instance_or_create(l, chosen->iid);
+
+ //   copy_value(&chosen->value, &inst->final_value->value);
+ //   copy_ballot(&chosen->ballot, &inst->last_update_ballot);
+  //  copy_ballot(&chosen->ballot, &inst->final_value->ballot);
+  //  copy_ballot(&chosen->ballot, &inst->final_value->value_ballot);
+ //   inst->iid = chosen->iid;
+  //  inst->final_value->iid = chosen->iid;
+  struct paxos_accepted* accepted = calloc(1, sizeof(struct paxos_accepted));
+  paxos_accepted_from_paxos_chosen(accepted, chosen);
+    inst->final_value = accepted;
+
+    if (chosen->iid > l->highest_iid_closed) {
+        l->highest_iid_closed = chosen->iid;
+    }
+}
+
+int
+learner_receive_accepted(struct learner* l, paxos_accepted* ack, struct paxos_chosen* chosen_msg)
 {
 	if (l->late_start) {
 		l->late_start = 0;
@@ -106,7 +135,7 @@ learner_receive_accepted(struct learner* l, paxos_accepted* ack)
 	if (ack->iid < l->current_iid) {
 		paxos_log_debug("Dropped paxos_accepted for iid %u. Already delivered.",
 			ack->iid);
-		return;
+		return 0;
 	}
 
 	struct instance* inst;
@@ -114,10 +143,16 @@ learner_receive_accepted(struct learner* l, paxos_accepted* ack)
 
 	instance_update(inst, ack, l->acceptors, l->quorum_size);
 
-	if (instance_has_quorum(inst, l->acceptors, l->quorum_size)
-		&& (inst->iid > l->highest_iid_closed))
-		l->highest_iid_closed = inst->iid;
+	if (instance_has_quorum(inst, l->acceptors, l->quorum_size)) {
+		if  (inst->iid > l->highest_iid_closed){
+            l->highest_iid_closed = inst->iid;
+        }
+        paxos_chosen_from_paxos_accepted(chosen_msg, ack);
+        return 1;
+    }
+    return 0;
 }
+
 
 int
 learner_deliver_next(struct learner* l, paxos_accepted* out)
@@ -212,7 +247,7 @@ instance_update(struct instance* inst, paxos_accepted* accepted, int acceptors, 
 	if (inst->iid == 0) {
 		paxos_log_debug("Received first message for iid: %u", accepted->iid);
 		inst->iid = accepted->iid;
-		inst->last_update_ballot = accepted->ballot;
+		copy_ballot(&accepted->value_ballot, &inst->last_update_ballot);
 	}
 
 	if (instance_has_quorum(inst, acceptors, quorum_size)) {
@@ -222,7 +257,7 @@ instance_update(struct instance* inst, paxos_accepted* accepted, int acceptors, 
 	}
 
 	paxos_accepted* prev_accepted = inst->acks[accepted->aid];
-	if (prev_accepted != NULL && prev_accepted->ballot >= accepted->ballot) {
+	if (prev_accepted != NULL && ballot_greater_than_or_equal(prev_accepted->value_ballot, accepted->value_ballot)) {
 		paxos_log_debug("Dropped paxos_accepted for iid %u."
 			"Previous ballot is newer or equal.", accepted->iid);
 		return;
@@ -252,7 +287,7 @@ instance_has_quorum(struct instance* inst, int acceptors, int quorum_size)
 		if (curr_ack == NULL) continue;
 
 		// Count the ones "agreeing" with the last added
-		if (curr_ack->ballot == inst->last_update_ballot) {
+		if (ballot_equal(&curr_ack->promise_ballot, inst->last_update_ballot)) {
 			count++;
 			a_valid_index = i;
 		}
@@ -277,7 +312,7 @@ instance_add_accept(struct instance* inst, paxos_accepted* accepted)
 	if (inst->acks[acceptor_id] != NULL)
 		paxos_accepted_free(inst->acks[acceptor_id]);
 	inst->acks[acceptor_id] = paxos_accepted_dup(accepted);
-	inst->last_update_ballot = accepted->ballot;
+	copy_ballot(&inst->last_update_ballot, &accepted->promise_ballot);
 }
 
 /*
@@ -293,13 +328,24 @@ paxos_accepted_dup(paxos_accepted* ack)
 	return copy;
 }
 
-static void
-paxos_value_copy(paxos_value* dst, paxos_value* src)
-{
-	int len = src->paxos_value_len;
-	dst->paxos_value_len = len;
-	if (src->paxos_value_val != NULL) {
-		dst->paxos_value_val = malloc(len);
-		memcpy(dst->paxos_value_val, src->paxos_value_val, len);
-	}
+/*
+void
+learner_receive_chosen(struct learner* l, struct paxos_chosen* chosen_msg) {
+    // this is weird - change later
+    struct instance *inst = learner_get_instance(l, chosen_msg->iid);
+    assert(inst->iid == chosen_msg->iid);
+
+    struct paxos_accepted* accepted = calloc(1, sizeof(struct paxos_accepted));
+    paxos_accepted_from_paxos_chosen(accepted, chosen_msg);
+
+    inst->final_value = accepted;
+
+    if(chosen_msg->iid > l->current_iid)
+        l->current_iid++;
+
+    if(chosen_msg->iid > l->highest_iid_closed){
+        l->highest_iid_closed = chosen_msg->iid;
+    }
 }
+
+*/

@@ -116,7 +116,7 @@ peers_count(struct peers* p)
 static void
 peers_connect(struct peers* p, int id, struct sockaddr_in* addr)
 {
-	p->peers = realloc(p->peers, sizeof(struct peer*) * (p->peers_count+1));
+	p->peers = realloc(p->peers, sizeof(struct peer*) * (p->peers_count + 1));
 	p->peers[p->peers_count] = make_peer(p, id, addr);
 
 	struct peer* peer = p->peers[p->peers_count];
@@ -138,12 +138,26 @@ peers_connect_to_acceptors(struct peers* p)
 }
 
 void
+peers_connect_to_proposers(struct peers* p){
+    for (int i = 0; i < evpaxos_proposer_count(p->config); i++) {
+        struct sockaddr_in address = evpaxos_proposer_address(p->config, i);
+        peers_connect(p, i, &address);
+    }
+}
+
+void peers_foreach_proposer(struct peers* p, peer_iter_cb cb, void* arg){
+    for (int i = 0; i < p->peers_count; i++)
+        cb(p->peers[i], arg);
+}
+void
 peers_foreach_acceptor(struct peers* p, peer_iter_cb cb, void* arg)
 {
 	int i;
 	for (i = 0; i < p->peers_count; ++i)
 		cb(p->peers[i], arg);
 }
+
+
 
 void
 peers_for_n_acceptor(struct peers* p, peer_iter_cb cb, void* arg, int n)
@@ -232,7 +246,7 @@ peers_get_event_base(struct peers* p)
 }
 
 static void
-dispatch_message(struct peer* p, paxos_message* msg)
+dispatch_message(struct peer* p, standard_paxos_message* msg)
 {
 	int i;
 	for (i = 0; i < p->peers->subs_count; ++i) {
@@ -245,7 +259,7 @@ dispatch_message(struct peer* p, paxos_message* msg)
 static void
 on_read(struct bufferevent* bev, void* arg)
 {
-	paxos_message msg;
+	standard_paxos_message msg;
 	struct peer* p = (struct peer*)arg;
 	struct evbuffer* in = bufferevent_get_input(bev);
 	while (recv_paxos_message(in, &msg)) {
@@ -319,6 +333,7 @@ static void
 on_accept(struct evconnlistener *l, evutil_socket_t fd,
 	struct sockaddr* addr, int socklen, void *arg)
 {
+
 	struct peer* peer;
 	struct peers* peers = arg;
 

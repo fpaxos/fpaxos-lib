@@ -27,19 +27,20 @@
 
 
 #include "standard_acceptor.h"
-#include "stable_storage.h"
+#include "standard_stable_storage.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
 #include <paxos_message_conversion.h>
+#include <assert.h>
 
 /*
 struct standard_acceptor
 {
 	int id;
 	iid_t trim_iid;
-    struct stable_storage stable_storage;
+    struct standard_stable_storage standard_stable_storage;
 };
 */
 
@@ -62,6 +63,8 @@ standard_acceptor_new(int id)
     storage_get_trim_instance(&a->stable_storage, trim_iid);
     a->trim_iid = *trim_iid;
 
+    free(trim_iid);
+
     if (storage_tx_commit(&a->stable_storage) != 0)
 		return NULL;
 	return a;
@@ -75,7 +78,7 @@ standard_acceptor_free(struct standard_acceptor *a) {
 
 int
 standard_acceptor_receive_prepare(struct standard_acceptor *a,
-                                  paxos_prepare *req, paxos_message *out)
+                                  paxos_prepare *req, standard_paxos_message *out)
 {
 	paxos_accepted acc;
 	if (req->iid <= a->trim_iid)
@@ -84,11 +87,11 @@ standard_acceptor_receive_prepare(struct standard_acceptor *a,
     if (storage_tx_begin(&a->stable_storage) != 0)
 		return 0;
     int found = storage_get_instance_info(&a->stable_storage, req->iid, &acc);
-	if (!found || acc.ballot <= req->ballot) {
-		paxos_log_debug("Preparing iid: %u, ballot: %u", req->iid, req->ballot);
+	if (!found || ballot_greater_than_or_equal(req->ballot, acc.promise_ballot)) {
+		paxos_log_debug("Preparing iid: %u, ballot: %u.%u", req->iid, req->ballot.number, req->ballot.proposer_id);
 		acc.aid = a->id;
 		acc.iid = req->iid;
-		acc.ballot = req->ballot;
+		copy_ballot(&acc.promise_ballot, &req->ballot);
         if (storage_store_instance_info(&a->stable_storage, &acc) != 0) {
             storage_tx_abort(&a->stable_storage);
 			return 0;
@@ -104,7 +107,7 @@ standard_acceptor_receive_prepare(struct standard_acceptor *a,
 
 int
 standard_acceptor_receive_accept(struct standard_acceptor *a,
-                                 paxos_accept *req, paxos_message *out)
+                                 paxos_accept *req, standard_paxos_message *out)
 {
 	paxos_accepted acc;
 	if (req->iid <= a->trim_iid)
@@ -113,8 +116,8 @@ standard_acceptor_receive_accept(struct standard_acceptor *a,
     if (storage_tx_begin(&a->stable_storage) != 0)
 		return 0;
     int found = storage_get_instance_info(&a->stable_storage, req->iid, &acc);
-	if (!found || acc.ballot <= req->ballot) {
-		paxos_log_debug("Accepting iid: %u, ballot: %u", req->iid, req->ballot);
+	if (!found ||ballot_greater_than_or_equal(req->ballot, acc.promise_ballot)) {
+		paxos_log_debug("Accepting iid: %u, ballot: %u.%u", req->iid, req->ballot.number, req->ballot.proposer_id);
 		paxos_accept_to_accepted(a->id, req, out);
         if (storage_store_instance_info(&a->stable_storage, &(out->u.accepted)) != 0) {
             storage_tx_abort(&a->stable_storage);
@@ -128,6 +131,13 @@ standard_acceptor_receive_accept(struct standard_acceptor *a,
 	paxos_accepted_destroy(&acc);
 	return 1;
 }
+
+
+int standard_acceptor_receive_chosen(struct standard_acceptor* a, struct paxos_chosen *chosen){
+    assert(1 == 0);
+    return 0;
+}
+
 
 int
 standard_acceptor_receive_repeat(struct standard_acceptor *a, iid_t iid, paxos_accepted *out)

@@ -6,6 +6,16 @@
 #include <hash_mapped_memory.h>
 #include "paxos_storage.h"
 
+
+int is_instance_chosen(const struct paxos_storage* paxos_storage, iid_t instance, bool* is_chosen){
+    return paxos_storage->api.is_instance_chosen(paxos_storage->handle, instance, is_chosen);
+}
+
+int set_instance_chosen(const struct paxos_storage* paxos_storage, iid_t instance){
+    return paxos_storage->api.set_instance_chosen(paxos_storage->handle, instance);
+}
+
+
 int get_max_inited_instance(const struct paxos_storage* paxos_storage, iid_t* returned_max_inited_instance){
     return paxos_storage->api.get_max_inited_instance(paxos_storage->handle, returned_max_inited_instance);
 }
@@ -72,8 +82,12 @@ get_all_untrimmed_instances_info(struct paxos_storage *paxos_storage, paxos_acce
                                                                number_of_instances_retrieved);
 }
 
-
+/*
 void init_paxos_storage_from_instances_info(struct paxos_storage* paxos_storage, struct paxos_accepted* instances_info, iid_t trim_id){
 
-}
+}*/
 
+
+void paxos_storage_init(struct paxos_storage* paxos_storage, int aid){
+    init_hash_mapped_memory(paxos_storage, aid);
+}

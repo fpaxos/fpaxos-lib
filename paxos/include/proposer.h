@@ -40,20 +40,34 @@ struct timeout_iterator;
 
 struct proposer* proposer_new(int id, int acceptors, int q1, int q2);
 void proposer_free(struct proposer* p);
-void proposer_propose(struct proposer* p, const char* value, size_t size);
+void proposer_add_client_value_to_queue(struct proposer* p, const char* value, size_t size);
 int proposer_prepared_count(struct proposer* p);
-void proposer_set_instance_id(struct proposer* p, iid_t iid);
+void proposer_set_current_instance(struct proposer* p, iid_t iid);
+
+
+void proposer_next_instance(struct proposer* p);
+
+uint32_t proposer_get_current_instance(struct proposer* p);
+
+uint32_t proposer_get_min_unchosen_instance(struct proposer* p);
+iid_t proposer_get_next_instance_to_prepare(struct proposer* p);
 
 // phase 1
-void proposer_prepare(struct proposer* p, paxos_prepare* out);
+void proposer_prepare(struct proposer* p, iid_t instance, paxos_prepare* out);
+
 int proposer_receive_promise(struct proposer* p, paxos_promise* ack,
 	paxos_prepare* out);
 
 // phase 2
 int proposer_accept(struct proposer* p, paxos_accept* out);
-int proposer_receive_accepted(struct proposer* p, paxos_accepted* ack);
-int proposer_receive_preempted(struct proposer* p, paxos_preempted* ack,
-	paxos_prepare* out);
+int proposer_receive_accepted(struct proposer* p, paxos_accepted* ack, struct paxos_chosen* chosen);
+int proposer_receive_chosen(struct proposer* p, struct paxos_chosen* ack);
+
+//void proposer_preempt(struct proposer* p, struct standard_proposer_instance_info* inst, paxos_prepare* out);
+int proposer_receive_preempted(struct proposer* p, struct paxos_preempted* preempted, struct paxos_prepare* out);
+
+int is_proposer_instance_pending_and_message_return(struct proposer* p, paxos_preempted* ack,
+                                                    paxos_prepare* out);
 
 // periodic acceptor state
 void proposer_receive_acceptor_state(struct proposer* p,

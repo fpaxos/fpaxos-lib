@@ -33,6 +33,7 @@
 extern "C" {
 #endif
 
+
 struct quorum
 {
 	int count;
