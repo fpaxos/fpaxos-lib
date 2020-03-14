@@ -28,6 +28,7 @@
 
 #include <paxos_types.h>
 #include "paxos_types_pack.h"
+#include "paxos_value.h"
 
 #define MSGPACK_OBJECT_AT(obj, i) (obj->via.array.ptr[i].via)
 
@@ -56,7 +57,7 @@ static void msgpack_unpack_string_at(msgpack_object* o, char** buffer, int* len,
 	*buffer = NULL;
 	#if MSGPACK_VERSION_MAJOR > 0
 	*len = MSGPACK_OBJECT_AT(o,*i).bin.size;
-	const char* obj = MSGPACK_OBJECT_AT(o,*i).bin.ptr;
+	const char* obj = MSGPACK_OBJECT_AT(o,*i++).bin.ptr;
 	#else
 	*len = MSGPACK_OBJECT_AT(o,*i).raw.size;
 	const char* obj = MSGPACK_OBJECT_AT(o,*i).raw.ptr;
@@ -81,14 +82,14 @@ static void msgpack_pack_ballot(msgpack_packer* packer, struct ballot ballot){
 }
 
 
-static void msgpack_pack_paxos_value(msgpack_packer* p, paxos_value* v)
+static void msgpack_pack_paxos_value(msgpack_packer* p, struct paxos_value* v)
 {
-	msgpack_pack_string(p, v->paxos_value_val, v->paxos_value_len);
+	msgpack_pack_string(p, v->paxos_value_val, (int) v->paxos_value_len);
 }
 
-static void msgpack_unpack_paxos_value_at(msgpack_object* o, paxos_value* v, int* i)
+static void msgpack_unpack_paxos_value_at(msgpack_object* o, struct paxos_value* v, int* i)
 {
-	msgpack_unpack_string_at(o, &v->paxos_value_val, &v->paxos_value_len, i);
+	msgpack_unpack_string_at(o, &v->paxos_value_val, (int*) &v->paxos_value_len, i);
 }
 
 void msgpack_pack_paxos_prepare(msgpack_packer* p, struct paxos_prepare* v)
@@ -225,17 +226,17 @@ void msgpack_unpack_paxos_acceptor_state(msgpack_object* o, paxos_standard_accep
 	msgpack_unpack_uint32_at(o, &v->trim_iid, &i);
 }
 
-void msgpack_pack_paxos_client_value(msgpack_packer* p, paxos_client_value* v)
+void msgpack_pack_paxos_client_value(msgpack_packer* p, struct paxos_value* v)
 {
 	msgpack_pack_array(p, 2);
 	msgpack_pack_int32(p, PAXOS_CLIENT_VALUE);
-	msgpack_pack_paxos_value(p, &v->value);
+	msgpack_pack_paxos_value(p, v);
 }
 
-void msgpack_unpack_paxos_client_value(msgpack_object* o, paxos_client_value* v)
+void msgpack_unpack_paxos_client_value(msgpack_object* o, struct paxos_value* v)
 {
 	int i = 1;
-	msgpack_unpack_paxos_value_at(o, &v->value, &i);
+	msgpack_unpack_paxos_value_at(o, v, &i);
 }
 
 

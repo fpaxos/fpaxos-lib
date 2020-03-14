@@ -251,15 +251,46 @@ dispatch_message(struct peer* p, standard_paxos_message* msg)
 	int i;
 	for (i = 0; i < p->peers->subs_count; ++i) {
 		struct subscription* sub = &p->peers->subs[i];
-		if (sub->type == msg->type)
-			sub->callback(p, msg, sub->arg);
+		if (sub->type == msg->type) {
+		    char* name;
+            switch (sub->type) {
+                
+                case PAXOS_PROMISE:
+                    name = "promise";
+                    break;
+                case PAXOS_TRIM:
+                    name = "trim";
+                    break;
+                case PAXOS_CLIENT_VALUE:
+                    name = "client value";
+                    break;
+                case PAXOS_ACCEPTED:
+                    name = "ACCEPTED";
+                case PAXOS_PREEMPTED:
+                    name = "preempted";
+                    break;
+                case PAXOS_ACCEPTOR_STATE:
+                    name = "acceptor state";
+                    break;
+                case PAXOS_CHOSEN:
+                    name = "chosen";
+                    break;
+                case PAXOS_PREPARE:
+                    break;
+                case PAXOS_ACCEPT:
+                    break;
+                case PAXOS_REPEAT:
+                    break;
+            }
+            sub->callback(p, msg, sub->arg);
+        }
 	}
 }
 
 static void
 on_read(struct bufferevent* bev, void* arg)
 {
-	standard_paxos_message msg;
+	struct standard_paxos_message msg;
 	struct peer* p = (struct peer*)arg;
 	struct evbuffer* in = bufferevent_get_input(bev);
 	while (recv_paxos_message(in, &msg)) {

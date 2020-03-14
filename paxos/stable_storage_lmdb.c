@@ -52,6 +52,7 @@ struct lmdb_storage
 	MDB_txn* txn;
 	MDB_dbi dbi;
 	int acceptor_id;
+    mdb_size_t num_non_instance_vals;
 };
 
 
@@ -323,12 +324,12 @@ lmdb_storage_store_instance_info(struct lmdb_storage *lmdb_storage, paxos_accept
  //   lmdb_storage_tx_begin(lmdb_storage);
     result = mdb_put(lmdb_storage->txn, lmdb_storage->dbi, &key, &data, 0);
 
-    struct paxos_accepted test_accepted;
-    lmdb_storage_get_instance_info(lmdb_storage, acc->iid, &test_accepted);
+   // struct paxos_accepted test_accepted;
+   // lmdb_storage_get_instance_info(lmdb_storage, acc->iid, &test_accepted);
 
-    assert(acc->iid == test_accepted.iid);
-    assert(ballot_equal(&acc->promise_ballot, test_accepted.promise_ballot));
-    assert(ballot_equal(&acc->value_ballot, test_accepted.value_ballot));
+   // assert(acc->iid == test_accepted.iid);
+   // assert(ballot_equal(&acc->promise_ballot, test_accepted.promise_ballot));
+   // assert(ballot_equal(&acc->value_ballot, test_accepted.value_ballot));
 
     iid_t max_inited_instance;
     lmdb_storage_get_max_instance(lmdb_storage, &max_inited_instance);
@@ -447,55 +448,66 @@ lmdb_storage_get_all_untrimmed_instances_info(struct lmdb_storage *lmdb_storage,
     iid_t trim_instance = 0;
     lmdb_storage_get_trim_instance(lmdb_storage, &trim_instance);
 
-    MDB_cursor *cursor;
-    mdb_cursor_open(lmdb_storage->txn, lmdb_storage->dbi, &cursor);
-
-    MDB_val key;
-    MDB_val retrieved_data;// calloc(1, sizeof(MDB_val));
-    memset(&retrieved_data, 0, sizeof(retrieved_data));
-
-    key.mv_data = &trim_instance;
-    key.mv_size = sizeof(iid_t);
-    int error = mdb_cursor_get(cursor, &key, &retrieved_data, MDB_SET); // get instance after trim instance
-
-    struct MDB_stat stat;
-    mdb_env_stat(lmdb_storage->env, &stat);
-
-
-    unsigned int index = 0;
-    if (number_of_instances_retrieved == NULL || *number_of_instances_retrieved != 0) {
+    if (number_of_instances_retrieved == NULL) {
         number_of_instances_retrieved = calloc(1, sizeof(int));
-        *number_of_instances_retrieved = 0;
     }
 
-    if (error == MDB_NOTFOUND) {
-        return 0;
-    } else {
-        *number_of_instances_retrieved = *number_of_instances_retrieved + 1;
-        *retreved_instances = calloc(1, sizeof(struct paxos_accepted));
-        paxos_accepted_from_buffer(retrieved_data.mv_data, &(*retreved_instances)[index]);
+    if (retreved_instances == NULL) {
+        retreved_instances = calloc(1, sizeof(struct paxos_accepted*));
+    }
 
-        paxos_log_debug("Retrieved instance %u from stable storage", (*retreved_instances)[index].iid);
-        index++;
+    *number_of_instances_retrieved = 0;
 
-        while ((error = mdb_cursor_get(cursor, &key, &retrieved_data, MDB_NEXT)) != MDB_NOTFOUND && index <= (stat.ms_entries - 2)) {
-            *number_of_instances_retrieved = *number_of_instances_retrieved + 1;
-            (*retreved_instances) =     realloc((*retreved_instances), (*number_of_instances_retrieved * sizeof(struct paxos_accepted))); // adjust array size
-            paxos_accepted_from_buffer(retrieved_data.mv_data, &(*retreved_instances)[index]);
-            paxos_log_debug("Retrieved instance %u from stable storage", (*retreved_instances)[index].iid);
+    iid_t max_inited_instance;
+    lmdb_storage_get_max_instance(lmdb_storage, &max_inited_instance);
+
+    iid_t max_possible_instances = max_inited_instance - trim_instance;
+
+    (*retreved_instances) = calloc(max_possible_instances, sizeof(struct paxos_accepted));
+    int index = 0;
+    for(int current_iid = trim_instance + 1; current_iid <= max_inited_instance; current_iid++) {
+        struct paxos_accepted *current_instance = calloc(1, sizeof(struct paxos_accepted));
+        int found = lmdb_storage_get_instance_info(lmdb_storage, current_iid, current_instance);
+        if (found) {
+            (*number_of_instances_retrieved) = (*number_of_instances_retrieved) + 1;
+            paxos_accepted_copy(&(*retreved_instances)[(*number_of_instances_retrieved) - 1], current_instance);
             index++;
+            paxos_log_debug("Retrieved instance %u from stable storage", current_instance->iid);
         }
-
-        mdb_cursor_close(cursor);
-        return 0;
+        free(current_instance);
     }
+
+    // cleanup
+    if (*number_of_instances_retrieved < max_inited_instance) {
+        (*retreved_instances) = realloc((*retreved_instances), sizeof(struct paxos_accepted) * (*number_of_instances_retrieved));
+    }
+    return 0;
 }
 
 
 static struct lmdb_storage *
-lmdb_storage_new(int acceptor_id) {
+lmdb_storage_new_write_ahead_ballots(int acceptor_id) {
     struct lmdb_storage *s = calloc(1, sizeof(struct lmdb_storage));
     s->acceptor_id = acceptor_id;
+    s->num_non_instance_vals = 2;
+    return s;
+}
+
+
+static struct lmdb_storage *
+lmdb_storage_new_standard(int acceptor_id) {
+    struct lmdb_storage *s = calloc(1, sizeof(struct lmdb_storage));
+    s->acceptor_id = acceptor_id;
+    s->num_non_instance_vals = 2;
+    return s;
+}
+
+
+static struct lmdb_storage *
+lmdb_storage_new_write_ahead_epochs(int acceptor_id) {
+    struct lmdb_storage *s = calloc(1, sizeof(struct lmdb_storage));
+    s->acceptor_id = acceptor_id;
+    s->num_non_instance_vals = 3;
     return s;
 }
 
@@ -508,22 +520,29 @@ void initialise_standard_lmdb_function_pointers(struct standard_stable_storage *
     s->api.tx_abort = (void (*)(void *)) lmdb_storage_tx_abort;
     s->api.get_instance_info = (int (*)(void *, iid_t, paxos_accepted *)) lmdb_storage_get_instance_info;
     s->api.store_instance_info = (int (*)(void *, const struct paxos_accepted *)) lmdb_storage_store_instance_info;
-    s->api.store_trim_instance = (int (*)(void *, const iid_t)) lmdb_storage_trim;
+    s->api.store_trim_instance = (int (*)(void *, const iid_t)) lmdb_storage_put_trim_instance;
     s->api.get_trim_instance = (int (*)(void *, iid_t *)) lmdb_storage_get_trim_instance;
     s->api.get_all_untrimmed_instances_info = (int (*)(void *, struct paxos_accepted**, int *)) lmdb_storage_get_all_untrimmed_instances_info;
     s->api.get_max_instance = (int (*)(void *, iid_t *)) lmdb_storage_get_max_instance;
+   // s->api.put_max_instance = (int (*)(void *, const int iid_t)) lmdb_storage_put_max_instance; not needed because should be private
+    // todo trim instances upto and including
 }
 
 
 
 // Creates a new LMDB storage for usage by something else
-void
-storage_init_lmdb(struct standard_stable_storage *s, int acceptor_id) {
-
-    s->handle =  lmdb_storage_new(acceptor_id);
+//void
+//storage_init_lmdb(struct standard_stable_storage *s, int acceptor_id) {
+void storage_init_lmdb_write_ahead_ballots(struct standard_stable_storage *s, int acceptor_id){
+    s->handle =  lmdb_storage_new_write_ahead_ballots(acceptor_id);
     initialise_standard_lmdb_function_pointers(s);
 }
 
+
+void storage_init_lmdb_standard(struct standard_stable_storage* s, int acceptor_id) {
+    s->handle = lmdb_storage_new_standard(acceptor_id);
+    initialise_standard_lmdb_function_pointers(s);
+}
 
 
 static int lmdb_get_current_epoch(struct lmdb_storage* lmdb_storage, uint32_t * retreived_epoch) {
@@ -621,7 +640,7 @@ void epoch_stable_storage_lmdb_init(struct epoch_stable_storage* storage, int ac
 
     // BETTER SOLUTION NEEDED IF WANT TO DO RETURNING OF CHOSEN INSTANCES
     // SHould make a storage union - so anything could be given (union of prepares, accept, and epoch_accept)
-    storage_init_lmdb(&storage->standard_storage, acceptor_id);
+  // need to add in method for this  storage_init_lmdb_write_ahead_epochs&storage->standard_storage, acceptor_id);
     storage->extended_handle = storage->standard_storage.handle; // same handle ;)
     storage->extended_api.store_current_epoch = (int (*) (void *, uint32_t)) lmdb_store_current_epoch;
     storage->extended_api.get_current_epoch = (int (*) (void *, uint32_t*)) lmdb_get_current_epoch;

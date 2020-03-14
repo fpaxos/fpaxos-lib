@@ -28,6 +28,8 @@
 
 #include "learner.h"
 #include "khash.h"
+#include "ballot.h"
+#include "paxos_value.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -51,6 +53,7 @@ struct learner
 	iid_t current_iid;
 	iid_t highest_iid_closed;
 	khash_t(instance)* instances;
+	iid_t trim_iid;
 };
 
 static struct instance* learner_get_instance(struct learner* l, iid_t iid);
@@ -76,6 +79,7 @@ learner_new(int acceptors)
 	l->current_iid = 1;
 	l->highest_iid_closed = 1;
 	l->late_start = !paxos_config.learner_catch_up;
+	l->trim_iid = 0;
 	l->instances = kh_init(instance);
 	return l;
 }
@@ -100,6 +104,7 @@ void learner_receive_chosen(struct learner* l, struct paxos_chosen* chosen){
     if (l->late_start) {
         l->late_start = 0;
         l->current_iid = chosen->iid;
+        l->trim_iid = chosen->iid - 1;
     }
 
     if (chosen->iid < l->current_iid) {
@@ -124,12 +129,18 @@ void learner_receive_chosen(struct learner* l, struct paxos_chosen* chosen){
     }
 }
 
+void learner_receive_trim(struct learner* l, struct paxos_trim* trim_msg){
+    learner_set_trim(l, trim_msg->iid);
+    learner_set_instance_id(l, trim_msg->iid);
+}
+
 int
 learner_receive_accepted(struct learner* l, paxos_accepted* ack, struct paxos_chosen* chosen_msg)
 {
 	if (l->late_start) {
 		l->late_start = 0;
 		l->current_iid = ack->iid;
+		l->trim_iid = ack->iid - 1;
 	}
 
 	if (ack->iid < l->current_iid) {
@@ -174,8 +185,11 @@ learner_has_holes(struct learner* l, iid_t* from, iid_t* to)
 		*from = l->current_iid;
 		*to = l->highest_iid_closed;
 		return 1;
-	}
-	return 0;
+	} else {
+        *from = l->current_iid-1; // trim behind
+        *to = l->highest_iid_closed;
+        return 0;
+    }
 }
 
 static struct instance*
@@ -221,8 +235,7 @@ static struct instance*
 instance_new(int acceptors)
 {
 	int i;
-	struct instance* inst;
-	inst = malloc(sizeof(struct instance));
+	struct instance* inst = malloc(sizeof(struct instance));
 	memset(inst, 0, sizeof(struct instance));
 	inst->acks = malloc(sizeof(paxos_accepted*) * acceptors);
 	for (i = 0; i < acceptors; ++i)
@@ -287,7 +300,7 @@ instance_has_quorum(struct instance* inst, int acceptors, int quorum_size)
 		if (curr_ack == NULL) continue;
 
 		// Count the ones "agreeing" with the last added
-		if (ballot_equal(&curr_ack->promise_ballot, inst->last_update_ballot)) {
+		if (ballot_equal(&curr_ack->value_ballot, inst->last_update_ballot)) {
 			count++;
 			a_valid_index = i;
 		}
@@ -312,7 +325,8 @@ instance_add_accept(struct instance* inst, paxos_accepted* accepted)
 	if (inst->acks[acceptor_id] != NULL)
 		paxos_accepted_free(inst->acks[acceptor_id]);
 	inst->acks[acceptor_id] = paxos_accepted_dup(accepted);
-	copy_ballot(&inst->last_update_ballot, &accepted->promise_ballot);
+	//if (ballot_greater_than(accepted->value_ballot, inst->last_update_ballot))
+    	copy_ballot(&accepted->value_ballot, &inst->last_update_ballot);
 }
 
 /*
@@ -322,10 +336,18 @@ static paxos_accepted*
 paxos_accepted_dup(paxos_accepted* ack)
 {
 	paxos_accepted* copy;
-	copy = malloc(sizeof(paxos_accepted));
-	memcpy(copy, ack, sizeof(paxos_accepted));
+	copy = malloc(sizeof(struct paxos_accepted));
+	memcpy(copy, ack, sizeof(struct paxos_accepted));
 	paxos_value_copy(&copy->value, &ack->value);
 	return copy;
+}
+
+iid_t learner_get_trim(struct learner* l){
+    return l->trim_iid;
+}
+
+void learner_set_trim(struct learner* l, const iid_t trim){
+    l->trim_iid = trim;
 }
 
 /*

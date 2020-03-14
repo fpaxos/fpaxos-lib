@@ -31,6 +31,8 @@ struct writeahead_window_acceptor;
 
 struct writeahead_window_acceptor* write_ahead_window_acceptor_new(int id, int min_instance_catchup, int min_ballot_catchup, int bal_window, int instance_window, int instance_epoch_writing_iteration_size);
 
+iid_t write_ahead_ballot_acceptor_get_trim(struct writeahead_window_acceptor* acceptor);
+
 void write_ahead_window_acceptor_free(struct writeahead_window_acceptor *a);
 
 int write_ahead_window_acceptor_receive_prepare(struct writeahead_window_acceptor *a,

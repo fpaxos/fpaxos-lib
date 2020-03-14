@@ -6,6 +6,7 @@
 
 #include <paxos.h>
 #include <string.h>
+#include "paxos_value.h"
 
 void
 carray_paxos_value_free(void* v)
@@ -14,10 +15,3 @@ carray_paxos_value_free(void* v)
 }
 
 
-int
-paxos_value_cmp(struct paxos_value* v1, struct paxos_value* v2)
-{
-    if (v1->paxos_value_len != v2->paxos_value_len)
-        return -1;
-    return memcmp(v1->paxos_value_val, v2->paxos_value_val, v1->paxos_value_len);
-}

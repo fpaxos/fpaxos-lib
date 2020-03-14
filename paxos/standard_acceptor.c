@@ -28,6 +28,7 @@
 
 #include "standard_acceptor.h"
 #include "standard_stable_storage.h"
+#include "ballot.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -50,7 +51,8 @@ standard_acceptor_new(int id)
 {
 	struct standard_acceptor* a = calloc(1, sizeof(struct standard_acceptor));
 
-    storage_init(&a->stable_storage, id);
+
+    storage_init_lmdb_standard(&a->stable_storage, id);
     if (storage_open(&a->stable_storage) != 0) {
 		free(a);
 		return NULL;
@@ -59,11 +61,11 @@ standard_acceptor_new(int id)
 		return NULL;
 	a->id = id;
 
-	iid_t * trim_iid = calloc(1, sizeof(iid_t));
-    storage_get_trim_instance(&a->stable_storage, trim_iid);
-    a->trim_iid = *trim_iid;
+	iid_t trim_iid; //= calloc(1, sizeof(iid_t));
+    storage_get_trim_instance(&a->stable_storage, &trim_iid);
+    a->trim_iid = trim_iid;
 
-    free(trim_iid);
+  //  free(trim_iid);
 
     if (storage_tx_commit(&a->stable_storage) != 0)
 		return NULL;
@@ -133,7 +135,8 @@ standard_acceptor_receive_accept(struct standard_acceptor *a,
 }
 
 
-int standard_acceptor_receive_chosen(struct standard_acceptor* a, struct paxos_chosen *chosen){
+int standard_acceptor_receive_chosen(__attribute__((unused)) struct standard_acceptor* a, __attribute__((unused)) struct paxos_chosen *chosen){
+
     assert(1 == 0);
     return 0;
 }

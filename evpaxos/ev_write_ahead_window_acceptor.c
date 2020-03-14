@@ -38,6 +38,7 @@
 #include <evdns.h>
 #include <paxos_types.h>
 #include "paxos_message_conversion.h"
+#include "ballot.h"
 
 
 struct ev_write_ahead_acceptor
@@ -81,6 +82,8 @@ ev_write_ahead_acceptor_handle_prepare(struct peer* p, standard_paxos_message* m
                     prepare->iid, prepare->ballot.number, prepare->ballot.proposer_id);
     if (write_ahead_window_acceptor_receive_prepare(a->state, prepare, &out) != 0) {
 
+
+        // todo new type of message to skip to min unchosen instance
         if (out.type == PAXOS_PROMISE) {
             assert(ballot_equal(&prepare->ballot, out.u.promise.ballot));
             send_paxos_promise(peer_get_buffer(p), &out.u.promise);
@@ -88,6 +91,8 @@ ev_write_ahead_acceptor_handle_prepare(struct peer* p, standard_paxos_message* m
             send_paxos_chosen(peer_get_buffer(p), &out.u.chosen);
         } else if (out.type == PAXOS_PREEMPTED){
             send_paxos_preempted(peer_get_buffer(p), &out.u.preempted);
+        } else if (out.type == PAXOS_TRIM) {
+            send_paxos_trim(peer_get_buffer(p), &out.u.trim);
         }
 
         paxos_message_destroy(&out);
@@ -124,6 +129,8 @@ ev_write_ahead_acceptor_handle_accept(struct peer* p, standard_paxos_message* ms
             assert(out.u.chosen.value.paxos_value_len > 0);
             send_paxos_chosen(peer_get_buffer(p), &out.u.chosen);
            //send_paxos_message(peer_get_buffer(p), &out);
+        } else if (out.type == PAXOS_TRIM) {
+            send_paxos_trim(peer_get_buffer(p), &out.u.trim);
         }
 
         paxos_message_destroy(&out);
@@ -138,14 +145,19 @@ ev_write_ahead_acceptor_handle_repeat(struct peer* p, standard_paxos_message* ms
     struct paxos_repeat* repeat = &msg->u.repeat;
     struct ev_write_ahead_acceptor* a = (struct ev_write_ahead_acceptor*)arg;
     paxos_log_debug("Handle repeat for iids %d-%d", repeat->from, repeat->to);
+
+
     for (iid = repeat->from; iid <= repeat->to; ++iid) {
         if (write_ahead_window_acceptor_receive_repeat(a->state, iid, &out_msg)) {
             if (out_msg.type == PAXOS_ACCEPTED) {
                 send_paxos_accepted(peer_get_buffer(p), &out_msg.u.accepted);
                 paxos_accepted_destroy(&out_msg.u.accepted);
-            } else if (out_msg.type == PAXOS_CHOSEN){
+            } else if (out_msg.type == PAXOS_CHOSEN) {
                 send_paxos_chosen(peer_get_buffer(p), &out_msg.u.chosen);
                 paxos_value_free(&out_msg.u.chosen.value);
+            } else if (out_msg.type == PAXOS_TRIM) {
+                send_paxos_trim(peer_get_buffer(p), &out_msg.u.trim);
+                break;
             }
         }
     }
@@ -237,11 +249,11 @@ ev_write_ahead_acceptor_init_internal(int id, struct evpaxos_config* c, struct p
 
 
    acceptor->state = write_ahead_window_acceptor_new(id,
-            1,
-            1,
+            25000,
+            200,
             500,
-            500,
-            1);
+            50000,
+            3000);
    // by making instance window less than min instance
    // catchup you can do a sort of write a little bit at once ahead
    // of time rather than a giant bulk-write of all the written ahead instances
@@ -258,9 +270,9 @@ ev_write_ahead_acceptor_init_internal(int id, struct evpaxos_config* c, struct p
     struct event_base* base = peers_get_event_base(peers_proposers);
 
 
- //   acceptor->send_state_event = evtimer_new(base, send_acceptor_state, acceptor);
-//    acceptor->send_state_timer = (struct timeval){1, 0};
-  //  event_add(acceptor->send_state_event, &acceptor->send_state_timer);
+    acceptor->send_state_event = evtimer_new(base, send_acceptor_state, acceptor);
+    acceptor->send_state_timer = (struct timeval){1, 0};
+    event_add(acceptor->send_state_event, &acceptor->send_state_timer);
 
     // New event to check windows async
    // acceptor->instance_window_check_timer = evtimer_new(base, )evti
@@ -280,7 +292,7 @@ ev_write_ahead_acceptor_init_internal(int id, struct evpaxos_config* c, struct p
     // todo add ballot checking and updating event
 
 
-   // event_set(&acceptor->send_state_event, 0, EV_PERSIST, write_ahead_window_acceptor_check_and_update_write_ahead_windows, acceptor->state);
+    //event_set(&acceptor->send_state_event, 0, EV_PERSIST, write_ahead_window_acceptor_check_and_update_write_ahead_windows, acceptor->state);
   //  evtimer_add(&acceptor->send_state_event, &time);
 
     return acceptor;

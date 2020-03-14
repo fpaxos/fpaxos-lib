@@ -1,16 +1,17 @@
 #include "paxos.h"
+#include "paxos_value.h"
 #include <instance.h>
 
 int
 proposer_instance_info_has_value(struct proposer_common_instance_info *inst)
 {
-    return inst->value != NULL;
+    return inst->value_to_propose != NULL;
 }
 
 int
 proposer_instance_info_has_promised_value(struct proposer_common_instance_info* inst)
 {
-    return inst->promised_value != NULL;
+    return inst->last_promised_value != NULL;
 }
 
 int
@@ -25,8 +26,8 @@ struct proposer_common_instance_info proposer_common_info_new(iid_t iid, struct 
     common_info.iid = iid;
     common_info.ballot = (struct ballot) {.number = ballot.number, .proposer_id = ballot.proposer_id};
     common_info.value_ballot = (struct ballot) {.number = 0, .proposer_id = 0};
-    common_info.value = NULL;
-    common_info.promised_value = NULL;
+    common_info.value_to_propose = NULL;
+    common_info.last_promised_value = NULL;
     gettimeofday(&common_info.created_at, NULL);
     return common_info;
 }
@@ -34,10 +35,13 @@ struct proposer_common_instance_info proposer_common_info_new(iid_t iid, struct 
 void
 proposer_common_instance_info_free(struct proposer_common_instance_info* inst)
 {
-    if (proposer_instance_info_has_value(inst))
-        paxos_value_free(inst->value);
+    if (proposer_instance_info_has_value(inst)) {
+        free(inst->value_to_propose->paxos_value_val);
+        free(inst->value_to_propose);
+    }
+        //paxos_value_free(inst->value_to_propose);
     if (proposer_instance_info_has_promised_value(inst))
-        paxos_value_free(inst->promised_value);
+        paxos_value_free(inst->last_promised_value);
     free(inst);
 }
 
@@ -50,8 +54,8 @@ proposer_instance_info_to_accept(struct proposer_common_instance_info* inst, pax
     *accept = (struct paxos_accept) {
             .iid = inst->iid,
             .ballot = (struct ballot) {.number = inst->ballot.number, .proposer_id = inst->ballot.proposer_id},
-            .value = (struct paxos_value) { inst->value->paxos_value_len,
-              inst->value->paxos_value_val }
+            .value = (struct paxos_value) { inst->value_to_propose->paxos_value_len,
+              inst->value_to_propose->paxos_value_val }
     };
 }
 

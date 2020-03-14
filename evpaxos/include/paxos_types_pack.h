@@ -47,8 +47,8 @@ void msgpack_pack_paxos_trim(msgpack_packer* p, paxos_trim* v);
 void msgpack_unpack_paxos_trim(msgpack_object* o, paxos_trim* v);
 void msgpack_pack_paxos_acceptor_state(msgpack_packer* p, paxos_standard_acceptor_state* v);
 void msgpack_unpack_paxos_acceptor_state(msgpack_object* o, paxos_standard_acceptor_state* v);
-void msgpack_pack_paxos_client_value(msgpack_packer* p, paxos_client_value* v);
-void msgpack_unpack_paxos_client_value(msgpack_object* o, paxos_client_value* v);
+void msgpack_pack_paxos_client_value(msgpack_packer* p, struct paxos_value* v);
+void msgpack_unpack_paxos_client_value(msgpack_object* o, struct paxos_value* v);
 
 
 

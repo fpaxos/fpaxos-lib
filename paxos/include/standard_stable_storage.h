@@ -102,9 +102,15 @@ int storage_get_all_untrimmed_instances_info(struct standard_stable_storage *sto
 
 int storage_get_max_inited_instance(struct standard_stable_storage *storage, iid_t *retrieved_instance);
 
+
 void storage_init_mem(struct standard_stable_storage *s, int acceptor_id);
 
-void storage_init_lmdb(struct standard_stable_storage *s, int acceptor_id);
+//void storage_init_lmdb(struct standard_stable_storage *s, int acceptor_id);
+
+void storage_init_lmdb_write_ahead_ballots(struct standard_stable_storage *s, int acceptor_id);
+
+void storage_init_lmdb_standard(struct standard_stable_storage *s, int acceptor_id);
+
 
 #ifdef __cplusplus
 }

@@ -27,8 +27,13 @@
 
 
 #include "carray.h"
+#include "paxos_types.h"
 #include <stdlib.h>
 #include <assert.h>
+#include <paxos.h>
+#include <stdio.h>
+#include "string.h"
+#include "paxos_value.h"
 
 struct carray
 {
@@ -43,6 +48,23 @@ static int carray_full(struct carray* a);
 static void carray_grow(struct carray* a);
 static void* carray_at(struct carray* a, int i);
 
+
+static void print_bytes_of_value_to_submit(char * ty, char * val, unsigned char * bytes, size_t num_bytes) {
+    char* string; //= sprintf("(%*s) %*s = [ ", 15, ty, 16, val);
+    asprintf(&string, "(%*s) %*s = [ ", 15, ty, 16, val);
+    for (size_t i = 0; i < num_bytes; i++) {
+        char* to_add;
+        asprintf(&to_add, "%*u ", 3, bytes[i]);
+        strcat(string, to_add);
+    }
+    strcat(string, "]\n");
+    paxos_log_debug("%s", string);
+}
+
+#define SHOW(T,V) do { T x = V; print_bytes_of_value_to_submit(#T, #V, (unsigned char*) &x, sizeof(x)); } while(0)
+
+
+
 struct carray*
 carray_new(int size)
 {
@@ -50,7 +72,7 @@ carray_new(int size)
 	a = malloc(sizeof(struct carray));
 	assert(a != NULL);
 	a->head = 0;
-	a->tail = 0;
+	a->tail = size - 1;
 	a->size = size;
 	a->count = 0;
 	a->array = malloc(sizeof(void*)*a->size);
@@ -77,15 +99,59 @@ carray_size(struct carray* a)
 	return a->size;
 }
 
+void print(struct carray* a) {
+    if (a->count!=0) {
+        paxos_log_debug("Printing all queued client values:");
+        int i = a->head;
+        do {
+            SHOW(struct paxos_value*, (struct paxos_value*) a->array[i]);
+          //  paxos_log_debug("%s", a->array[i]);
+            if(i==a->tail)
+                break;
+            i = (i + 1) % (a->size);
+        } while (i != a->head);
+    }
+}
+
+
 int
 carray_push_back(struct carray* a, void* p)
 {
+   // struct paxos_value* test = p;
+//    assert(test->paxos_value_len > 0);
+  //  assert(test->paxos_value_val != NULL);
+  //  assert(memcmp(test->paxos_value_val, "", 1));
+
+
 	if (carray_full(a))
 		carray_grow(a);
+    a->tail = (a->tail + 1) % a->size;
 	a->array[a->tail] = p;
-	a->tail = (a->tail + 1) % a->size;
 	a->count++;
-	return 0;
+
+	print(a);
+
+	//for (int i =0; i < a->size; i ++) {
+	//    paxos_log_debug("%s", a->array[i]);
+	//}
+//
+  /*  if (a->tail >= a->head)
+    {
+        for (int i = a->head; i <= a->tail - 1; i++)
+            assert(a->array[i] != NULL);
+//            printf("%d ",arr[i]);
+    }
+    else
+    {
+        for (int i = a->head; i < a->size; i++)
+            assert(a->array[i] != NULL);
+//            printf("%d ", arr[i]);
+
+        for (int i = 0; i <= a->tail - 1; i++)
+            assert(a->array[i] != NULL);
+    }*/
+
+    return 0;
 }
 
 
@@ -94,12 +160,17 @@ carray_push_back(struct carray* a, void* p)
 void*
 carray_pop_front(struct carray* a)
 {
-	void* p;
 	if (carray_empty(a)) return NULL;
-	p = a->array[a->head];
+
+    print(a);
+
+	void *p = a->array[a->head];
 	a->head = (a->head + 1) % a->size;
 	a->count--;
-	return p;
+
+
+
+    return p;
 }
 
 void
@@ -139,16 +210,13 @@ carray_at(struct carray* a, int i)
 
 
 int carray_push_front(struct carray* a, void* p){
+
     if (carray_full(a))
         carray_grow(a);
 
     a->head = (a->head - 1) % a->size;
     a->array[a->head] = p;
     a->count++;
-
-    // move head forward
-    // put into thing
-    // increment count
-    //
     return 0;
 }
+

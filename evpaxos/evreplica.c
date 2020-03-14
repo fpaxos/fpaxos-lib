@@ -120,7 +120,7 @@ evpaxos_replica_submit(struct evpaxos_replica* r, char* value, int size)
 	for (i = 0; i < peers_count(r->peers); ++i) {
 		p = peers_get_acceptor(r->peers, i);
 		if (peer_connected(p)) {
-			paxos_submit(peer_get_buffer(p), value, size);
+            paxos_submit_client_value(peer_get_buffer(p), value, size);
 			return;
 		}
 	}

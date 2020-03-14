@@ -11,12 +11,13 @@
 #include <sys/time.h>
 #include "quorum.h"
 #include "epoch_quorum.h"
+#include "paxos_value.h"
 
 struct proposer_common_instance_info {
     iid_t iid;
     struct ballot ballot;
-    paxos_value* value;
-    paxos_value* promised_value;
+    struct paxos_value* value_to_propose;
+    struct paxos_value* last_promised_value;
     struct ballot value_ballot;
     struct timeval created_at;
 };

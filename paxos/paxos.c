@@ -27,6 +27,7 @@
 
 
 #include "paxos.h"
+#include "paxos_value.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -52,11 +53,11 @@ struct paxos_config paxos_config =
 };
 
 
-paxos_value*
+struct paxos_value*
 paxos_value_new(const char* value, size_t size)
 {
-	paxos_value* v;
-	v = malloc(sizeof(paxos_value));
+	struct paxos_value* v;
+	v = malloc(sizeof(struct paxos_value));
 	v->paxos_value_len = size;
 	v->paxos_value_val = malloc(size);
 	memcpy(v->paxos_value_val, value, size);
@@ -64,14 +65,14 @@ paxos_value_new(const char* value, size_t size)
 }
 
 void
-paxos_value_free(paxos_value* v)
+paxos_value_free(struct paxos_value* v)
 {
 	free(v->paxos_value_val);
 	free(v);
 }
 
 static void
-paxos_value_destroy(paxos_value* v)
+paxos_value_destroy(struct paxos_value* v)
 {
     if (v != NULL) {
         if (v->paxos_value_len > 0)
@@ -80,7 +81,7 @@ paxos_value_destroy(paxos_value* v)
 }
 
 void
-paxos_accepted_free(paxos_accepted* a)
+paxos_accepted_free(struct paxos_accepted* a)
 {
 	paxos_accepted_destroy(a);
 	free(a);
@@ -99,13 +100,13 @@ paxos_prepare_free(struct paxos_prepare* prepare) {
 }
 
 void
-paxos_promise_destroy(paxos_promise* p)
+paxos_promise_destroy(struct paxos_promise* p)
 {
 	paxos_value_destroy(&p->value);
 }
 
 void
-paxos_accept_destroy(paxos_accept* p)
+paxos_accept_destroy(struct paxos_accept* p)
 {
 	paxos_value_destroy(&p->value);
 }
@@ -117,9 +118,9 @@ paxos_accepted_destroy(paxos_accepted* p)
 }
 
 void
-paxos_client_value_destroy(paxos_client_value* p)
+paxos_client_value_destroy(struct paxos_value* p)
 {
-	paxos_value_destroy(&p->value);
+	paxos_value_destroy(p);
 }
 
 void

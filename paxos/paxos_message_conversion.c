@@ -9,6 +9,8 @@
 
 #include "standard_acceptor.h"
 #include "standard_stable_storage.h"
+#include "ballot.h"
+#include "paxos_value.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -19,61 +21,8 @@
 #include <assert.h>
 
 
-void copy_ballot(const struct ballot *src, struct ballot *dst) {
-    *dst = (struct ballot) {.proposer_id = src->proposer_id, .number = src->number};
-}
-
-bool ballot_equal(const struct ballot *lhs, const struct ballot rhs) {
-    return lhs->proposer_id == rhs.proposer_id && lhs->number == rhs.number;
-}
-
-bool ballot_greater_than(const struct ballot lhs, const struct ballot rhs) {
-    if (lhs.number > rhs.number) {
-        return true;
-    } else {
-        if (lhs.proposer_id > rhs.proposer_id && lhs.number == rhs.number) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-}
-
-
-bool ballot_greater_than_or_equal(const struct ballot lhs, const struct ballot rhs) {
-    if (lhs.number > rhs.number) {
-        return true;
-    } else {
-        if (lhs.proposer_id >= rhs.proposer_id && lhs.number == rhs.number) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-}
-
-
 void copy_epoch_ballot(const struct epoch_ballot *src, struct epoch_ballot *dst) {
     *dst = (struct epoch_ballot) {.epoch = src->epoch, .ballot = src->ballot};
-}
-
-
-void copy_value(const struct paxos_value *value_to_copy, struct paxos_value *copied_value) {
-    //assert(value_to_copy != NULL);
- //   assert(value_to_copy->paxos_value_val != NULL);
-    // assumes that copy
-    char *value = NULL;
-    int value_size = value_to_copy->paxos_value_len;
-    if (value_size > 0) {
-        value = calloc(1, value_size);
-        memcpy(value, value_to_copy->paxos_value_val, value_size);
-    }
-
-    *copied_value = (struct paxos_value) {value_size, value};
-    if (value_to_copy->paxos_value_len > 0) {
-        assert(copied_value != NULL);
-        assert(copied_value->paxos_value_val != NULL);
-    }
 }
 
 
@@ -283,7 +232,7 @@ void paxos_accepted_from_paxos_chosen(struct paxos_accepted* accepted, struct pa
 void paxos_chosen_from_paxos_accepted(struct paxos_chosen* chosen, struct paxos_accepted* accepted) {
     chosen->iid = accepted->iid;
     //chosen->ballot = accepted->value_ballot;
-    copy_ballot(&accepted->promise_ballot, &chosen->ballot);
+    copy_ballot(&accepted->value_ballot, &chosen->ballot);
     copy_value(&accepted->value, &chosen->value);
 }
 
@@ -304,9 +253,9 @@ void paxos_accepted_from_paxos_prepare_and_accept(struct paxos_prepare* prepare,
 
 void
 paxos_prepare_copy(struct paxos_prepare* dst, struct paxos_prepare* src){
-    dst->iid = src->iid;
-    copy_ballot(&src->ballot, &dst->ballot);
-   // memcpy(dst, src, sizeof(struct paxos_prepare));
+   // dst->iid = src->iid;
+  //  copy_ballot(&src->ballot, &dst->ballot);
+    memcpy(dst, src, sizeof(struct paxos_prepare));
 }
 
 
@@ -323,34 +272,10 @@ paxos_accepted_copy(struct paxos_accepted* dst, struct paxos_accepted* src) {
 void
 paxos_accept_copy(struct paxos_accept* dst, struct paxos_accept* src) {
     memcpy(dst, src, sizeof(struct paxos_accept));
-    if (dst->value.paxos_value_len > 0) {
-        dst->value.paxos_value_val = malloc(src->value.paxos_value_len);
+    if (src->value.paxos_value_len > 0) {
+        dst->value.paxos_value_val = calloc(src->value.paxos_value_len, sizeof(char));
         memcpy(dst->value.paxos_value_val, src->value.paxos_value_val, src->value.paxos_value_len);
     }
 }
 
-bool is_values_equal(struct paxos_value lhs, struct paxos_value rhs){
-    if (lhs.paxos_value_len == rhs.paxos_value_len) {
-        if (memcmp(lhs.paxos_value_val, rhs.paxos_value_val, lhs.paxos_value_len) == 0) {
-            return true;
-        } else {
-            return false;
-        }
-    } else {
-        return false;
-    }
-}
 
-
-void
-paxos_value_copy(paxos_value* dst, paxos_value* src)
-{
-    assert(src != NULL);
-    assert(dst != NULL);
-    int len = src->paxos_value_len;
-    dst->paxos_value_len = len;
-    if (src->paxos_value_val != NULL) {
-        dst->paxos_value_val = malloc(len);
-        memcpy(dst->paxos_value_val, src->paxos_value_val, len);
-    }
-}

@@ -29,6 +29,7 @@
 #ifndef _PROPOSER_H_
 #define _PROPOSER_H_
 
+#define INITIAL_BALLOT 1 + (rand() % 20)
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -40,8 +41,9 @@ struct timeout_iterator;
 
 struct proposer* proposer_new(int id, int acceptors, int q1, int q2);
 void proposer_free(struct proposer* p);
-void proposer_add_client_value_to_queue(struct proposer* p, const char* value, size_t size);
+void proposer_add_paxos_value_to_queue(struct proposer* p, struct paxos_value* value);
 int proposer_prepared_count(struct proposer* p);
+int proposer_count_instance_in_accept(struct proposer* p);
 void proposer_set_current_instance(struct proposer* p, iid_t iid);
 
 
@@ -53,13 +55,13 @@ uint32_t proposer_get_min_unchosen_instance(struct proposer* p);
 iid_t proposer_get_next_instance_to_prepare(struct proposer* p);
 
 // phase 1
-void proposer_prepare(struct proposer* p, iid_t instance, paxos_prepare* out);
+void proposer_try_to_start_preparing_instance(struct proposer* p, iid_t instance, paxos_prepare* out);
 
 int proposer_receive_promise(struct proposer* p, paxos_promise* ack,
 	paxos_prepare* out);
 
 // phase 2
-int proposer_accept(struct proposer* p, paxos_accept* out);
+int proposer_try_accept(struct proposer* p, paxos_accept* out);
 int proposer_receive_accepted(struct proposer* p, paxos_accepted* ack, struct paxos_chosen* chosen);
 int proposer_receive_chosen(struct proposer* p, struct paxos_chosen* ack);
 
@@ -72,7 +74,8 @@ int is_proposer_instance_pending_and_message_return(struct proposer* p, paxos_pr
 // periodic acceptor state
 void proposer_receive_acceptor_state(struct proposer* p,
                                      paxos_standard_acceptor_state* state);
-
+void proposer_receive_trim(struct proposer* p,
+                                     struct paxos_trim* trim_msg);
 // timeouts
 struct timeout_iterator* proposer_timeout_iterator(struct proposer* p);
 int timeout_iterator_prepare(struct timeout_iterator* iter, paxos_prepare* out);

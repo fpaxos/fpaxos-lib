@@ -1,8 +1,12 @@
-include_directories(${CMAKE_SOURCE_DIR}/paxos/include)
+include_directories(${CMAKE_SOURCE_DIR}/sample/include)
 include_directories(${CMAKE_SOURCE_DIR}/evpaxos/include)
+include_directories(${CMAKE_SOURCE_DIR}/paxos/include)
 include_directories(${LIBEVENT_INCLUDE_DIRS})
 
+
 set(TEST_SOURCES learner.c standard_acceptor.c proposer.c client.c replica.c counter.c test.c write_ahead_window_acceptor.c)
+
+#set(HEADER_FILES ${CMAKE_SOURCE_DIR}/sample/include/client_value.h)
 
 foreach(p ${TEST_SOURCES})
 	get_filename_component(target "${p}" NAME_WE)

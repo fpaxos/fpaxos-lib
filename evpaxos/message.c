@@ -101,7 +101,7 @@ send_paxos_preempted(struct bufferevent* bev, paxos_preempted* p)
 }
 
 void
-send_paxos_repeat(struct bufferevent* bev, paxos_repeat* p)
+send_paxos_repeat(struct bufferevent* bev, struct paxos_repeat* p)
 {
 	standard_paxos_message msg = {
 		.type = PAXOS_REPEAT,
@@ -131,12 +131,12 @@ send_paxos_trim(struct bufferevent* bev, paxos_trim* t)
 }
 
 void
-paxos_submit(struct bufferevent* bev, char* data, int size)
+paxos_submit_client_value(struct bufferevent* bev, const char* data, int size)
 {
 	standard_paxos_message msg = {
 		.type = PAXOS_CLIENT_VALUE,
-		.u.client_value.value.paxos_value_len = size,
-		.u.client_value.value.paxos_value_val = data };
+		.u.client_value.paxos_value_len = size,
+		.u.client_value.paxos_value_val = data };
 	send_paxos_message(bev, &msg);
 }
 

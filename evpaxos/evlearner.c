@@ -43,8 +43,14 @@ struct evlearner
 	struct event* hole_timer;   /* Timer to check for holes */
 	struct timeval tv;          /* Check for holes every tv units of time */
 	struct peers* peers;    /* Connections to acceptors */
+	iid_t trim_iid;
 };
 
+static void
+peer_send_trim(struct peer* p, void* arg)
+{
+    send_paxos_trim(peer_get_buffer(p), arg);
+}
 
 static void
 peer_send_repeat(struct peer* p, void* arg)
@@ -52,6 +58,7 @@ peer_send_repeat(struct peer* p, void* arg)
 	send_paxos_repeat(peer_get_buffer(p), arg);
 }
 static void
+
 peer_send_chosen(struct peer* p, void* arg){
     send_paxos_chosen(peer_get_buffer(p), arg);
 }
@@ -66,6 +73,18 @@ evlearner_check_holes(evutil_socket_t fd, short event, void *arg)
 		if ((msg.to - msg.from) > chunks)
 			msg.to = msg.from + chunks;
 		peers_foreach_acceptor(l->peers, peer_send_repeat, &msg);
+	} else {
+        // can trim from the "from" in holes msg
+        struct paxos_trim trim_msg = {.iid = msg.from};
+
+      //  if (trim_msg.iid > l->trim_iid) {
+            // set trim
+            // is new trim?
+            if (learner_get_trim(l->state) < trim_msg.iid){
+                learner_set_trim(l->state, trim_msg.iid);
+                peers_foreach_acceptor(l->peers, peer_send_trim, &trim_msg);
+            }
+      //  }
 	}
 	event_add(l->hole_timer, &l->tv);
 }
@@ -97,10 +116,17 @@ evlearner_handle_accepted(struct peer* p, standard_paxos_message* msg, void* arg
 
 	if (chosen) {
      //   peers_foreach_proposer(l->peers, peer_send_chosen, &chosen_msg);
-        //peers_foreach_acceptor(l->peers, peer_send_chosen, &chosen_msg);
+      //  peers_foreach_acceptor(l->peers, peer_send_chosen, &chosen_msg);
 	}
 
 	evlearner_deliver_next_closed(l);
+}
+
+static void
+evlearner_handle_trim(struct peer* p, struct standard_paxos_message* msg, void* arg) {
+    struct evlearner* l = arg;
+    struct paxos_trim trim_msg= msg->u.trim;
+    learner_receive_trim(l->state, &trim_msg);
 }
 
 static void
@@ -124,6 +150,7 @@ evlearner_init_internal(struct evpaxos_config* config, struct peers* peers,
 	
 	peers_subscribe(peers, PAXOS_ACCEPTED, evlearner_handle_accepted, learner);
 	peers_subscribe(peers, PAXOS_CHOSEN, evlearner_handle_chosen, learner);
+	peers_subscribe(peers, PAXOS_TRIM, evlearner_handle_trim, learner);
 	
 	// setup hole checking timer
 	learner->tv.tv_sec = 0;
@@ -172,11 +199,7 @@ evlearner_set_instance_id(struct evlearner* l, unsigned iid)
 	learner_set_instance_id(l->state, iid);
 }
 
-static void
-peer_send_trim(struct peer* p, void* arg)
-{
-	send_paxos_trim(peer_get_buffer(p), arg);
-}
+
 
 void
 evlearner_send_trim(struct evlearner* l, unsigned iid)

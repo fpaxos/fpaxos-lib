@@ -6,6 +6,8 @@
 #include <paxos_message_conversion.h>
 #include <epoch_paxos_storage.h>
 #include "paxos_storage.h"
+#include "ballot.h"
+#include "paxos_value.h"
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -25,10 +27,11 @@
     if (returned_value == -1) { \
         type_freeing_function(copy_of_value); \
         error = -1; \
-    } else if (returned_value == 0) {  \
-        type_freeing_function(kh_value(map_ptr, key)); \
+    } \
+    if (returned_value == 0) {  \
+        type_freeing_function(kh_value(map_ptr, iter)); \
     }   \
-    kh_value(map_ptr, key) = copy_of_value; \
+    kh_value(map_ptr, iter) = copy_of_value; \
     error = 0; \
 
 
@@ -69,6 +72,7 @@ struct epoch_hash_mapped_memory {
 static int
 hash_mapped_memory_get_last_promise(struct hash_mapped_memory *volatile_storage, iid_t instance_id,
                                     paxos_prepare *last_promise_retrieved) {
+    memset(last_promise_retrieved, 0, sizeof(struct paxos_prepare));
     khiter_t key = kh_get_last_prepares(volatile_storage->last_prepares, instance_id);//kh_get(PREPARE_MAP_SYMBOL_AND_NAME, volatile_storage->last_prepares, instance_id);
     if (key == kh_end(volatile_storage->last_prepares)) {
         last_promise_retrieved->iid = instance_id;
@@ -89,7 +93,24 @@ static int
 hash_mapped_memory_store_last_promise(struct hash_mapped_memory *volatile_storage,
                                       struct paxos_prepare *last_ballot_promised) {
     int error = 0;
-   store_to_hash_map(last_prepares, volatile_storage->last_prepares, struct paxos_prepare, last_ballot_promised->iid, last_ballot_promised, paxos_prepare_free, paxos_prepare_copy, error);
+
+    int returned_value;
+    khiter_t iter;
+    struct paxos_prepare* promise_copy = calloc(1, sizeof(struct paxos_prepare));
+
+    paxos_prepare_copy(promise_copy, last_ballot_promised);
+    iter = kh_put_last_prepares(volatile_storage->last_prepares, last_ballot_promised->iid, &returned_value);
+
+    if (returned_value == -1) {
+        paxos_prepare_free(promise_copy);
+        error = -1;
+    } else if (returned_value == 0) {
+        paxos_prepare_free(kh_value(volatile_storage->last_prepares, iter));
+    }
+    kh_value(volatile_storage->last_prepares, iter) = promise_copy;
+    error = 0;
+
+//  store_to_hash_map(last_prepares, volatile_storage->last_prepares, struct paxos_prepare, last_ballot_promised->iid, last_ballot_promised, paxos_prepare_free, paxos_prepare_copy, error);
     if (last_ballot_promised->iid > volatile_storage->max_inited_instance)
         volatile_storage->max_inited_instance = last_ballot_promised->iid;
 
@@ -114,7 +135,24 @@ static int
 hash_mapped_memory_store_last_accepted(struct hash_mapped_memory *volatile_storage,
                                        struct paxos_accept *last_ballot_accepted) {
     int error = 0;
-    store_to_hash_map(last_accepts, volatile_storage->last_accepts, struct paxos_accept, last_ballot_accepted->iid, last_ballot_accepted, paxos_accept_free, paxos_accept_copy, error);
+
+    int returned_value;
+    khiter_t iter;
+    struct paxos_accept* accept_copy = calloc(1, sizeof(struct paxos_accept));
+
+    paxos_accept_copy(accept_copy, last_ballot_accepted);
+    iter = kh_put_last_accepts(volatile_storage->last_accepts, last_ballot_accepted->iid, &returned_value);
+
+    if (returned_value == -1) {
+        paxos_accept_free(accept_copy);
+        error = -1;
+    } else if (returned_value == 0) {
+        paxos_accept_free(kh_value(volatile_storage->last_accepts, iter));
+    }
+    kh_value(volatile_storage->last_accepts, iter) = accept_copy;
+    error = 0;
+
+   // store_to_hash_map(last_accepts, volatile_storage->last_accepts, struct paxos_accept, last_ballot_accepted->iid, last_ballot_accepted, paxos_accept_free, paxos_accept_copy, error);
     if (last_ballot_accepted->iid > volatile_storage->max_inited_instance)
         volatile_storage->max_inited_instance = last_ballot_accepted->iid;
     return error;
@@ -142,7 +180,7 @@ hash_mapped_memory_get_last_prepares(struct hash_mapped_memory *volatile_storage
 static int
 hash_mapped_memory_get_last_accepted(struct hash_mapped_memory *volatile_storage, iid_t instance_id,
                                      struct paxos_accept *last_accepted_retrieved) {
-
+    memset(last_accepted_retrieved, 0, sizeof(struct paxos_accept));
     khiter_t key = kh_get_last_accepts(volatile_storage->last_accepts, instance_id);
     if (key == kh_end(volatile_storage->last_accepts)) {
         // not found
@@ -171,10 +209,9 @@ hash_mapped_memory_get_last_accepteds(struct hash_mapped_memory *volatile_storag
 
 static void hash_mapped_memory_store_instance_info(struct hash_mapped_memory* paxos_storage,
                                                    const struct paxos_accepted* instance_info) {
-    struct paxos_prepare promise_duplicate ;//= calloc(1, sizeof(struct paxos_prepare));
-    struct paxos_accept acceptance_duplicate ;//= calloc(1, sizeof(struct paxos_accept));
-
-
+    // Create the separate data
+    struct paxos_prepare promise_duplicate ;
+    struct paxos_accept acceptance_duplicate;
     paxos_accepted_to_prepare(instance_info, &promise_duplicate);
     paxos_accepted_to_accept(instance_info, &acceptance_duplicate);
 
@@ -206,20 +243,18 @@ hash_mapped_memory_get_trim_instance(struct hash_mapped_memory *volatile_storage
 }
 
 
-static struct hash_mapped_memory *promises_and_accepts_init_hash_tables() {
-    struct hash_mapped_memory* hash_mapped_mem = calloc(1, sizeof(struct hash_mapped_memory));
-    hash_mapped_mem->last_prepares = kh_init_last_prepares();//kh_init(PREPARE_MAP_SYMBOL_AND_NAME);
-    hash_mapped_mem->last_accepts = kh_init_last_accepts();//kh_init(ACCEPT_MAP_SYMBOL_AND_NAME);
+static void init_hash_tables(struct hash_mapped_memory* hash_mapped_mem) {
+    hash_mapped_mem->last_prepares = kh_init_last_prepares();
+    hash_mapped_mem->last_accepts = kh_init_last_accepts();
     hash_mapped_mem->chosen = kh_init_chosen();
-    hash_mapped_mem->trim_instance_id = MIN_INSTANCE_ID;
-    return hash_mapped_mem;
 }
 
 
 
 static struct hash_mapped_memory *
 new_hash_mapped_memory(int aid) {
-    struct hash_mapped_memory *hash_mapped_mem = promises_and_accepts_init_hash_tables();
+    struct hash_mapped_memory *hash_mapped_mem = calloc(1, sizeof(struct hash_mapped_memory));
+    init_hash_tables(hash_mapped_mem);
     hash_mapped_mem->aid = aid;
     hash_mapped_mem->trim_instance_id = MIN_INSTANCE_ID;
 
@@ -245,12 +280,17 @@ new_hash_mapped_memory_from_promises_and_acceptances(int number_of_initiated_ins
 
 static struct hash_mapped_memory*
         new_hash_mapped_memory_from_instances_info(struct paxos_accepted* instances_info, int number_of_instances, int trim_instance, int aid){
-    struct hash_mapped_memory *hash_mapped_mem = promises_and_accepts_init_hash_tables();
+    struct hash_mapped_memory *hash_mapped_mem = calloc(1, sizeof(struct hash_mapped_memory));
+    init_hash_tables(hash_mapped_mem);
     hash_mapped_mem->trim_instance_id = trim_instance;
     hash_mapped_mem->aid = aid;
-    for (int i = 0; i < number_of_instances; i++)
-       hash_mapped_memory_store_instance_info(hash_mapped_mem, &instances_info[i]);
+    for (int i = 0; i < number_of_instances; i++) {
+        struct paxos_accepted instance_info = instances_info[i];
+        assert(instance_info.iid > trim_instance);
+        hash_mapped_memory_store_instance_info(hash_mapped_mem, &instance_info);
+    }
     return hash_mapped_mem;
+
 }
 
 // always returns 0 because no errors should appear

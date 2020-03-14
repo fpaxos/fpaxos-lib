@@ -31,18 +31,12 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "paxos_value.h"
 
 struct ballot {
     uint32_t number;
     uint32_t proposer_id;
 };
-
-struct paxos_value
-{
-	int paxos_value_len;
-	char *paxos_value_val;
-};
-typedef struct paxos_value paxos_value;
 
 struct paxos_prepare
 {
@@ -59,7 +53,7 @@ struct paxos_promise
 	uint32_t iid;
 	struct ballot ballot;
 	struct ballot value_ballot;
-	paxos_value value;
+	struct paxos_value value;
 };
 typedef struct paxos_promise paxos_promise;
 
@@ -67,7 +61,7 @@ struct paxos_accept
 {
 	uint32_t iid;
 	struct ballot ballot;
-	paxos_value value;
+	struct paxos_value value;
 };
 typedef struct paxos_accept paxos_accept;
 
@@ -77,7 +71,7 @@ struct paxos_accepted
 	uint32_t iid;
 	struct ballot promise_ballot;
 	struct ballot value_ballot;
-	paxos_value value;
+	struct paxos_value value;
 };
 
 typedef struct paxos_accepted paxos_accepted;
@@ -117,11 +111,6 @@ struct paxos_standard_acceptor_state
 };
 typedef struct paxos_standard_acceptor_state paxos_standard_acceptor_state;
 
-struct paxos_client_value
-{
-	paxos_value value;
-};
-typedef struct paxos_client_value paxos_client_value;
 
 enum paxos_message_type
 {
@@ -152,7 +141,7 @@ struct standard_paxos_message
 		struct paxos_repeat repeat;
 		struct paxos_trim trim;
 		struct paxos_standard_acceptor_state state;
-		struct paxos_client_value client_value;
+		struct paxos_value client_value;
 		struct paxos_chosen chosen;
 	} u;
 };
@@ -249,10 +238,9 @@ struct writeahead_epoch_paxos_message {
         struct paxos_repeat repeat;
         struct paxos_trim trim;
         struct writeahead_epoch_acceptor_state state;
-        struct paxos_client_value client_value;
+        struct paxos_value client_value;
     } message_contents ;
 };
 
 
-bool is_values_equal(struct paxos_value lhs, struct paxos_value rhs);
 #endif

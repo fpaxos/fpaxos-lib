@@ -28,6 +28,11 @@
 
 #include <paxos.h>
 #include <evpaxos.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <limits.h>
+#include <arpa/inet.h>
+#include <errno.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <time.h>
@@ -35,17 +40,32 @@
 #include <signal.h>
 #include <event2/event.h>
 #include <netinet/tcp.h>
+#include <assert.h>
+#include <message.h>
+#include <paxos_types.h>
+#include "client_value.h"
+#include "include/client_value.h"
 
 #define MAX_VALUE_SIZE 8192
 
 
-struct client_value
-{
-	int client_id;
-	struct timeval t;
-	size_t size;
-	char value[0];
-};
+
+
+
+static void print_bytes_of_value_to_submit(char * ty, char * val, unsigned char * bytes, size_t num_bytes) {
+    char* string; //= sprintf("(%*s) %*s = [ ", 15, ty, 16, val);
+    asprintf(&string, "(%*s) %*s = [ ", 15, ty, 16, val);
+    for (size_t i = 0; i < num_bytes; i++) {
+        char* to_add;
+        asprintf(&to_add, "%*u ", 3, bytes[i]);
+        strcat(string, to_add);
+    }
+    strcat(string, "]\n");
+    paxos_log_debug("%s", string);
+}
+
+#define SHOW(T,V) do { T x = V; print_bytes_of_value_to_submit(#T, #V, (unsigned char*) &x, sizeof(x)); } while(0)
+
 
 struct stats
 {
@@ -84,23 +104,63 @@ random_string(char *s, const int len)
 {
 	int i;
 	static const char alphanum[] =
-		"0123456789abcdefghijklmnopqrstuvwxyz";
-	for (i = 0; i < len-1; ++i)
-		s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
-	s[len-1] = 0;
-
+		"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        for (i = 0; i < len - 1; ++i)
+            s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
+        s[len - 1] = '\0';
 }
+
+void fill_paxos_value_from_client_value(struct client_value* src, struct paxos_value* dst) {
+    assert(src != NULL);
+    assert(dst != NULL);
+
+    dst->paxos_value_len = src->value_size + sizeof(struct client_value) ;
+    dst->paxos_value_val = malloc(dst->paxos_value_len);
+
+    memcpy(dst->paxos_value_val, &src->client_id, sizeof(src->client_id));
+    memcpy(dst->paxos_value_val + sizeof(src->client_id), &src->value_size, sizeof(src->value_size));
+    strcat(dst->paxos_value_val + sizeof(src->client_id) + sizeof(src->value_size), src->value);
+    memcpy(dst->paxos_value_val + sizeof(src->client_id) + sizeof(src->value_size) + src->value_size, &src->submitted_at, sizeof(struct timeval));
+}
+
+void fill_client_value_from_paxos_value(struct paxos_value* src, struct client_value* dst) {
+    assert(src != NULL);
+    assert(dst != NULL);
+    assert(src->paxos_value_len > sizeof(struct client_value));
+
+    memcpy(&dst->client_id, src->paxos_value_val, sizeof(dst->client_id));
+    memcpy(&dst->value_size, src->paxos_value_val + sizeof(dst->client_id), sizeof(dst->value_size));
+
+    dst->value = malloc(sizeof(char) * dst->value_size);
+    memcpy(&dst->value, src->paxos_value_val + sizeof(dst->client_id) + sizeof(dst->value_size), dst->value_size);
+    memcpy(&dst->submitted_at, src->paxos_value_val + sizeof(dst->client_id) + sizeof(dst->value_size) + dst->value_size,
+           sizeof(dst->submitted_at));
+}
+
+
+
 
 static void
 client_submit_value(struct client* c)
 {
-	struct client_value* v = (struct client_value*)c->send_buffer;
-	v->client_id = c->id;
-	gettimeofday(&v->t, NULL);
-	v->size = c->value_size;
-	random_string(v->value, v->size);
-	size_t size = sizeof(struct client_value) + v->size;
-	paxos_submit(c->bev, c->send_buffer, size);
+    struct client_value c_value;
+    c_value.client_id = c->id;
+    c_value.value_size = c->value_size;
+    c_value.value = malloc(sizeof(char) * c_value.value_size);
+    random_string(c_value.value, c_value.value_size);
+    gettimeofday(&c_value.submitted_at, NULL);
+
+    struct standard_paxos_message to_send;
+    to_send.type = PAXOS_CLIENT_VALUE;
+    fill_paxos_value_from_client_value(&c_value, &to_send.u.client_value);
+    SHOW(struct paxos_value, to_send.u.client_value);
+
+    send_paxos_message(c->bev, &to_send);
+    
+    
+    // cleanup
+    free(c_value.value);
+    free(to_send.u.client_value.paxos_value_val);
 }
 
 // Returns t2 - t1 in microseconds.
@@ -119,7 +179,7 @@ update_stats(struct stats* stats, struct client_value* delivered, size_t size)
 {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-	long lat = timeval_diff(&delivered->t, &tv);
+	long lat = timeval_diff(&delivered->submitted_at, &tv);
 	stats->delivered_count++;
 	stats->delivered_bytes += size;
 	stats->avg_latency = stats->avg_latency +
@@ -164,6 +224,7 @@ on_connect(struct bufferevent* bev, short events, void* arg)
 			client_submit_value(c);
 	} else {
 		printf("%s\n", evutil_socket_error_to_string(EVUTIL_SOCKET_ERROR()));
+
 	}
 }
 
@@ -198,10 +259,13 @@ make_client(const char* config, int proposer_id, int outstanding, int value_size
 	if (c->bev == NULL)
 		exit(1);
 
-	c->id = rand();
+    c->id = rand();
+
+
+
 	c->value_size = value_size;
 	c->outstanding = outstanding;
-	c->send_buffer = malloc(sizeof(struct client_value) + value_size);
+	c->send_buffer = malloc(sizeof(struct client_value) + value_size);//calloc(1, (sizeof(struct client_value) + value_size));
 
 	c->stats_interval = (struct timeval){1, 0};
 	c->stats_ev = evtimer_new(c->base, on_stats, c);
@@ -212,6 +276,8 @@ make_client(const char* config, int proposer_id, int outstanding, int value_size
 
 	c->sig = evsignal_new(c->base, SIGINT, handle_sigint, c->base);
 	evsignal_add(c->sig, NULL);
+
+	// todo make connection to proposer, then add event to connect to the acceptors and update stats
 
 	return c;
 }

@@ -9,16 +9,6 @@
 #include "stdbool.h"
 #include <paxos.h>
 
-bool ballot_greater_than(const struct ballot lhs, const struct ballot rhs);
-
-bool ballot_greater_than_or_equal(const struct ballot lhs, const struct ballot rhs);
-
-bool ballot_equal(const struct ballot *lhs, const struct ballot rhs);
-
-void copy_ballot(const struct ballot *src, struct ballot *dst);
-
-void copy_value(const struct paxos_value *value_to_copy, struct paxos_value *copied_value);
-
 void paxos_accepted_to_promise(const struct paxos_accepted *acc, standard_paxos_message *out);
 
 void paxos_accept_to_accepted(int id, const struct paxos_accept *acc, standard_paxos_message *out);
@@ -72,8 +62,5 @@ void paxos_accepted_copy(paxos_accepted* dst, paxos_accepted* src);
 void paxos_prepare_copy(struct paxos_prepare* dst, struct paxos_prepare* src);
 
 void paxos_accept_copy(struct paxos_accept* dst, struct paxos_accept* src);
-
-void
-paxos_value_copy(paxos_value* dst, paxos_value* src);
 
 #endif //LIBPAXOS_PAXOS_MESSAGE_CONVERSION_H

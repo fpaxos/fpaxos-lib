@@ -32,14 +32,15 @@
 #include "paxos_storage.h"
 
 void
-storage_init(struct standard_stable_storage *stable_storage, int acceptor_id) {
+storage_init(__attribute__((unused)) struct standard_stable_storage *stable_storage, __attribute__((unused)) int acceptor_id) {
  //   switch (paxos_config.storage_backend) {
        // case PAXOS_MEM_STORAGE:
         //    storage_init_mem(stable_storage, acceptor_id);
         //    break;
 //#ifdef HAS_LMDB
         //case PAXOS_LMDB_STORAGE:
-        storage_init_lmdb(stable_storage, acceptor_id);
+
+      //  storage_init_lmdb(stable_storage, acceptor_id);
          //   break;
 //#endif
      //   default:
